@@ -105,10 +105,43 @@ The craft pass must treat a **clip** as the unit of work, not a frame:
   statistics, then applied to every frame.
 - **Flicker metric** in CI: `changed_pixels(f, f+1) / motion_energy(f, f+1)`
   where motion energy is total joint displacement. High ratio = pixels
-  churning without motion to justify it. Threshold TBD in Spike S3.
+  churning without motion to justify it. Threshold set by Spike S3 —
+  see the as-built gate below.
 - Sub-pixel motion policy: a limb's screen position moves in whole pixels
   only (snap per frame); slabs never "shimmer" between two pixel columns
   across a clip because snapping is keyed to the chain, not the frame.
+
+**As built (Spike S3)** (`spikes/spike03_craft_clip.py`):
+
+- Flicker metric as implemented: per consecutive frame pair,
+  `changed_pixels / motion_energy`, where changed_pixels counts final-RGBA
+  pixel diffs and motion_energy sums, over slabs, the Euclidean
+  screen-space displacement of the slab's *continuous pre-snap* projected
+  center, per direction. Clips wrap — the (last, first) pair is included.
+  Zero-motion convention: zero changed pixels at zero motion scores 0.0;
+  any churn at zero motion is INF = automatic fail.
+- Snapping as implemented: per clip × direction × chain, quantize the
+  *displacement from the clip mean* of the chain's screen position —
+  `snapped(f) = round(mean) + round(pos(f) − mean)` per axis — so
+  sub-half-pixel jitter around the mean never flips a pixel column.
+  `round()` is ties-to-even, and that is load-bearing (F14): half-up
+  rounding turns an exactly ±0.5 px gait bob into a 1-px square wave
+  (wolf/walk/down max 9.20 → 1.75 under ties-to-even); the M1 fixed-point
+  spec pins ties-to-even. The spike used slab-as-chain as a proxy;
+  production must *group* slabs by skeleton chain so assemblies shift
+  together — per-slab snapping reshaped the wolf's head and froze its bob
+  (F16).
+- Gate for M1 CI: every walk clip × direction cell keeps max pair ratio
+  < 12.0; INF auto-fails. Caveat, recorded honestly: the spec wanted the
+  gate below arm-1 *typical* max, but the data made that window
+  unsatisfiable (arm-1 typical 9.27 vs arm-3 max 8.87) — 12.0 is a
+  backstop against egregious flicker, not a full regression detector;
+  recalibrate on the production renderer at M1.
+
+**Verdict:** clip-scoped decisions + chain snapping hold the metric —
+walk aggregates (mean/max) 7.43/15.17 per-frame → 4.01/8.87
+clip-scoped + snapped, wolf idle mean 12.98 → 0.18 — with the pipeline
+exactly idempotent. Findings F12–F16 in `docs/ASSESSMENT.md` §2.
 
 ## 5. Budgets
 

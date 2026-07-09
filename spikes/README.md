@@ -79,7 +79,33 @@ Unambiguous = both raters agree on an effect's winner and each prefers it
 in ≥4/6 cells. Fallback if ambiguous or uniform wins: M1 uses uniform
 sampling and/or uniform durations.
 
+## S3 — clip-scoped craft pass + flicker metric (`spike03_craft_clip.py`)
+
+**Question:** can a clip-scoped craft pass hold the flicker metric
+(`changed_pixels / motion_energy`, wrap-around pair included) under
+threshold while applying jaggy repair + cluster merge, with the pipeline
+idempotent on a second run (no rule fights)? Three arms attribute the
+mechanisms separately (S2's lesson): **1** per-frame craft decisions,
+unsnapped; **2** clip-scoped decisions, unsnapped; **3** clip-scoped +
+chain snapping.
+
+**Verdict: yes.** Walk-clip pair-ratio aggregates (mean/max) fall from
+7.43/15.17 (arm 1) to 4.01/8.87 (arm 3), wolf idle mean 12.98 → 0.18 —
+clip-scoping alone is a modest win (arm 2: 6.89/14.45); snapping is the
+dominant mechanism. The pipeline is exactly idempotent in all three arms
+after two ordering fixes (selout decided and applied post-merge; rules
+2/3/5 iterated to a joint fixpoint) — the rule fights the spike was sent
+to find. Proposed M1 CI gate: max pair ratio < 12.0 per walk cell; churn
+at zero motion = INF = fail. Findings F12–F16 in `docs/ASSESSMENT.md` §2.
+
+```
+python spikes/spike03_craft_clip.py
+# → spikes/out/spike03_flicker.json   (all measurements + verdict data)
+# → spikes/out/spike03_sheet.png      (walk frames, rows = arms — diagnostic,
+#                                      not blind; the exit bar is numeric)
+# → spikes/out/spike03_walk_<creature>_<dir>.gif  (arms side by side, 6×, 140 ms)
+```
+
 ## Planned
 
-- **S3** — clip-scoped craft pass + flicker metric
 - **S4** — 16×16 proportion remap

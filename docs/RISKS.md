@@ -4,7 +4,6 @@ Likelihood/impact: L/M/H. Sorted by exposure (likelihood × impact).
 
 | ID | Risk | L | I | Mitigation | Trigger to act |
 |----|------|---|---|------------|----------------|
-| R1 | Craft-pass flicker across animation frames (per-frame decisions churn pixels) | H | H | Clip-scoped decisions (design 03 §4); flicker metric in CI; Spike S3 before M1 exits | S3 fails threshold → move to per-clip global solve |
 | R2 | Procedural oatmeal: valid but forgettable creatures | H | H | Trait tags, exclusion groups, budgets (design 02 §3); *scheduled* human taste reviews on pinned sheets from M2 | <80% "would ship" in M2 review |
 | R3 | 16×16 readability (S1-F3: faces vanish on naive scale) | H | M | Proportion remap stage (design 04 §6); Spike S4 | S4 fails → consider 16×16 as derived-but-hand-tunable output tier |
 | R4 | Craft rules fight each other (jaggy repair vs cluster merge loops) | M | M | Fixed pipeline order; idempotence property test (2nd run = no-op) | idempotence test flakes |
@@ -19,7 +18,14 @@ Retired risks: ~~slab projection can't produce readable 4-dir sprites~~
 quantization~~ (S1), ~~rendering too slow for interactive/runtime use~~
 (S1-F6), ~~R7 amorphous renderer fork underestimated~~ (S1b: fork built in
 ~100 LOC, interface unchanged, slab face-parts compose with the blob
-surface; residual work is grammar-side authoring rules F8/F9).
+surface; residual work is grammar-side authoring rules F8/F9),
+~~R1 craft-pass flicker across animation frames~~ (S3, was the #1 risk —
+validated: clip-scoped decisions + chain-keyed snapping + fixpoint rule
+ordering hold the metric, walk max 15.17 → 8.87, wolf idle mean
+12.98 → 0.18;
+flicker gate 12.0 enters M1 CI; findings F12–F14; residual work is
+M1-side: chain-GROUPED snapping per F16 and the F7 thinness-criterion
+rework per F15).
 
 ## Open questions (need owner input — mirrors ASSESSMENT.md §5)
 

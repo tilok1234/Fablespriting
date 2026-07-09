@@ -58,7 +58,14 @@ polish later (16×16 = 256 px — small enough for simulated annealing with a
 cost of rule violations + raster fidelity + temporal coherence; only if the
 pipeline plateaus).
 
-Pipeline v1, in order:
+Pipeline v1. Rule numbers below are stable names, but the *executed*
+order is not 1-2-3-4-5. As built in Spike S3: quantize (1), then rules
+2/3/5 iterated to a joint fixpoint, then selout (4) decided and applied
+on post-merge geometry. The naive order fights itself (S3 finding F13):
+every budget merge invalidates selout decisions made on pre-merge
+geometry, and a merge can expose new orphans/jaggies that a single-shot
+pass never revisits — both broke idempotence (2nd run ≠ no-op) until
+reordered.
 
 1. **Material/tone quantize** — done by rasterizer (majority vote).
 2. **Orphan cull** — no 1px islands (S1 craft-lite ✓).
@@ -68,7 +75,8 @@ Pipeline v1, in order:
 4. **Selout** — boundary-vs-transparent pixels take the material ramp's
    darkest tone (S1 ✓); interior boundaries between overlapping forms take
    a one-tone-darker edge on the *farther* form (depth is known — the
-   renderer exports a per-pixel depth tag for this).
+   renderer exports a per-pixel depth tag for this). Decided and applied
+   after the 2/3/5 fixpoint, on post-merge geometry (F13).
 5. **Cluster budget** — merge sub-threshold clusters into their dominant
    neighbor until ≤ N clusters (N: ~14 @32, ~7 @16). This is the rule that
    makes tiny sprites read as deliberate.
@@ -81,6 +89,26 @@ Pipeline v1, in order:
 
 All rules take (resolution, clip) context; per-clip decisions are made once
 and applied to all frames (see design 03 §4 — anti-flicker).
+
+Shared machinery (as built in Spike S3):
+
+- **Cluster** = a 4-connected region of pixels sharing the same
+  (material, tone) after quantization.
+- **Cross-frame cluster identity:** the renderer exports per-pixel *part*
+  and *depth* tags alongside material/tone; a cluster's clip-stable key is
+  `(part_id, material, tone)`, where part_id is the majority part tag over
+  the region's pixels. All clip-scoped merge/outline decisions are keyed
+  by this.
+- **Aggregates use presence-based medians:** per-key statistics are
+  medianed over the frames where the key is *present*. Zero-inflating the
+  absent frames deleted whole thin bodies whose majority part tag
+  oscillates (S3, under F13).
+- **F7 refinement (S3 finding F15):** the budget merge defeats F7's
+  thinness test — once a thin body merges into one whole-body cluster, its
+  bbox-min and size exceed the exemption thresholds, outline softening
+  stops firing, and the body drowns in outline. At M1, selout decides F7
+  exemptions from *pre-merge* part-level cluster stats, or from a
+  local-thickness measure instead of bbox-min.
 
 ## 5. Palette engine
 

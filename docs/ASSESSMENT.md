@@ -1,6 +1,6 @@
 # Fablesprite — Detailed Design Assessment
 
-**Status:** planning phase · assessment grounded in Spike S1 (see `spikes/`)
+**Status:** planning phase · assessment grounded in Spikes S1–S3 (see `spikes/`)
 **Companion docs:** deep dives in `docs/design/`, risks in `RISKS.md`, plan in `ROADMAP.md`
 
 This document assesses every pillar of `CONCEPT.md` for value, feasibility,
@@ -21,16 +21,20 @@ concept's central bet — creature-first, pixels-last — survived contact with
 reality on the first try.
 
 The risk profile has shifted accordingly. Before the spike, projection was
-the top risk. After it, the top three risks are:
+the top risk. After S1 the top risk was craft-pass temporal coherence;
+Spike S3 has since tested it and it holds (F12–F16), so the top three
+risks are now:
 
-1. **Craft-pass temporal coherence** (pixel flicker across animation frames) —
-   never tested yet, hard to retrofit. → Spike S3.
-2. **16×16 readability** — naive scale-down of the 32×32 model loses faces
+1. **16×16 readability** — naive scale-down of the 32×32 model loses faces
    and features; needs resolution-specific proportion exaggeration, not
    scaling. → Spike S4.
-3. **"Procedural oatmeal"** — the grammar producing endless *valid but
+2. **"Procedural oatmeal"** — the grammar producing endless *valid but
    boring* creatures. A content-design risk, not an engineering one; needs
    archetype attractors and human taste loops from M2 onward.
+3. **Craft-pass engineering breadth** — temporal coherence is validated on
+   the spike substrate, but the craft pass is still the biggest single
+   work item: pipeline v1 with S3's ordering fixes, the F15/F16
+   refinements, and rules 6–7 at M3.
 
 Recommended next steps are in `ROADMAP.md`; decisions needed from you are at
 the bottom of this file.
@@ -146,6 +150,78 @@ after both ratings were recorded. Full scoring:
   granularity (or stimuli chosen so no arm degenerates), verified before
   sealing the blind.
 
+### Spike S3 — clip-scoped craft pass + flicker (the idempotence gauntlet)
+
+Run: `python spikes/spike03_craft_clip.py`. Three arms attribute the
+mechanisms separately (the S2 lesson): arm 1 = per-frame craft decisions,
+unsnapped; arm 2 = clip-scoped decisions, unsnapped; arm 3 = clip-scoped +
+chain snapping. Findings:
+
+- **F12 — Clip-scoped decisions + chain snapping hold flicker under a
+  CI-able threshold; snapping is the dominant mechanism.** Walk-clip
+  pair-ratio aggregates (mean/max): arm 1 = 7.43/15.17, arm 2 =
+  6.89/14.45, arm 3 = 4.01/8.87; wolf idle mean 12.98 (arm 1) → 0.18
+  (arm 3). Clip-scoping alone is a modest win — snapping does the heavy
+  lifting. The pipeline is exactly idempotent (asserted on tagged grids
+  for every frame, all three arms) and the comparison is non-vacuous (143
+  per-frame decision variances in arm 1 across walk clips). A static
+  pseudo-clip validated the zero-motion convention: 0 changed pixels at 0
+  motion scores 0.0; churn with no motion is INF = auto-fail. The metric,
+  gate, and convention are now defined and validated on the spike
+  substrate. Proposed M1 CI gate: every walk clip × direction cell keeps
+  max pair ratio < 12.0; INF auto-fails. Margin logic: ≥ 1.25× arm-3
+  worst (8.87), below arm-1 worst (15.17). Honest caveat: the spec wanted
+  the gate below arm-1 *typical* max, but the data made that window
+  unsatisfiable (arm-1 typical 9.27 vs arm-3 max 8.87) — 12.0 is a
+  backstop against egregious flicker, not a full regression detector;
+  recalibrate on the production renderer at M1.
+- **F13 — The design-04 pipeline v1 order fights itself.** (a) Selout
+  decided before the cluster-budget merge is invalidated by every merge —
+  selout must be decided *and applied* on post-merge geometry. (b) Rules
+  2/3/5 must iterate to a joint fixpoint within one pass: the naive
+  single-shot order left work for a second run (= idempotence failure);
+  baseline clips needed 2 work rounds. Also: aggregate stats must use
+  presence-based medians — zero-inflated per-frame medians deleted whole
+  thin bodies whose majority part tag oscillates.
+- **F14 — Snap rounding mode is load-bearing.** Half-up rounding turned
+  the wolf/imp exactly-half-pixel bob into a 1-px square wave that
+  dominated arm-3 worst pairs; ties-to-even parks the knife edge
+  (wolf/walk/down max 9.20 → 1.75). The M1 fixed-point spec must pin
+  ties-to-even for snapping.
+- **F15 — The budget merge defeats F7's thinness criterion.** Once the
+  thin snake merges into one whole-body cluster, its bbox-min exceeds
+  3 px and its size exceeds 6 px, so outline softening stops firing and
+  the snake drowns in outline (the exact failure F7 exists to prevent) in
+  arms 1–2. M1 selout must decide F7 exemptions from *pre-merge*
+  part-level cluster stats, or use a local-thickness measure instead of
+  bbox-min.
+- **F16 — Per-slab snapping distorts multi-slab assemblies.** The arm-3
+  wolf visibly flattens on the contact sheet. A follow-up probe *refuted*
+  the obvious mechanism (per-frame relative slab jitter feeding the
+  merge): the head-assembly slabs share the same motion, so the relative
+  snap offsets are constant sub-pixel shifts (max 0.7 px, identical
+  across all 8 frames); the ears survive arm 3 *better* than arm 2 (a
+  stable 6-px ear block in every frame), and no merge decision in either
+  arm ever touches an ear key. The actual mechanisms, all downstream of
+  the snap (the only variable between arms 2 and 3): (a) ties-to-even
+  freezes the ±0.5 px gait bob — the silhouette locks at height 16 in all
+  frames while arm 2 breathes 16–17 (the 25–35 px/frame arm-2-vs-3 diff
+  is mostly body/leg rows); (b) the constant relative shifts reshape the
+  head/snout (head part pixels 31 → 27); (c) snapping made the left eye
+  rasterize (3 px vs 0 unsnapped) and the budget merge then recolored it
+  as body fur. Consequences: production snapping must group slabs by
+  skeleton **chain** (design 03's wording — "keyed to the chain" —
+  already says this) so assemblies shift together; the cluster budget
+  must treat focal materials (eyes, emitters) as merge-protected —
+  extending F5's focal-contrast rule so a craft rule can never erase a
+  face; and the flicker gate alone is not a quality gate — the
+  pinned-contact-sheet human QA (a standing practice) remains the
+  readability guard.
+
+Scope note: S3 exercised the slab path only; craft coverage of the
+amorphous/metaball path lands with M2 (when amorphous ships per the D4
+recommendation).
+
 ---
 
 ## 3. Pillar-by-pillar assessment
@@ -186,7 +262,7 @@ sampling"). Design: `docs/design/03-animation.md`. Test in Spike S2.
 S2's verdict: pose-salience sampling did not beat uniform in the blind A/B
 (F10), so M1 ships uniform sampling + uniform durations.
 
-### 3.4 Craft-Rule Pass — value ●●●, risk 🔴 (now the top engineering risk)
+### 3.4 Craft-Rule Pass — value ●●●, risk 🟡 (was 🔴, temporal coherence de-risked by S3)
 
 Highest leverage, most engineering. Two design decisions matter:
 
@@ -200,7 +276,14 @@ Highest leverage, most engineering. Two design decisions matter:
    flicker across animation frames. The pass must operate on the *clip*, not
    the frame: shared decisions keyed to model-space features, plus an
    explicit flicker metric (pixels changed per frame vs. motion energy) in
-   CI. This is untested and hard to retrofit → Spike S3 before M1 completes.
+   CI. This was untested and hard to retrofit → Spike S3 before M1 completes.
+   S3's verdict: clip-scoped decisions + chain snapping hold the metric
+   under a CI-able gate (walk max 15.17 → 8.87, wolf idle mean
+   12.98 → 0.18)
+   and the pipeline is exactly idempotent once the rule order is fixed
+   (F12–F14). What remains is M1 engineering breadth plus two S3-surfaced
+   refinements: F7 exemptions from pre-merge stats (F15) and chain-grouped
+   snapping (F16).
 
 ### 3.5 Form-Follows-Function — value ●●, risk 🟢
 
