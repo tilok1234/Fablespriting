@@ -56,7 +56,13 @@ claims separately: **A** uniform phases + uniform timing (matches S1),
 **B** salience phases + uniform timing, **C** salience phases + re-timed
 durations. Sampling effect = B vs A; timing effect = C vs B.
 
-**Status: built — verdict pending 2-human judgment.**
+**Verdict: no.** Neither effect was unambiguous — sampling: rater 1
+preferred salience in 4/6 cells but rater 2 split 3–3; timing: neither
+rater reached 4/6 (the watcher's retimed panel rounded back to
+pixel-identical at 10 ms GIF granularity, forcing ties) — so the
+pre-registered fallback locked in: M1 uses uniform sampling + uniform
+durations. Findings F10–F11 in `docs/ASSESSMENT.md` §2; blind rankings
+and scoring in `spikes/out/spike02_ratings.md`.
 
 ```
 python spikes/spike02_pose_salience.py

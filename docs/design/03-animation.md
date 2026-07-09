@@ -88,6 +88,14 @@ A/B on a contact sheet + GIF.
   sampling and/or uniform durations — design 05's per-frame duration
   metadata degrades gracefully to constant values.
 
+**Verdict (judged 2026-07-09, 2 raters):** ambiguous on both effects —
+sampling: rater 1 preferred salience 4/6 (meeting the bar) but rater 2
+split 3–3; timing: neither rater reached 4/6. The fallback is adopted:
+**M1 uses uniform sampling + uniform durations.** Salience sweeping all
+four watcher (levitant) cells is recorded as a post-M1 lead, not a
+commitment. Scoring in `spikes/out/spike02_ratings.md`; findings F10–F11
+in `docs/ASSESSMENT.md` §2.
+
 ## 4. Temporal coherence (with the craft pass)
 
 The craft pass must treat a **clip** as the unit of work, not a frame:

@@ -117,6 +117,35 @@ still have grammar-attached focal features. Additional findings:
   At full hop-stretch the 16×16 slime collapsed into a 3px bar. Extends F3:
   the remap stage (design 04 §6) must also scale oscillator amplitudes.
 
+### Spike S2 — pose-salience sampling (the blind A/B)
+
+Run: `python spikes/spike02_pose_salience.py`. Two raters ranked six blind
+three-panel GIFs (A uniform / B salience / C salience+retime; sampling
+effect = B vs A, timing effect = C vs B); the mapping was unsealed only
+after both ratings were recorded. Full scoring:
+`spikes/out/spike02_ratings.md`. Findings:
+
+- **F10 — Salience sampling did not beat uniform; M1 ships uniform.** On
+  the sampling effect, rater 1 preferred salience in 4/6 cells (meeting
+  the bar) but rater 2 split 3–3; on the timing effect, rater 1 counted
+  C=1 / B=2 / ties=3 and rater 2 C=3 / B=1 / ties=2 — neither reached
+  4/6. Both effects are ambiguous under the pre-registered bar, so the
+  fallback locks in: **M1 uses uniform sampling + uniform durations**
+  (design 05's per-frame duration metadata degrades gracefully to
+  constant values). One per-plan lead, recorded as observation rather
+  than commitment: salience swept all 4 watcher (levitant) cells across
+  both raters while splitting on the quadruped/biped — worth revisiting
+  after M1.
+- **F11 — Coarse GIF timing degenerates the timing arm.** The watcher's
+  salience-selected phases were near-evenly spaced, so at 10 ms GIF
+  granularity its retimed durations rounded back to uniform — B and C
+  were pixel-identical there, spending 2 of 6 timing cells as forced
+  ties. The degenerate arm doubled as an attention check: both raters
+  exactly tied the identical panels in all 4 watcher cells, so the
+  ratings are credible. Future perceptual A/Bs need finer timing
+  granularity (or stimuli chosen so no arm degenerates), verified before
+  sealing the blind.
+
 ---
 
 ## 3. Pillar-by-pillar assessment
@@ -154,6 +183,8 @@ uniform-time sampling wastes frames between salient poses. Proposal: sample
 the continuous gait densely, then pick K frames by farthest-point sampling in
 pose space so contact/extreme poses always survive ("pose-salience
 sampling"). Design: `docs/design/03-animation.md`. Test in Spike S2.
+S2's verdict: pose-salience sampling did not beat uniform in the blind A/B
+(F10), so M1 ships uniform sampling + uniform durations.
 
 ### 3.4 Craft-Rule Pass — value ●●●, risk 🔴 (now the top engineering risk)
 

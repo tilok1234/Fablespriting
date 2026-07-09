@@ -30,8 +30,8 @@ Per creature, per resolution:
 - **PNG sprite sheet**, packed; L/R emitted as mirror flags when the
   creature is symmetric (design 04 P4) — sheet metadata says which.
 - **JSON metadata:**
-  - frames: rect, duration (non-uniform — see pose-salience re-timing),
-    pivot (ground anchor from the model's ground line)
+  - frames: rect, duration (non-uniform capable; M1 emits uniform per
+    S2's verdict, F10), pivot (ground anchor from the model's ground line)
   - clips: name → frame sequence per direction
   - hitboxes: derived from slabs, not pixels — body AABB per frame +
     ground shadow ellipse (slab projection makes these consistent across
