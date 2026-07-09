@@ -216,16 +216,17 @@ retrofit. Full design: `docs/design/01-genome.md`.
   fine in JS; one codebase serves a browser-based editor, a CLI, and JSON
   export into any engine; wasm port possible later if runtime perf demands).
   Spikes stay in Python where iteration is fastest. This is Decision D1
-  below — not yet locked.
+  below — decided 2026-07-09: TypeScript + web.
 
-## 5. Decisions needed (from you)
+## 5. Owner decisions
 
-| # | Decision | Options | Recommendation |
-|---|----------|---------|----------------|
-| D1 | Production language/platform | TypeScript+web · Rust+wasm · Python tool | TypeScript+web editor |
-| D2 | Primary product shape | in-browser tool · CLI/batch · runtime game library | browser tool first, library extracted later |
-| D3 | Art-direction lock | outline style (selout vs hard black), tilt, palette philosophy | selout + T=0.5 + hue-shifted ramps (as in S1) |
-| D4 | MVP body plans | which 3 plans ship M2 first | quadruped, levitant, amorphous (max spread) |
+| # | Decision | Options | Resolution |
+|---|----------|---------|------------|
+| D1 | Production language/platform | TypeScript+web · Rust+wasm · Python tool | ✅ 2026-07-09: **TypeScript + web editor** |
+| D2 | Primary product shape | in-browser tool · CLI/batch · runtime game library | ✅ 2026-07-09: **browser tool first, library extracted later** |
+| D3 | Art-direction lock | outline style (selout vs hard black), tilt, palette philosophy | ✅ 2026-07-09: **selout + TILT=0.5 + hue-shifted ramps, as rendered in S1's sheet** |
+| D4 | MVP body plans | which 3 plans ship M2 first | Open — recommendation: quadruped, levitant, amorphous (max spread) |
 
-None of these block the next spikes (S2–S4), which are language-agnostic
-evidence gathering. They block M1.
+D1–D3 were decided 2026-07-09; M1 is unblocked (they never blocked spikes
+S2–S4, which are language-agnostic evidence gathering). D4 blocks M2 only
+and stays open until M2 planning.

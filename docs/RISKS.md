@@ -23,10 +23,14 @@ surface; residual work is grammar-side authoring rules F8/F9).
 
 ## Open questions (need owner input — mirrors ASSESSMENT.md §5)
 
-1. **D1 Stack:** TypeScript + browser tool recommended. Confirm or redirect.
-2. **D2 Product shape:** editor-first vs library-first.
-3. **D3 Art direction lock:** selout outlines, TILT=0.5, hue-shifted ramps
-   (all as rendered in Spike S1's sheet) — approve as the house style?
-4. **D4 M2 plan trio:** quadruped + levitant + amorphous recommended.
-5. Licensing/distribution intent (open source? asset-store tool?) — affects
-   nothing technical yet, but affects repo layout and CI choices soon.
+1. **D1 Stack:** ✅ Decided 2026-07-09 — TypeScript + browser tool.
+2. **D2 Product shape:** ✅ Decided 2026-07-09 — editor-first; library
+   extracted later.
+3. **D3 Art direction lock:** ✅ Decided 2026-07-09 — selout outlines,
+   TILT=0.5, hue-shifted ramps (as rendered in Spike S1's sheet) approved
+   as the house style. M1's golden tests pin exactly this rendering.
+4. **D4 M2 plan trio:** open — quadruped + levitant + amorphous
+   recommended. Blocks M2 only; decide during M1.
+5. **Licensing/distribution:** ✅ Decided 2026-07-09 — open source under a
+   permissive license (MIT or Apache-2.0; pick the exact text when the
+   LICENSE file is added, before M1's CI setup).

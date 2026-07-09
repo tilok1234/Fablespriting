@@ -18,7 +18,8 @@ S2–S4 extend `spike01`'s code. Estimated: each is a day-scale effort.
 
 ## Phase 1 — M1 "one wolf, end to end" (production code begins)
 
-First production code in the chosen stack (Decision D1). Scope: ONE plan
+First production code in the chosen stack (Decision D1 — decided:
+TypeScript + web). Scope: ONE plan
 (quadruped), full pipeline: genome (locus tree, streams, fixed-point) →
 hardcoded-grammar part graph → skeleton/gait → slabs → projection → craft
 pipeline v1 (rules 1–5) → PNG+JSON export, 32×32, idle+walk, 4 dirs.
