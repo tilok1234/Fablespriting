@@ -66,6 +66,28 @@ Hypothesis to test in S2: salience-sampled 4-frame walks read better than
 uniform 4-frame walks, and non-uniform timing beats uniform timing. Cheap to
 A/B on a contact sheet + GIF.
 
+**As built (Spike S2)** (`spikes/spike02_pose_salience.py`):
+
+- Joint proxy = slab centers; pose distance = sum of per-slab center deltas
+  in model space. Selection runs once, pre-yaw, so all four directions share
+  the same frames.
+- Dominant-oscillator seed, operationalized genome-free: the dense phase p*
+  maximizing D(pose(p), pose(p+π)), paired with p*+π — the two most-opposed
+  poses. Captures contact extremes for footfall gaits and generalizes to
+  non-footfall plans (hover, flap).
+- Step 5 (pixel snapping) is deferred to Spike S3 — the spike renderer has
+  no snapping hook.
+- The A/B was upgraded to THREE conditions — A uniform, B salience +
+  uniform timing, C salience + re-timed — so the sampling claim (B vs A)
+  and the timing claim (C vs B) are attributed separately, not conflated.
+- Rater protocol: 2+ humans rank the three blind panels of each GIF across
+  6 creature × direction cells, then unseal `spikes/out/spike02_mapping.txt`.
+  Unambiguous = both raters agree on an effect's winner and each prefers it
+  in ≥ 4/6 cells.
+- Fallback: if an effect is ambiguous or uniform wins it, M1 adopts uniform
+  sampling and/or uniform durations — design 05's per-frame duration
+  metadata degrades gracefully to constant values.
+
 ## 4. Temporal coherence (with the craft pass)
 
 The craft pass must treat a **clip** as the unit of work, not a frame:

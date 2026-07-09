@@ -1,0 +1,8 @@
+SEALED — rate all 6 GIFs (and do not open spike02_sheet.png) before reading below.
+
+spike02_ab_wolf_right.gif: panel 1 = B salience, panel 2 = C salience+retime, panel 3 = A uniform
+spike02_ab_wolf_down.gif: panel 1 = C salience+retime, panel 2 = A uniform, panel 3 = B salience
+spike02_ab_imp_right.gif: panel 1 = B salience, panel 2 = A uniform, panel 3 = C salience+retime
+spike02_ab_imp_down.gif: panel 1 = A uniform, panel 2 = C salience+retime, panel 3 = B salience
+spike02_ab_watcher_right.gif: panel 1 = A uniform, panel 2 = C salience+retime, panel 3 = B salience
+spike02_ab_watcher_down.gif: panel 1 = C salience+retime, panel 2 = B salience, panel 3 = A uniform
