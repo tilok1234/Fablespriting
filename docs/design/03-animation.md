@@ -1,0 +1,88 @@
+# Design 03 — Animation: oscillators, clips, frame selection
+
+Spike S1 validated the core bet: coupled oscillators driving the skeleton
+produce plausible, plan-appropriate motion in all four directions with no
+authored frames, and the motion survives quantization to 4 frames.
+
+## 1. Oscillator network model
+
+Each animated chain (leg, arm, tail, wing, tendril segment, blob control
+point) is driven by a phase oscillator:
+
+```
+value(t) = A · wave(φ_global · f + offset)      # wave = sin or shaped pulse
+```
+
+Genes per chain: amplitude `A`, frequency ratio `f` (integer ratios only —
+keeps loops closed), phase `offset`, and waveform shape. Plans ship default
+networks (the "gait template"):
+
+- quadruped trot: leg offsets (0, π, π, 0); walk: (0, π/2, π, 3π/2)
+- biped: legs (0, π), arms counter-phased to same-side leg
+- serpentine: segment k gets offset k·Δ (traveling wave; Δ is a gene —
+  small Δ = smooth slither, large Δ = caterpillar scrunch)
+- levitant: slow body sine; fast locomotor flap at f=3; trailing parts copy
+  the body signal with lag k·λ (S1's tendrils — reads as soft-body for free)
+- amorphous: control points on offset phases → squash/stretch
+
+Two S1 lessons: (1) **phase relationships carry the read**, not smoothness —
+diagonal-pair timing was legible even at 4 fps-equivalent; (2) secondary
+motion via *phase lag* is absurdly cheap character (one gene per chain).
+
+## 2. Clips = oscillator preset + envelope
+
+| Clip | Mechanism |
+|------|-----------|
+| idle | low-amplitude preset (breath sine, ear/tail flick on slow ratio) |
+| walk | full gait preset |
+| attack | idle preset + one-shot envelope: anticipation (contract, 1–2 f) → strike (lunge along facing, 1 f) → recovery (2 f) |
+| hurt | 1-frame offset against facing + palette flash flag in metadata |
+| death | envelope to plan-specific collapse pose (quadruped folds legs; levitant loses altitude; amorphous deflates); aberrations get a scramble gene |
+| special | plan-specific preset (burrow, split, inflate) — grammar decides availability |
+
+Envelopes are piecewise fixed-point curves layered onto the oscillator pose;
+an `anticipation` gene scales the contract phase (snappy vs heavy — this
+single gene is most of "game feel" at this sprite size).
+
+**Direction handling is free:** clips are defined in model space; the four
+projections do the rest. The only directional logic anywhere: emitter parts
+orient along facing during attack.
+
+## 3. Frame selection — pose-salience sampling (Spike S2)
+
+Uniform-time sampling wastes frames between salient poses and can *miss*
+contact extremes at K=4. Proposal:
+
+1. Sample the continuous clip at 64 phases.
+2. Define pose distance = sum of joint-position deltas (fixed-point).
+3. Pick K frames by farthest-point sampling, seeded with the two extremes
+   of the dominant oscillator (guarantees contact poses survive).
+4. Re-time: each frame's display duration = the phase interval it covers
+   (non-uniform durations, exported in metadata — this is how hand-timed
+   pixel animation actually works).
+5. Snap the chosen poses to whole-pixel offsets before rasterizing.
+
+Hypothesis to test in S2: salience-sampled 4-frame walks read better than
+uniform 4-frame walks, and non-uniform timing beats uniform timing. Cheap to
+A/B on a contact sheet + GIF.
+
+## 4. Temporal coherence (with the craft pass)
+
+The craft pass must treat a **clip** as the unit of work, not a frame:
+
+- Per-clip, not per-frame, decisions: outline color choices, cluster-budget
+  merges, and dither patterns are decided once per clip from aggregate
+  statistics, then applied to every frame.
+- **Flicker metric** in CI: `changed_pixels(f, f+1) / motion_energy(f, f+1)`
+  where motion energy is total joint displacement. High ratio = pixels
+  churning without motion to justify it. Threshold TBD in Spike S3.
+- Sub-pixel motion policy: a limb's screen position moves in whole pixels
+  only (snap per frame); slabs never "shimmer" between two pixel columns
+  across a clip because snapping is keyed to the chain, not the frame.
+
+## 5. Budgets
+
+Per creature, per resolution: idle 2–4 f, walk 4–8 f (gene), attack 3–5 f,
+hurt 1–2 f, death 4–6 f, ×4 directions (×~2.5 when L/R mirrors). Worst case
+≈ 27 poses × 4 dirs ≈ 108 renders/creature/resolution — S1 perf data (F6)
+says this stays interactive with bounding-box culling.
