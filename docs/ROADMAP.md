@@ -9,6 +9,7 @@ advances on vibes.
 | ID | Question | Status | Verdict / exit criterion |
 |----|----------|--------|--------------------------|
 | S1 | Does slab projection give consistent 4-dir sprites at 32 & 16, across body plans, with oscillator gaits? | ✅ done | **Yes.** Findings F1–F6 folded into designs 03/04 and `ASSESSMENT.md` §2 |
+| S1b | Do the two unproven plans work — serpentine traveling wave, and the amorphous metaball fork (risk R7)? | ✅ done | **Yes.** R7 retired; findings F7–F9 in `ASSESSMENT.md` §2 |
 | S2 | Does pose-salience frame sampling + non-uniform timing beat uniform 4-frame sampling? | next | side-by-side GIF A/B is unambiguous to 2+ humans |
 | S3 | Can a clip-scoped craft pass hold the flicker metric under threshold while applying jaggy repair + cluster merge? | after S2 | flicker ratio stable across a walk clip; no rule fights (pipeline idempotent on 2nd run) |
 | S4 | Does proportion remap make 16×16 front views readable where naive 0.5× scaling fails (S1-F3)? | after S2 | remapped 16×16 wolf/imp faces readable on contact sheet at 1× viewing distance |

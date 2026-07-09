@@ -92,6 +92,31 @@ Run: `python3 spikes/spike01_slab_projection.py` → `spikes/out/`.
   implementation with per-slab bounding boxes will be interactive-speed even
   in the browser; runtime in-game generation is realistic.
 
+### Spike S1b — serpentine + amorphous (the two unproven plans)
+
+Run: `python3 spikes/spike01b_more_plans.py`. A centipede validated the
+traveling-phase-wave gait (one `delta` gene turns segment oscillators into a
+slither; leg nubs riding the same wave a quarter-phase ahead produce a leg
+ripple for free), and a slime validated the **metaball renderer fork** —
+risk R7 — in ~100 lines: same projection, same majority-vote rasterizer,
+same craft-lite; only the ray/surface intersection differs (marched field
+threshold instead of a quadratic). Slab-based face parts (eyes, highlight)
+depth-sort correctly against the blob surface, so amorphous creatures can
+still have grammar-attached focal features. Additional findings:
+
+- **F7 — Selout eats thin bodies.** A 2px-wide creature is *all* edge
+  pixels, so the outline rule painted the first centipede entirely in
+  near-background outline color. Consequences: minimum-girth clamps in the
+  grammar (per resolution), and the craft pass must skip or soften outlines
+  on sub-3px clusters. Serpentine plans are the stress test for this rule.
+- **F8 — Metaball fields need threshold-relative authoring.** The field
+  surface must sit well below per-ball peak weight (TH≈0.3 validated), and
+  ball radii must be authored relative to the *visible* radius (~0.67× the
+  ball radius at TH=0.3). The grammar's amorphous rules must bake this in.
+- **F9 — Animation amplitudes need resolution remap, not just proportions.**
+  At full hop-stretch the 16×16 slime collapsed into a 3px bar. Extends F3:
+  the remap stage (design 04 §6) must also scale oscillator amplitudes.
+
 ---
 
 ## 3. Pillar-by-pillar assessment

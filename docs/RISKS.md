@@ -10,7 +10,6 @@ Likelihood/impact: L/M/H. Sorted by exposure (likelihood × impact).
 | R4 | Craft rules fight each other (jaggy repair vs cluster merge loops) | M | M | Fixed pipeline order; idempotence property test (2nd run = no-op) | idempotence test flakes |
 | R5 | Genome instability under edit (one gene edit reshuffles creature) | M | H | Locus-path-keyed PRNG streams from first production line (design 01 §2); review-blocker rule | any golden test shows unrelated diffs after a single-locus edit |
 | R6 | Cross-platform nondeterminism | M | H | Fixed-point core, no floats; goldens run on 2 platforms in CI | golden mismatch across CI runners |
-| R7 | Amorphous renderer fork underestimated | M | M | Scoped to M2 with explicit budget; interface unchanged (model → projections) | fork exceeds budget → ship M2 with serpentine instead, amorphous to M3 |
 | R8 | Cross-plan breeding produces nonsense hybrids | M | M | Homology limited to matched locus paths; hybrid sheets in M5 review | hybrids fail taste review → restrict crossover to same-plan + trait transfer |
 | R9 | Readability-solver thresholds miscalibrated (over-rerolls kill families' coherence) | M | L | Human calibration session in M4; warn-don't-loop escalation policy | reroll rate >30% on typical sets |
 | R10 | Scope creep before M1 (grammar breadth is seductive) | H | M | M1 is ONE hardcoded quadruped; breadth is gated behind M1's determinism/property tests | any grammar work started pre-M1 exit |
@@ -18,7 +17,9 @@ Likelihood/impact: L/M/H. Sorted by exposure (likelihood × impact).
 Retired risks: ~~slab projection can't produce readable 4-dir sprites~~
 (S1, was the #1 risk — validated), ~~oscillator gaits die under 4-frame
 quantization~~ (S1), ~~rendering too slow for interactive/runtime use~~
-(S1-F6).
+(S1-F6), ~~R7 amorphous renderer fork underestimated~~ (S1b: fork built in
+~100 LOC, interface unchanged, slab face-parts compose with the blob
+surface; residual work is grammar-side authoring rules F8/F9).
 
 ## Open questions (need owner input — mirrors ASSESSMENT.md §5)
 

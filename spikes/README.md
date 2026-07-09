@@ -29,6 +29,23 @@ python3 spikes/spike01_slab_projection.py
 
 Requires: Python 3.10+, Pillow (`pip install pillow`).
 
+## S1b — serpentine + amorphous (`spike01b_more_plans.py`)
+
+**Question:** do the two plans S1 didn't cover work — the serpentine
+traveling-wave gait, and the amorphous metaball renderer fork (risk R7)?
+
+**Verdict: yes.** A centipede (7 segments, phase-lagged wave, leg-nub
+ripple) and a hopping slime (marched metaball field, squash/stretch,
+lagging drip, slab eyes composited against the blob surface) render through
+the same projection/rasterizer/craft path. R7 retired; findings F7–F9
+(selout vs thin bodies, threshold-relative metaball authoring, amplitude
+remap per resolution) in `docs/ASSESSMENT.md` §2.
+
+```
+python3 spikes/spike01b_more_plans.py
+# → spikes/out/spike01b_sheet.png / spike01b_walk.gif
+```
+
 ## Planned
 
 - **S2** — pose-salience frame sampling vs uniform (extends S1 code)
