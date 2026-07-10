@@ -2,12 +2,14 @@
  * Fablesprite — M1 production code (TypeScript).
  *
  * Modules land per `docs/design/06-m1-foundations.md`: the fixed-point
- * kernel (§5) and named PRNG streams (§4) are in; the genome locus tree,
- * varint tape, and renderer follow.
+ * kernel (§5), named PRNG streams (§4), and the genome layer — locus
+ * registry, varint tape codec, sampler (§§1–4) — are in; the renderer
+ * follows.
  */
 
 export * from "./fixed.js";
 export * from "./prng.js";
+export * from "./genome.js";
 
 /**
  * Growth-rule-table version (`docs/design/01-genome.md` §4).

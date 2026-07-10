@@ -411,7 +411,10 @@ registry wins: the version prefix already selects a growth-rule table
 - **uvarint** — LEB128: little-endian base-128 groups, 7 payload bits per
   byte, high bit = continuation. **Minimal length is mandatory**: an
   encoding with a redundant trailing `0x00` group (e.g. `80 00` for 0) is
-  invalid.
+  invalid. **uvarint is a u64 primitive in every position** (version, id,
+  payload): an encoding longer than 10 bytes or encoding a value ≥ 2⁶⁴
+  is *malformed* — not UpgradeRequired — so implementations agree on the
+  error class without unbounded-integer support.
 - **zigzag64** — `zz(n) = (n << 1) XOR (n >> 63)` on a signed 64-bit
   value (arithmetic shift). zz(0)=0, zz(−1)=1, zz(1)=2, zz(−2)=3.
 - **base64url** — RFC 4648 §5 alphabet (`A–Z a–z 0–9 - _`), **no
