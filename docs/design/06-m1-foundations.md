@@ -15,6 +15,27 @@ even of the exact decimal — so "2.1" always means raw 137626, unambiguously.
 Phases and angles that drive oscillators are in **turns** (1.0 = full
 cycle), not radians; hues are in degrees.
 
+## 0. Definitions & conventions
+
+Small normative glue used throughout:
+
+- **wrap360(x)** — mathematical modulo into [0, 360):
+  `x − 360·floor(x/360)` (raw: reduce mod 23592960 to a non-negative
+  result). Negative inputs wrap **up**: wrap360(13.0 − 84.0) = 289.0 —
+  consistent with the normative outline hue of §1.3.
+- **clamp(x, lo, hi)** = `min(max(x, lo), hi)`.
+- **Domain bounds are inclusive in RAW units**: a domain written
+  [lo, hi] admits every raw from `RHE(lo·2^16)` to `RHE(hi·2^16)`. For a
+  half-open authored domain like [0, 360), the pinned rule is hi_raw =
+  the largest raw value inside the domain: `palette.base_hue`'s hi_raw
+  is 23592959 (= 360·2^16 − 1).
+- **Default draw name.** Wherever a sampler paragraph does not name a
+  draw, the draw name is `sample` (§4).
+- **Adler-32 scope (§6).** The Adler-32 that closes the PNG zlib stream
+  runs over the full uncompressed stream **including each scanline's
+  leading filter byte** — exactly what the 1×1 vector in §6 implies (its
+  adler 0x00050001 covers all 5 stream bytes, filter byte included).
+
 ## 1. The M1 quadruped locus schema
 
 One plan (quadruped), one hardcoded part-graph template (R10: no grammar
@@ -61,7 +82,7 @@ The **id** column is the canonical locus numbering used by serialization
 | 18 | `body.head.ear_size` | fp [0.5, 1.8] | 1.0 (65536) |
 | 19 | `body.head.eye_size` | fp [0.6, 1.5] | 1.0 (65536) |
 | 20 | `body.head.eye_offset` | fp px [1.0, 2.4] | 1.6 (104858) |
-| 21 | `body.leg[FL].length` | fp px [1.8, 5] | 3.1 (203162) |
+| 21 | `body.leg[FL].length` | fp px [2.4, 5] | 3.1 (203162) |
 | 22 | `body.leg[FL].girth` | fp px [0.8, 2] | 1.15 (75366) |
 | 23 | `body.leg[FL].phase_group` | enum {0, 1} | 0 |
 | 24 | `body.leg[FR].length` | as id 21 | 3.1 |
@@ -84,7 +105,18 @@ Trims and extensions relative to the sketch in design 01 §2, with reasons:
 
 - **`anim` is plan-scoped** (`anim.quadruped.*`): design 01 §5's "leaning
   yes" is adopted. A hover frequency is meaningless to a quadruped;
-  plan-scoping keeps cross-plan homology honest.
+  plan-scoping keeps cross-plan homology honest. The cost is named, not
+  ignored: path-aligned crossover (design 01 §3) matches zero `anim`
+  loci across plans, so the gait-temperament transfer design 01 §3
+  promises (wolf × levitant) cannot ride on raw path identity. Pinned
+  resolution: cross-plan `anim` transfer happens through a
+  **crossover-time semantic map** — when the second plan lands (M2), it
+  ships a per-plan-pair leaf correspondence table (e.g.
+  `quadruped.gait_freq ↔ levitant.hover_freq`) that crossover consults
+  for `anim.*` only. The map lives beside the registry table, is an
+  additive change, and never touches paths, stream keys, or wire bytes —
+  nothing pinned in this document moves. Design 01 §3's promise is
+  thereby deferred to M2 with its mechanism fixed, not narrowed.
 - **`anticipation` is dropped.** It is consumed only by the attack
   envelope (design 03 §2), and M1 ships idle+walk only. Adding it at M2 is
   an additive registry append — no version bump, no reserved slot needed.
@@ -115,21 +147,107 @@ Symmetry: `±` rows are mirror pairs placed by one locus.
 
 | part (kind) | center (x, y, z) | half-extents (x, y, z) | material role |
 |------|------------------|------------------------|---------------|
-| core | (0, −0.5, 7.6 + b) | (girth, length, depth) | hide |
-| core underside | (0, 1.5, 5.9 + b) | (0.769·girth, 0.737·length, 0.647·depth) | underside |
-| head | H = (0, 8.3, 9.8 + b) | scale·(3.0, 3.4, 3.0) | hide |
+| core | (0, −0.5, CZ + b) | (girth, length, depth) | hide |
+| core underside | (0, UY, UZ + b) | (0.769·girth, 0.737·length, 0.647·depth) | underside |
+| head | H = (0, HY, HZ + b) | scale·(3.0, 3.4, 3.0) | hide |
 | snout | H + scale·(0, 3.3, −1.2) | (1.6, snout_len, 1.5) | underside |
 | ears (±) | H + scale·(±2.0, −1.1, 2.8) | ear_size·(0.9, 1.0, 1.7) | hide |
 | eyes (±) | H + scale·(±eye_offset, 2.6, 0.6) | eye_size·(0.8, 0.7, 0.8) | focal |
 | legs ×4 | (hip_x, hip_y + dy_i, length_i + asr(dz_i,1) + asr(b,1)) | (girth_i, 1.5, length_i) | hide |
-| tail | (wag, −8.8, 9.6 + b) | (tail.girth, tail.length, tail.girth) | hide |
+| tail | (wag, TY, TZ + b) | (tail.girth, tail.length, tail.girth) | hide |
 
-Hips (pinned): FL = (−2.6, 4.6), FR = (+2.6, 4.6), BL = (−2.6, −5.2),
-BR = (+2.6, −5.2). Legs stand on the ground plane: the slab spans
-z ∈ [0, 2·length] at rest. `asr` = arithmetic shift right (§5.1); child
-offsets of the head scale with `head.scale` so grown heads keep their
-features attached (the lesson of S4-F18: scale-only ops can't fix
-placement, so placement must follow scale).
+Hips: FL = (−hip_x, fore hip_y), FR = (+hip_x, fore hip_y),
+BL = (−hip_x, hind hip_y), BR = (+hip_x, hind hip_y) — derived anchors
+per the coupling table below; at all-default dims they are exactly the
+spike's (±2.6, 4.6) / (±2.6, −5.2). Legs stand on the ground plane: the
+slab spans z ∈ [0, 2·length] at rest. `asr` = arithmetic shift right
+(§5.1); child offsets of the head scale with `head.scale` so grown heads
+keep their features attached (the lesson of S4-F18: scale-only ops can't
+fix placement, so placement must follow scale).
+
+**Anchor coupling.** `CZ, UY, UZ, HY, HZ, TY, TZ, hip_x, hip_y` are
+**derived anchors, not constants**. The spike pinned every attachment
+anchor as an absolute number; that is the degenerate-anchor trap the
+moment a core dimension leaves its default — S4-F18's lesson one level
+up: scaling a part cannot fix where it attaches, so the attachment
+itself must track the dimension that carries it. Every anchor that must
+track a sampled core dimension is pinned as the wolf constant plus a
+proportional correction:
+
+```
+anchor(dim) = C + fp_mul(σ, dim − D)
+```
+
+with `C` the wolf constant (raw), `D` the tracked dimension's registry
+default (raw), and `σ` a pinned 16.16 slope — mathematically the line
+`σ·dim` through the wolf point (D, C). The delta evaluation is
+load-bearing: `fp_mul(σ, 0) = 0`, so **at the all-default core dims
+every derived anchor equals the original wolf constant exactly in raw
+16.16** (machine-verified; no per-anchor adjustments needed). The direct
+form `fp_mul(σ, dim)` cannot honor that requirement: its output moves in
+steps of D/2^16 (≈ 7.6 raw for `core.length`, ≈ 3.4 for `core.depth`),
+and no ±1-ulp slope adjustment lands on the wolf constants
+(machine-verified: best achievable error is 1–3 raw for every anchor
+below), which is why the delta form is pinned.
+
+| anchor | C (raw) | tracks (D raw) | σ (raw) | slope |
+|--------|---------|----------------|---------|-------|
+| HY head center y | 8.3 (543949) | core.length (498074) | 71572 | 8.3/7.6 |
+| HZ head center z | 9.8 (642253) | core.depth (222822) | 107942 | 1 + 2.2/3.4 |
+| hip_y fore (FL, FR) | 4.6 (301466) | core.length | 39667 | 4.6/7.6 |
+| hip_y hind (BL, BR) | −5.2 (−340787) | core.length | −44840 | −5.2/7.6 |
+| hip_x (± per socket) | 2.6 (170394) | core.girth (255590) | 43691 | 2.6/3.9 |
+| CZ core center z | 7.6 (498074) | core.depth | 65536 | 1 |
+| UY underside center y | 1.5 (98304) | core.length | 17246 | 2.0/7.6 |
+| UZ underside center z | 5.9 (386662) | core.depth | 32768 | 1 − 1.7/3.4 |
+| TY tail center y | −8.8 (−576717) | core.length | −65536 | −1 |
+| TZ tail center z | 9.6 (629146) | core.depth | 104087 | 1 + 2.0/3.4 |
+
+σ = RHE(slope·2^16). Slope derivations: HY and the hip_y rows are the
+wolf ratios anchor/length; hip_x is ⅔·girth. CZ has slope 1 so the
+**underside line** CZ − depth stays fixed at raw 275252 (≈ 4.2 px; it is
+derived as 498074 − 222822 — one raw ulp above RHE(4.2·2^16) — not
+pinned as a decimal): deeper bodies grow upward, and leg tops always
+face the same target. UZ keeps the belly slab half a depth below the
+core center; HZ and TZ keep head and tail at the wolf's
+offset-per-depth above the core center, riding the body's vertical
+mass. TY tracks the rear face −0.5 − length at the wolf's 0.7 px
+overhang (a pure −8.8/7.6 ratio would outrun the rear by 1.4 px at
+length 12 and leave a minimum-length tail attached by only 0.1 px). UY
+is the underside slab's 2.0 offset from the core center (−0.5, itself a
+constant) as a fraction of length; combined with the pinned
+0.737·length half-extent this keeps the slab's front edge flush with
+the core front to < 0.002 px across the whole length domain.
+
+Connectedness at the domain extremes (machine-verified worst cases,
+rest pose):
+
+- **Head overlaps the body front.** Worst y-overlap 0.435 px at
+  length 12, head.scale 0.6 (head rear edge 11.07 vs core front 11.5);
+  worst z-overlap 2.51 px at depth 2, scale 0.6.
+- **Hips stay inside the body.** Worst footprint value
+  (hip_x/girth)² + ((hip_y + 0.5)/length)² = 0.978 < 1, at length 4,
+  fore hips — independent of girth because hip_x/girth ≈ ⅔ is constant.
+- **Legs reach the body underside.** Leg top = 2·length ≥ 4.8 px against
+  the fixed underside line ≈ 4.2 px. The binding pose is the idle bob
+  peak: at bob_amp = 2 the body rises b = 1 px while legs rise
+  asr(b, 1) = 0.5 px, costing 0.5 px of overlap (walk frames cost
+  nothing: at K = 4, sin(2·g·φ_k) = 0 exactly, so the rendered walk bob
+  is identically zero). **`body.leg[*].length` is therefore narrowed
+  from [1.8, 5] to [2.4, 5]** (lo raw 157286, §1.1): below 2.35 the
+  shortest legs detach from the underside at the idle peak, while 2.4
+  keeps ≥ 0.1 px of contact in every rendered frame of both clips for
+  every genome. The default (3.1) is unchanged, and the worst-case tape
+  size (§3.5) is unaffected — the hi extreme dominates that locus's
+  payload either way.
+- **Tail stays attached.** Its front edge penetrates the core's rear
+  face by tail.length − 0.7 ≥ 0.8 px for every length; TZ sits at a
+  constant relative height (CZ + 0.588·depth), inside the core's
+  z-range at every depth.
+
+No other domain produces disconnection at its extremes. Raw defaults
+are unchanged by the coupling, so the §3.4 worked example still stands
+(its leg value 3.6 lies inside the narrowed domain).
 
 Oscillators, per frame k of K (M1 pins K = 4 for both clips, uniform
 sampling and uniform durations per S2/F10; φ_k = k · 16384 raw turns —
@@ -152,12 +270,30 @@ and craft are per designs 03/04 with the constants pinned here: TILT = 0.5
 (D3), light direction raw (−29565, −36135, 45990) — the normalized
 (−0.45, −0.55, 0.70) — coverage threshold 0.42 (27525) at 32×32 (S1/F4).
 
+Rasterization frame constants, pinned for pixel-identical output (from
+`spike01_slab_projection.py` lines 222–223): the frame anchor is
+ox = size/2, oy = size·(26.5/32) — at 32×32, (ox, oy) = (16.0, 26.5),
+raw (1048576, 1736704); oy is the ground line. Supersampling is an S×S
+grid with S = 4: for output pixel (px, py), sample (ix, iy) is cast at
+(px + (ix+0.5)/S − ox, py + (iy+0.5)/S − oy); the per-sample offsets
+(ix+0.5)/S are the exact raws {8192, 24576, 40960, 57344}. Pinned scan
+order: iy outer ascending, ix inner ascending. A pixel is opaque iff
+hits/S² ≥ the coverage threshold; its (material, tone) key is the one
+with the most contributing samples, and **ties on vote count are broken
+in favor of the (material, tone) key whose first contributing sample
+occurs earliest in the pinned scan order**. The tie-break was previously
+unspecified even by the spike — its Python dict ordering happens to
+implement exactly this first-seen-wins rule — and it matches the spike
+renders at defaults.
+
 ### 1.3 Palette derivation
 
-Three role ramps: **hide**, **underside**, **focal**. Each ramp is
-`ramp_len` colors, slot 0 = outline (consumed by selout), slots
-1..ramp_len−1 = body tones dark→light. Colors are built in fp HSV and
-converted with the exact integer conversion below.
+Three role ramps: **hide**, **underside**, **focal**. The hide and
+underside ramps are `ramp_len` colors: slot 0 = outline (consumed by
+selout), slots 1..ramp_len−1 = body tones dark→light. The focal ramp is
+**always 4 entries**, independent of `palette.ramp_len` (rule below).
+Colors are built in fp HSV and converted with the exact integer
+conversion below.
 
 Tone slot t (0-based over the `n = ramp_len − 1` body tones), with
 half-step offset `oh = 2t − (n−1)`:
@@ -201,7 +337,13 @@ hardcoded wolf ramps (informative), which it approximates:
 
 The rasterizer's shading dot product `d` (unit normal · LIGHT, fp)
 quantizes to body tones by pinned per-ramp_len thresholds (rasterizer tone
-t maps to ramp slot t+1):
+t maps to ramp slot t+1). Hide and underside pixels use the row selected
+by `palette.ramp_len`; **focal pixels always use the ramp_len = 4 row**,
+whatever the genome says — the focal table has exactly slots 0..3, so
+focal tone t ∈ {0, 1, 2} maps to focal slots 1..3 for every genome. A
+ramp_len = 5 genome must not push an eye pixel to a nonexistent focal
+slot 4, and a ramp_len = 3 genome must not leave two implementations
+guessing which row eyes follow:
 
 | ramp_len | thresholds (dark ← → light) |
 |----------|------------------------------|
@@ -225,9 +367,28 @@ homology — exactly the R5 failure. The rule:
   renumber existing sockets.
 - **Ordinals are allowed only *within* one named socket, for true
   multiples:** `body.ornaments[dorsal:0]`, `body.ornaments[dorsal:1]` —
-  the socket name carries the identity, the ordinal orders genuinely
-  interchangeable siblings. Homology aligns on (socket, ordinal); a
-  serial(N) chain (design 02 §1) is the canonical user of this form.
+  the socket name carries the identity. Homology aligns on (socket,
+  ordinal); a serial(N) chain (design 02 §1) is the canonical user of
+  this form.
+- **Ordinals are stable once assigned — removal never compacts.**
+  Deleting `[dorsal:0]` leaves the survivor spelled `[dorsal:1]`: its
+  path, stream keys (§4), and registry ids are untouched, and the gap is
+  legal (compacting survivors would be the R5 renumbering failure,
+  merely confined to one socket). A new sibling takes the **lowest
+  unused ordinal** in its socket — the only rule computable from genome
+  state alone. A serial(N) chain shrinks from the tail (highest ordinals
+  removed first) and grows by appending, so a length mutation is always
+  a pure add/remove of tail segments, never a rename of survivors.
+  Encoders and decoders need no extra rule: entries key on registry ids
+  (§3), and ids bind to exact (socket, ordinal) paths, so sparse
+  ordinals serialize like any other absent loci.
+- **Optional and repeated parts must carry an existence-marking locus
+  whose DEFAULT means absent** (e.g. a future
+  `body.ornaments[dorsal:0].kind` defaulting to `none`) — an M2
+  forward-constraint on registry appends, pinned now: defaults serialize
+  as absent (§3.2), so tape-absence must be able to represent
+  part-nonexistence, which is what design 01 §3's crossover case "locus
+  present in one parent only" aligns on.
 - Path syntax: segments joined by `.`; a repeated-part segment is
   `name[SOCKET]` or `name[SOCKET:ordinal]`. The canonical spelling in the
   registry table is the exact byte string hashed in §4 — no aliases, no
@@ -282,8 +443,9 @@ There is exactly one encoding of any genome. The decoder **rejects** (an
 error, never silent normalization): a non-minimal uvarint; an id ≤ the
 previous id; a scalar payload of 0; a seed of 0; an empty or non-ascending
 tag set; a value outside its locus domain; a truncated entry; trailing
-bytes. An id (or enum value) beyond the version's registry is rejected as
-`UpgradeRequired` — old builds refuse rather than misrender, which is what
+bytes. An id (or enum value) beyond the version's registry — and equally
+a version prefix beyond the build's known tables — is rejected as
+`UpgradeRequired`: old builds refuse rather than misrender, which is what
 lets *new* builds keep old strings pixel-identical (design 01 §4 promise;
 additive appends never bump the version, behavioral changes do and freeze
 the old table).
@@ -316,11 +478,13 @@ The all-defaults wolf is the single byte `01` → `AQ` (2 chars).
 ### 3.5 Size budget
 
 Typical genomes (a seed plus a dozen edited loci) run 20–80 chars. The
-pathological bound — every one of the 35 v1 loci pushed to a domain
-extreme plus a max u64 seed — is ≈ 177 bytes ≈ 236 chars: the ≤ ~200 target
-of design 01 holds for everything but deliberately adversarial genomes,
-and the format degrades linearly, not catastrophically. Additive registry
-growth costs absent genomes nothing.
+pathological bound — a max u64 seed, a full tag set, and every other
+locus pushed to its most expensive domain extreme (`meta.plan` cannot
+move: its enum has a single value) — is exactly **134 bytes = 179
+base64url chars**, machine-verified from the §3.1–§3.2 rules: the
+≤ ~200-char target of design 01 requirement 4 holds even for fully
+adversarial genomes, and the format degrades linearly, not
+catastrophically. Additive registry growth costs absent genomes nothing.
 
 ## 4. Stream keying: hash(seed, path, draw) → PCG32
 
@@ -383,8 +547,19 @@ PRNG).
 The M1 sampler, pinned for cross-implementation sheet identity: given a
 sheet seed s, the sampled genome has `meta.seed = s`, `meta.plan = 0`, and
 each scalar locus drawn as `nextFp(domain)` (enums: `nextRange(card)`)
-from `stream(s, path, "sample")`; `meta.trait_tags` draws `n =
-nextRange(3)` tags from its own stream, re-drawing duplicates.
+from `stream(s, path, "sample")`. `meta.trait_tags` uses its own stream
+(`path = meta.trait_tags`, draw name `sample` — the §0 default, like
+every sampler draw): draw `n = nextRange(2) + 1`, so n ∈ {1, 2} and
+never zero — design 02 §3 pins tags as the anti-oatmeal archetype
+attractor ("carries 1–2 tags"), so a sampled genome always commits to a
+theme. The empty set stays wire-legal: it is the registry default and
+structurally necessary (defaults serialize as absent, §3.2) — reachable
+by editing, never by sampling. Then, until the set holds n distinct
+tags, draw one tag as `nextRange(5)` (the tag ids of §1.1) and discard
+the draw if that tag is already in the set — redraw immediately, per
+position, always over the full 5-tag enum, never over the remaining
+tags. The set serializes in ascending tag order regardless of draw
+order (§3.2).
 
 ### 4.3 Test vectors (normative)
 
@@ -394,8 +569,11 @@ nextRange(3)` tags from its own stream, re-drawing duplicates.
 | 42 | `body.tail.girth` | `sample` | `0x997e16fde0e664b3` | `0xb3c9bfbb240bd70d` | `0xd5e5d99d`, `0xb301febf` |
 | 0xDEADBEEF | `palette.base_hue` | `sample` | `0xd296c909b6113670` | `0x9fb66eaf1999411a` | `0x3d2fddb9`, `0x2ffdaa65` |
 
-For the first vector, `initseq = 0xe4da9a2f45e57663`, and the next four
-`nextRange(100)` draws (after the two u32s above) are 6, 25, 32, 11.
+For the first vector, `initseq = 0xe4da9a2f45e57663`. On a **fresh**
+stream, the first four `nextRange(100)` draws are 6, 25, 32, 11 — the
+threshold is 2^32 mod 100 = 96 and no output falls below it, so these are
+u32 outputs 1–4 mod 100. After consuming the two u32s above, the next
+four `nextRange(100)` draws are 32, 11, 56, 12.
 
 ## 5. Fixed-point 16.16
 
@@ -442,8 +620,14 @@ fp_mul(a, b):
   return s·q
 ```
 
-(In JS use `Math.floor`/`%`, not `&`/`>>`, on q — bitwise ops truncate to
-32 bits.)
+(In JS use `Math.floor`/`%`, not `&`/`>>` — bitwise ops force operands
+through ToInt32. That applies to q, which outgrows 32 bits, and equally
+to the sign-magnitude decomposition of a and b: after negation the
+magnitude of raw −2147483648 is 2^31, which is not int32-representable,
+so `2147483648 >> 16` ToInt32-wraps to −32768 and silently flips the
+product's sign — reproduced in Node. Raw −2^31 stays domain-legal; the
+fix is `ah = Math.floor(a / 65536)`, `al = a % 65536`, and likewise for
+b.)
 
 **`fp_div(a, b)`** = RHE(a·2^16 / b), b ≠ 0. Divides occur per slab per
 frame (projection setup), never per sample, so exactness may use BigInt or
@@ -512,8 +696,12 @@ golden-image testing cannot sit on a third-party encoder). Decisions:
    fully transparent pixels are exactly (0,0,0,0) — no hidden color under
    zero alpha. This is the determinism ground truth (renderer-only, no
    container).
-2. **PNG bytes from M1's own encoder** — the shipped file format,
-   compared byte-equal in CI on two platforms (R6).
+2. **Per-frame PNG bytes from M1's own encoder** — one 32×32 PNG per
+   rendered frame, fully determined by the recipe below; the shipped
+   file format, compared byte-equal in CI on two platforms (R6). The
+   packed sprite-sheet layout (design 05 §2) is pinned at M1 alongside
+   the export layer and joins the golden set then; until it does, the
+   per-frame PNGs are the canonical pixel container.
 
 **M1 ships its own minimal PNG encoder, using zlib stored blocks** (chosen
 over fixed-Huffman: zero bit-packing logic and no length/distance coding
@@ -527,8 +715,10 @@ goldens and shipping sizes stay tiny). Byte-exact recipe:
   stored blocks — each block `BFINAL|BTYPE=00` as the byte `00` (`01` on
   the final block), then LEN (u16 LE), NLEN = LEN XOR 0xFFFF, then data;
   blocks split at 65535 bytes (a 32×32 frame is one block). Stream data =
-  scanlines, each prefixed by filter byte 0 (no filtering, ever). Adler-32
-  of the unfiltered-stream data, u32 BE, closes the zlib stream.
+  scanlines, each prefixed by filter byte 0 (no filtering, ever).
+  Adler-32 over the full uncompressed stream — every scanline
+  **including its leading filter byte** (§0) — u32 BE, closes the zlib
+  stream.
 - `IEND`. **No ancillary chunks** — no tEXt, pHYs, gAMA, sRGB, nothing.
 - Chunk CRCs: standard PNG CRC-32 (reflected 0xEDB88320) over type+data.
 
@@ -551,9 +741,13 @@ bytes:
 **JSON metadata** (design 05 §2) is canonicalized: UTF-8 without BOM, no
 whitespace, object keys in byte-lexicographic order, integers only (fp
 values export as raw ints in `*_fp` fields, durations in ms), single
-line. Its SHA-256 joins the golden set. A golden entry is therefore
-(genome string, version) → {per-frame RGBA hashes, PNG bytes, JSON hash},
-checked on every CI run on two platforms.
+line. String escaping is RFC 8785 (JCS) string serialization: escape
+only what RFC 8259 requires (`"`, `\`, and controls U+0000–U+001F),
+using the two-character short forms where they exist (`\b \t \n \f \r
+\" \\`) and lowercase `\u00XX` otherwise; the solidus is never escaped.
+Its SHA-256 joins the golden set. A golden entry is therefore
+(genome string, version) → {per-frame RGBA hashes, per-frame PNG bytes,
+JSON hash}, checked on every CI run on two platforms.
 
 ## 7. What M1 consumes from the spikes
 
