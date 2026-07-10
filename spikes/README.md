@@ -118,7 +118,16 @@ Gains are per-creature — tuning found no global pair exists (wolf needs
 head ×1.6, the watcher swallows its wings above ×1.3, and its layered
 sclera/iris/pupil eye tolerates no extra focal gain at all).
 
-**Status: built — verdict pending 2-human judgment.**
+**Verdict: no (owner call).** The remap measurably improved faces — the
+imp front view goes from a faceless column to a readable chibi face with
+two separated glow eyes, the watcher improves, side views don't regress —
+but not to a shippable bar: the owner (rater 1) judged the 16×16 outputs
+unreadable against the project's own 32×32 quality. The exit required BOTH
+raters to answer yes on wolf/down and imp/down, so a definitive owner "no"
+fails it without rater 2. The owner went beyond the R3 fallback: 16×16 is
+dropped as a generated tier entirely (decision D5) — Fablesprite is a
+32×32 sprite generator; revisit post-M5 only on real demand. Findings
+F17–F19 in `docs/ASSESSMENT.md` §2.
 
 ```
 python spikes/spike04_remap16.py
@@ -136,4 +145,5 @@ yes/no. Per cell, Q2 (paired, supporting): "which panel reads better as
 the creature's face?" 1/2/tie. Blinding is weak (bigger heads are
 identifiable) — that is why Q1 is primary. **Exit:** S4 passes if the
 remapped panel gets Q1 = yes from both raters on wolf/down and imp/down.
-Fallback (risk R3): 16×16 becomes a derived-but-hand-tunable output tier.
+Fallback (risk R3): 16×16 becomes a derived-but-hand-tunable output tier
+*(superseded in the event: decision D5 dropped the tier entirely)*.

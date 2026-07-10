@@ -54,9 +54,9 @@ boundaries in S1 where averaging would produce mush.
 
 Architecture decision: **ordered rule pipeline** (predictable, debuggable,
 each rule = detect + repair + property test), with a possible search-based
-polish later (16×16 = 256 px — small enough for simulated annealing with a
-cost of rule violations + raster fidelity + temporal coherence; only if the
-pipeline plateaus).
+polish later (32×32 = 1024 px — still small enough for simulated annealing
+with a cost of rule violations + raster fidelity + temporal coherence; only
+if the pipeline plateaus).
 
 Pipeline v1. Rule numbers below are stable names, but the *executed*
 order is not 1-2-3-4-5. As built in Spike S3: quantize (1), then rules
@@ -78,8 +78,8 @@ reordered.
    renderer exports a per-pixel depth tag for this). Decided and applied
    after the 2/3/5 fixpoint, on post-merge geometry (F13).
 5. **Cluster budget** — merge sub-threshold clusters into their dominant
-   neighbor until ≤ N clusters (N: ~14 @32, ~7 @16). This is the rule that
-   makes tiny sprites read as deliberate.
+   neighbor until ≤ N clusters (N: ~14 @32, ~7 @16 — 16×16: descoped, see
+   D5). This is the rule that makes tiny sprites read as deliberate.
 6. **Banding & pillow-shade lint** — detect parallel same-width tone bands
    along boundaries and concentric shading; repair by tone reassignment
    toward the light direction.
@@ -115,15 +115,19 @@ Shared machinery (as built in Spike S3):
 - Per-creature ramps generated from genome hue loci: 3–5 tones, hue-shifted
   (shadows cool, highlights warm), shared darkest tone as outline color
   (never pure black — a gene picks the outline's hue bias).
-- Color budget: ≤ 10 @32×32, ≤ 6 @16×16 across the whole sprite — enforced
-  by ramp sharing (belly ramp reuses fur ramp's ends etc.), then by craft
-  rule 5.
+- Color budget: ≤ 10 @32×32, ≤ 6 @16×16 (16×16: descoped, see D5) across
+  the whole sprite — enforced by ramp sharing (belly ramp reuses fur
+  ramp's ends etc.), then by craft rule 5.
 - Faction palettes: a set-level base hue + allowed accent hues; creature
   hue loci are expressed *relative* to the faction palette, so a bestiary
   is related by construction and recolors (chromatic mutation) stay
   coherent.
 
 ## 6. The 16×16 problem (S1 finding F3 → Spike S4)
+
+**Status: descoped 2026-07-10** by owner decision after Spike S4 — 16×16
+is dropped as a generated tier (see `ASSESSMENT.md` F17–F19 and decision
+D5). Section kept as reference.
 
 16×16 is a redraw, not a rescale. The model renders at 16 through a
 **proportion remap stage**:

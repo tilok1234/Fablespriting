@@ -184,7 +184,11 @@ Every sprite is a compact gene string (target: fits in a tweet). This enables:
 
 - **Resolutions:** 16×16 and 32×32 native (same creature model renders both —
   the slab projection just changes cell density; the craft-rule pass keeps
-  each resolution honest instead of naive downscaling).
+  each resolution honest instead of naive downscaling). *[Editorial note,
+  2026-07-10: this hope did not survive the evidence — naive 16×16 loses
+  faces (F3) and the S4 proportion remap improved them but not to a
+  shippable bar; 16×16 was dropped as a generated tier (decision D5). See
+  `docs/ASSESSMENT.md`.]*
 - **Directions:** down, up, left, right. Left/right are true projections, not
   mirrors, when the creature has asymmetry genes (held weapon, wounded eye).
   Symmetric creatures get mirrored L/R automatically to save sheet space.

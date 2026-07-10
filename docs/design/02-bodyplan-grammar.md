@@ -60,8 +60,9 @@ outputs. Three structural defenses, all cheap:
    hover genes; chitin → segmented parts, jerky high-frequency gait). A
    creature *commits to a theme* instead of averaging over all of them.
    This converts combinatorial mush into legible families.
-2. **Part budgets by resolution.** 32×32: ~8–14 parts. 16×16: ~4–8. Budgets
-   force silhouette-level decisions; ornaments compete for scarce slots.
+2. **Part budgets by resolution.** 32×32: ~8–14 parts. 16×16: ~4–8
+   (16×16: descoped, see D5). Budgets force silhouette-level decisions;
+   ornaments compete for scarce slots.
 3. **Exclusion groups.** Wings XOR arm-blades; single-eye XOR eye-pair. The
    grammar's version of "a good design says no."
 

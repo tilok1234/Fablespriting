@@ -12,7 +12,7 @@ advances on vibes.
 | S1b | Do the two unproven plans work — serpentine traveling wave, and the amorphous metaball fork (risk R7)? | ✅ done | **Yes.** R7 retired; findings F7–F9 in `ASSESSMENT.md` §2 |
 | S2 | Does pose-salience frame sampling + non-uniform timing beat uniform 4-frame sampling? | ✅ done | **No.** Neither effect unambiguous under the pre-registered bar (2 blind raters); fallback locked: M1 = uniform sampling + uniform durations. Findings F10–F11 in `ASSESSMENT.md` §2 |
 | S3 | Can a clip-scoped craft pass hold the flicker metric under threshold while applying jaggy repair + cluster merge? | ✅ done | **Yes.** Walk max pair ratio 15.17 → 8.87, wolf idle mean 12.98 → 0.18 (per-frame → clip-scoped + chain-snapped); pipeline idempotent on 2nd run after two ordering fixes; M1 CI gate = 12.0. Findings F12–F16 in `ASSESSMENT.md` §2 |
-| S4 | Does proportion remap make 16×16 front views readable where naive 0.5× scaling fails (S1-F3)? | code built — judging | blind naive/remap pairs at 1×+4×, 2+ raters; primary absolute question: both raters can locate head + both eyes in the remapped wolf/down and imp/down panels; paired preference is supporting evidence; fails → R3 fallback (16×16 = derived-but-hand-tunable tier) |
+| S4 | Does proportion remap make 16×16 front views readable where naive 0.5× scaling fails (S1-F3)? | ✅ done | **No — plus owner descope.** Remap measurably improved faces (imp front view rescued) but not to a shippable bar; the owner (rater 1) judged the 16×16 outputs unreadable against the project's own 32×32 quality, and the exit required BOTH raters yes on wolf/down + imp/down, so a definitive owner "no" fails it without rater 2. Owner decision D5 goes beyond the R3 fallback: 16×16 dropped as a generated tier entirely. Findings F17–F19 in `ASSESSMENT.md` §2 |
 
 S2–S4 extend `spike01`'s code. Estimated: each is a day-scale effort.
 
@@ -45,8 +45,10 @@ anti-oatmeal instrument).
 
 ## Phase 3 — M3 craft & palette maturity
 
-Craft rules 6–7, 16×16 remap productionized, palette engine with faction
-palettes, selout depth-aware edges. Optional: search-based polish evaluation.
+Craft rules 6–7, palette engine with faction palettes, selout depth-aware
+edges. Optional: search-based polish evaluation. (16×16 remap
+productionization was scoped here until S4 closed and owner decision D5
+dropped the 16×16 tier.)
 
 Accepts when: blind test — a mixed sheet of generated + hand-made 32×32
 sprites; uninvolved viewers misclassify ≥50% of generated ones. (This is the

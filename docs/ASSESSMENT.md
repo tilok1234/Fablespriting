@@ -1,6 +1,6 @@
 # Fablesprite — Detailed Design Assessment
 
-**Status:** planning phase · assessment grounded in Spikes S1–S3 (see `spikes/`)
+**Status:** planning phase · assessment grounded in Spikes S1–S4 (see `spikes/`)
 **Companion docs:** deep dives in `docs/design/`, risks in `RISKS.md`, plan in `ROADMAP.md`
 
 This document assesses every pillar of `CONCEPT.md` for value, feasibility,
@@ -22,19 +22,22 @@ reality on the first try.
 
 The risk profile has shifted accordingly. Before the spike, projection was
 the top risk. After S1 the top risk was craft-pass temporal coherence;
-Spike S3 has since tested it and it holds (F12–F16), so the top three
-risks are now:
+Spike S3 tested it and it holds (F12–F16). Next up was 16×16 readability;
+Spike S4 closed it by descope rather than mitigation — the remap improved
+faces but not to a shippable bar, and the owner dropped 16×16 as a
+generated tier (D5, F17–F19). The top three risks are now:
 
-1. **16×16 readability** — naive scale-down of the 32×32 model loses faces
-   and features; needs resolution-specific proportion exaggeration, not
-   scaling. → Spike S4.
-2. **"Procedural oatmeal"** — the grammar producing endless *valid but
+1. **"Procedural oatmeal"** — the grammar producing endless *valid but
    boring* creatures. A content-design risk, not an engineering one; needs
    archetype attractors and human taste loops from M2 onward.
-3. **Craft-pass engineering breadth** — temporal coherence is validated on
+2. **Craft-pass engineering breadth** — temporal coherence is validated on
    the spike substrate, but the craft pass is still the biggest single
    work item: pipeline v1 with S3's ordering fixes, the F15/F16
    refinements, and rules 6–7 at M3.
+3. **Genome stability & determinism discipline** — stability under edit
+   (locus-path-keyed streams) and byte-identical cross-platform output
+   (fixed-point core) are cheap now and brutal to retrofit; they become
+   load-bearing with M1's first production line (§3.7, §4).
 
 Recommended next steps are in `ROADMAP.md`; decisions needed from you are at
 the bottom of this file.
@@ -82,7 +85,8 @@ Run: `python3 spikes/spike01_slab_projection.py` → `spikes/out/`.
   **resolution remap stage** — proportion-exaggeration genes applied when
   rendering the 16×16 variant (head/eye scale up, ornament budget down).
   This was in the concept as a hope ("the craft pass keeps each resolution
-  honest"); it is now a confirmed requirement with a design (S4).
+  honest"); it became a confirmed requirement with a design (S4) — though
+  the tier it served was later descoped (S4 verdict + D5).
 - **F4 — Craft thresholds are resolution-dependent.** Pixel-ownership
   coverage needed 0.42 at 32×32 vs 0.34 at 16×16 to keep thin limbs alive.
   Every craft rule must take resolution as a parameter.
@@ -222,6 +226,45 @@ Scope note: S3 exercised the slab path only; craft coverage of the
 amorphous/metaball path lands with M2 (when amorphous ships per the D4
 recommendation).
 
+### Spike S4 — 16×16 proportion remap (the descope)
+
+Run: `python spikes/spike04_remap16.py`. Two conditions, both rendered
+natively at 16×16 and judged blind at 1× and 4×: N naive (untransformed
+model, exactly as S1) vs R remapped (design 04 §6: head gain, focal gain,
+sub-pixel ornament drop, girth clamp, amplitude re-quantization). Verdict:
+**no.** The remap measurably improves faces — the imp front view goes from
+a faceless column to a readable chibi face with two separated glow eyes,
+the watcher improves, side views do not regress — but the result does not
+reach a shippable bar: the owner (rater 1) judged the 16×16 outputs
+unreadable against the project's own 32×32 output quality, and the exit
+criterion required BOTH raters to answer yes on the remapped wolf/down and
+imp/down panels, so a definitive owner "no" fails it without needing
+rater 2. The owner decision (D5, §5) goes beyond the pre-registered R3
+fallback: 16×16 is dropped as a generated tier entirely. Findings:
+
+- **F17 — Remap gains are per-creature genome genes, not global style
+  constants.** No global gain pair exists: the wolf needs head ×1.6 before
+  eye pixels leave the silhouette edge, while the watcher swallows its own
+  wings above ~×1.3. Tuned values: wolf head ×1.6 / focal ×1.3; imp ×1.5 /
+  ×1.3; watcher ×1.3 / ×1.0. This validates design 04 §6 naming them as
+  genes, and stands as evidence for any future per-part-scaling work at
+  any resolution.
+- **F18 — Focal gain is a point-eye gene, and gains cannot fix placement.**
+  (a) The watcher's layered sclera→iris→pupil eye stack tolerates no extra
+  focal gain: above ~×1.05 the tilted ray enters the grown sclera's
+  shoulder before the iris pole and renders a blank white blob. (b) The
+  wolf's eyes are authored at the edge of its head — head-gain scales
+  offsets and extents together, so no gain setting can move eyes inward;
+  at 16×16, eye *placement* itself would need remapping. The remap-op
+  vocabulary (scale-only) is structurally insufficient for
+  authored-at-the-edge faces.
+- **F19 — Scope notes.** The sub-pixel ornament-drop op is implemented but
+  fired zero times on the three test creatures (smallest ornament =
+  0.65 px at 16, above the 0.5 px bar) — that path is unexercised
+  evidence. Amplitude re-quantization worked as specified: every walk step
+  landed on integer 16-px steps, including the design doc's literal
+  1.03 → 1.00 px case on the imp.
+
 ---
 
 ## 3. Pillar-by-pillar assessment
@@ -245,10 +288,10 @@ path — the one place the renderer forks. Full design:
 ### 3.2 Slab Projection — value ●●●, risk 🟡 (was 🔴, de-risked by S1)
 
 Proven at both resolutions. Remaining risks are quality-grade ones: thin
-limbs at 16×16 (F3/F4), occlusion artifacts in rare poses, and the amorphous
-fork. The "left/right true projections when asymmetric, mirrored when
-symmetric" rule is trivially implementable — symmetry is a property the
-grammar already knows.
+limbs at 16×16 (F3/F4; 16×16: descoped, D5), occlusion artifacts in rare
+poses, and the amorphous fork. The "left/right true projections when
+asymmetric, mirrored when symmetric" rule is trivially implementable —
+symmetry is a property the grammar already knows.
 
 ### 3.3 Gait Engine — value ●●●, risk 🟢
 
@@ -340,7 +383,14 @@ retrofit. Full design: `docs/design/01-genome.md`.
 | D2 | Primary product shape | in-browser tool · CLI/batch · runtime game library | ✅ 2026-07-09: **browser tool first, library extracted later** |
 | D3 | Art-direction lock | outline style (selout vs hard black), tilt, palette philosophy | ✅ 2026-07-09: **selout + TILT=0.5 + hue-shifted ramps, as rendered in S1's sheet** |
 | D4 | MVP body plans | which 3 plans ship M2 first | Open — recommendation: quadruped, levitant, amorphous (max spread) |
+| D5 | 16×16 output tier | keep as generated tier · derived-but-hand-tunable side output · drop | ✅ 2026-07-10: **dropped as a generated tier** (owner call on S4 evidence); revisit post-M5 only on real demand |
 
 D1–D3 were decided 2026-07-09; M1 is unblocked (they never blocked spikes
 S2–S4, which are language-agnostic evidence gathering). D4 blocks M2 only
-and stays open until M2 planning.
+and stays open until M2 planning. D5 was decided 2026-07-10 after Spike
+S4, and goes beyond the pre-registered R3 fallback (which would have kept
+16×16 as a derived-but-hand-tunable side output): Fablesprite is a 32×32
+sprite generator. At a quarter of the pixel budget the generator's honest
+output starts far below the owner's quality bar, so investment goes to the
+32×32 tier instead; the S4 evidence and machinery stay in `spikes/` as the
+record.

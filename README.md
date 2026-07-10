@@ -1,8 +1,8 @@
 # Fablespriting
 
-A procedural sprite generator for top-down games: 16×16 and 32×32 player
-characters and non-humanoid enemies, animated, in 4 directions — built
-creature-first, pixels-last.
+A procedural sprite generator for top-down games: 32×32 player characters
+and non-humanoid enemies, animated, in 4 directions — built creature-first,
+pixels-last.
 
 **Currently in planning + spike phase.** Reading order:
 
