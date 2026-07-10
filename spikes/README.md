@@ -106,6 +106,34 @@ python spikes/spike03_craft_clip.py
 # → spikes/out/spike03_walk_<creature>_<dir>.gif  (arms side by side, 6×, 140 ms)
 ```
 
-## Planned
+## S4 — 16×16 proportion remap (`spike04_remap16.py`)
 
-- **S4** — 16×16 proportion remap
+**Question:** does a proportion-remap stage (design 04 §6: head gain,
+extra focal gain on eyes, sub-pixel ornament drop, ≥1px limb girth clamp,
+gait amplitudes re-quantized to the 16-px grid via S3's ties-to-even
+displacement snapping) make 16×16 front views readable where naive 0.5×
+scaling fails (S1 finding F3)? Two conditions, both rendered natively at
+16×16: **N** naive (untransformed model, exactly as S1) vs **R** remapped.
+Gains are per-creature — tuning found no global pair exists (wolf needs
+head ×1.6, the watcher swallows its wings above ×1.3, and its layered
+sclera/iris/pupil eye tolerates no extra focal gain at all).
+
+**Status: built — verdict pending 2-human judgment.**
+
+```
+python spikes/spike04_remap16.py
+# → spikes/out/spike04_judging.png    (blind pairs at 1× and 4× — the test)
+# → spikes/out/spike04_sheet.png      (de-blinded diagnostic — do NOT peek)
+# → spikes/out/spike04_walk_<creature>_down.gif  (16×16 walks, blind pair, 8×)
+# → spikes/out/spike04_remap.json     (gains, drops, clamps, amplitudes, mapping)
+# → spikes/out/spike04_mapping.txt    (sealed de-blinding key)
+```
+
+**Judging:** 2+ humans view `spike04_judging.png` at 100% zoom, BEFORE
+opening the mapping, the diagnostic sheet, or the GIFs. Per cell and per
+panel, Q1 (primary, absolute): "can you locate the head and both eyes?"
+yes/no. Per cell, Q2 (paired, supporting): "which panel reads better as
+the creature's face?" 1/2/tie. Blinding is weak (bigger heads are
+identifiable) — that is why Q1 is primary. **Exit:** S4 passes if the
+remapped panel gets Q1 = yes from both raters on wolf/down and imp/down.
+Fallback (risk R3): 16×16 becomes a derived-but-hand-tunable output tier.

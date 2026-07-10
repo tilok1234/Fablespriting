@@ -1,0 +1,436 @@
+{
+  "amplitude_px_at_16": {
+    "imp/down": {
+      "peak_disp_after_px": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "peak_disp_before_px": {
+        "x": 1.0252,
+        "y": 0.5563
+      },
+      "peak_step_after_px": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "peak_step_before_px": {
+        "x": 1.4238,
+        "y": 0.8
+      }
+    },
+    "wolf/down": {
+      "peak_disp_after_px": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "peak_disp_before_px": {
+        "x": 0.5483,
+        "y": 0.6188
+      },
+      "peak_step_after_px": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "peak_step_before_px": {
+        "x": 0.9835,
+        "y": 0.9
+      }
+    }
+  },
+  "blind_mapping": {
+    "gif:imp/down": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "gif:wolf/down": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "imp/down": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "imp/right": {
+      "1": "remap 16",
+      "2": "naive 16"
+    },
+    "watcher/down": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "watcher/right": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "wolf/down": {
+      "1": "naive 16",
+      "2": "remap 16"
+    },
+    "wolf/right": {
+      "1": "remap 16",
+      "2": "naive 16"
+    }
+  },
+  "params": {
+    "blind_seed": 20260710,
+    "dirs": [
+      "down",
+      "right"
+    ],
+    "frame_ms": 140,
+    "gain_note": "per-creature genes per design 04 s6 (remap.head_gain / remap.focal_gain)",
+    "min_coverage_16": 0.34,
+    "min_coverage_32_ref": 0.42,
+    "remap_focal_gain": {
+      "imp": 1.3,
+      "watcher": 1.0,
+      "wolf": 1.3
+    },
+    "remap_head_gain": {
+      "imp": 1.5,
+      "watcher": 1.3,
+      "wolf": 1.6
+    },
+    "remap_limb_min_extent": 2.0,
+    "remap_ornament_drop_px": 0.5,
+    "size": 16,
+    "walk_frames": 4
+  },
+  "remap_ops": {
+    "imp": {
+      "clamped": [
+        {
+          "from_xy": [
+            1.05,
+            1.05
+          ],
+          "index": 5,
+          "name": "arm_l",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.05,
+            1.05
+          ],
+          "index": 8,
+          "name": "arm_r",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.25,
+            1.35
+          ],
+          "index": 9,
+          "name": "leg_l",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.25,
+            1.35
+          ],
+          "index": 10,
+          "name": "leg_r",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        }
+      ],
+      "dropped": [],
+      "head_shift": 1.2
+    },
+    "watcher": {
+      "clamped": [
+        {
+          "from_xy": [
+            2.1,
+            0.9
+          ],
+          "index": 4,
+          "name": "wing_l",
+          "to_xy": [
+            2.1,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            2.1,
+            0.9
+          ],
+          "index": 6,
+          "name": "wing_r",
+          "to_xy": [
+            2.1,
+            2.0
+          ]
+        }
+      ],
+      "dropped": [],
+      "head_shift": 0.0
+    },
+    "wolf": {
+      "clamped": [
+        {
+          "from_xy": [
+            1.15,
+            1.5
+          ],
+          "index": 8,
+          "name": "leg_fl",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.15,
+            1.5
+          ],
+          "index": 9,
+          "name": "leg_fr",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.15,
+            1.5
+          ],
+          "index": 10,
+          "name": "leg_bl",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        },
+        {
+          "from_xy": [
+            1.15,
+            1.5
+          ],
+          "index": 11,
+          "name": "leg_br",
+          "to_xy": [
+            2.0,
+            2.0
+          ]
+        }
+      ],
+      "dropped": [],
+      "head_shift": 0.0
+    }
+  },
+  "roles": {
+    "imp": {
+      "anchor": 2,
+      "slabs": [
+        {
+          "index": 0,
+          "name": "torso",
+          "role": "body"
+        },
+        {
+          "index": 1,
+          "name": "belly",
+          "role": "body"
+        },
+        {
+          "index": 2,
+          "name": "head",
+          "role": "head"
+        },
+        {
+          "index": 3,
+          "name": "horn_l",
+          "role": "head"
+        },
+        {
+          "index": 4,
+          "name": "eye_l",
+          "role": "focal"
+        },
+        {
+          "index": 5,
+          "name": "arm_l",
+          "role": "limb"
+        },
+        {
+          "index": 6,
+          "name": "horn_r",
+          "role": "head"
+        },
+        {
+          "index": 7,
+          "name": "eye_r",
+          "role": "focal"
+        },
+        {
+          "index": 8,
+          "name": "arm_r",
+          "role": "limb"
+        },
+        {
+          "index": 9,
+          "name": "leg_l",
+          "role": "limb"
+        },
+        {
+          "index": 10,
+          "name": "leg_r",
+          "role": "limb"
+        },
+        {
+          "index": 11,
+          "name": "tail",
+          "role": "ornament"
+        }
+      ]
+    },
+    "watcher": {
+      "anchor": 0,
+      "slabs": [
+        {
+          "index": 0,
+          "name": "orb",
+          "role": "head"
+        },
+        {
+          "index": 1,
+          "name": "sclera",
+          "role": "focal"
+        },
+        {
+          "index": 2,
+          "name": "iris",
+          "role": "focal"
+        },
+        {
+          "index": 3,
+          "name": "pupil",
+          "role": "focal"
+        },
+        {
+          "index": 4,
+          "name": "wing_l",
+          "role": "limb"
+        },
+        {
+          "index": 5,
+          "name": "spike_l",
+          "role": "ornament"
+        },
+        {
+          "index": 6,
+          "name": "wing_r",
+          "role": "limb"
+        },
+        {
+          "index": 7,
+          "name": "spike_r",
+          "role": "ornament"
+        },
+        {
+          "index": 8,
+          "name": "tendril0",
+          "role": "ornament"
+        },
+        {
+          "index": 9,
+          "name": "tendril1",
+          "role": "ornament"
+        },
+        {
+          "index": 10,
+          "name": "tendril2",
+          "role": "ornament"
+        }
+      ]
+    },
+    "wolf": {
+      "anchor": 2,
+      "slabs": [
+        {
+          "index": 0,
+          "name": "body",
+          "role": "body"
+        },
+        {
+          "index": 1,
+          "name": "belly",
+          "role": "body"
+        },
+        {
+          "index": 2,
+          "name": "head",
+          "role": "head"
+        },
+        {
+          "index": 3,
+          "name": "snout",
+          "role": "head"
+        },
+        {
+          "index": 4,
+          "name": "ear_l",
+          "role": "head"
+        },
+        {
+          "index": 5,
+          "name": "eye_l",
+          "role": "focal"
+        },
+        {
+          "index": 6,
+          "name": "ear_r",
+          "role": "head"
+        },
+        {
+          "index": 7,
+          "name": "eye_r",
+          "role": "focal"
+        },
+        {
+          "index": 8,
+          "name": "leg_fl",
+          "role": "limb"
+        },
+        {
+          "index": 9,
+          "name": "leg_fr",
+          "role": "limb"
+        },
+        {
+          "index": 10,
+          "name": "leg_bl",
+          "role": "limb"
+        },
+        {
+          "index": 11,
+          "name": "leg_br",
+          "role": "limb"
+        },
+        {
+          "index": 12,
+          "name": "tail",
+          "role": "ornament"
+        }
+      ]
+    }
+  }
+}

@@ -12,7 +12,7 @@ advances on vibes.
 | S1b | Do the two unproven plans work — serpentine traveling wave, and the amorphous metaball fork (risk R7)? | ✅ done | **Yes.** R7 retired; findings F7–F9 in `ASSESSMENT.md` §2 |
 | S2 | Does pose-salience frame sampling + non-uniform timing beat uniform 4-frame sampling? | ✅ done | **No.** Neither effect unambiguous under the pre-registered bar (2 blind raters); fallback locked: M1 = uniform sampling + uniform durations. Findings F10–F11 in `ASSESSMENT.md` §2 |
 | S3 | Can a clip-scoped craft pass hold the flicker metric under threshold while applying jaggy repair + cluster merge? | ✅ done | **Yes.** Walk max pair ratio 15.17 → 8.87, wolf idle mean 12.98 → 0.18 (per-frame → clip-scoped + chain-snapped); pipeline idempotent on 2nd run after two ordering fixes; M1 CI gate = 12.0. Findings F12–F16 in `ASSESSMENT.md` §2 |
-| S4 | Does proportion remap make 16×16 front views readable where naive 0.5× scaling fails (S1-F3)? | after S2 | remapped 16×16 wolf/imp faces readable on contact sheet at 1× viewing distance |
+| S4 | Does proportion remap make 16×16 front views readable where naive 0.5× scaling fails (S1-F3)? | code built — judging | blind naive/remap pairs at 1×+4×, 2+ raters; primary absolute question: both raters can locate head + both eyes in the remapped wolf/down and imp/down panels; paired preference is supporting evidence; fails → R3 fallback (16×16 = derived-but-hand-tunable tier) |
 
 S2–S4 extend `spike01`'s code. Estimated: each is a day-scale effort.
 

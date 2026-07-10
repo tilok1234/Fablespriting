@@ -1,0 +1,10 @@
+SEALED — rate spike04_judging.png fully before reading below.
+
+spike04_judging.png wolf/down: panel 1 = naive 16, panel 2 = remap 16
+spike04_judging.png wolf/right: panel 1 = remap 16, panel 2 = naive 16
+spike04_judging.png imp/down: panel 1 = naive 16, panel 2 = remap 16
+spike04_judging.png imp/right: panel 1 = remap 16, panel 2 = naive 16
+spike04_judging.png watcher/down: panel 1 = naive 16, panel 2 = remap 16
+spike04_judging.png watcher/right: panel 1 = naive 16, panel 2 = remap 16
+spike04_walk_wolf_down.gif: panel 1 = naive 16, panel 2 = remap 16 (snapped)
+spike04_walk_imp_down.gif: panel 1 = naive 16, panel 2 = remap 16 (snapped)
