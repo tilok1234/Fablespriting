@@ -25,3 +25,5 @@ pixels-last.
 *Three body plans (quadruped, biped, levitant), one renderer, 4 directions ×
 4 walk frames, at 32×32 and 16×16 — all projected from a single micro-volume
 model per creature.*
+
+7. [`src/`](src/) — production code (M1, TypeScript), with tests in [`tests/`](tests/)
