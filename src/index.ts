@@ -6,8 +6,9 @@
  * registry, varint tape codec, sampler (§§1–4) — and the quadruped
  * pose/geometry layer (§1.2 wolf template, oscillators, derived anchors),
  * the projection/rasterization layer (§1.2 pinned rasterization block,
- * design 04 §§2–3), and the craft pass + chain snapping (§1.5,
- * design 04 §4) are in; palette and export follow.
+ * design 04 §§2–3), the craft pass + chain snapping (§1.5, design 04
+ * §4), and the palette layer (§1.3 ramps + application, design 04 §5)
+ * are in; PNG encoding and export follow.
  */
 
 export * from "./fixed.js";
@@ -16,6 +17,7 @@ export * from "./genome.js";
 export * from "./pose.js";
 export * from "./raster.js";
 export * from "./craft.js";
+export * from "./palette.js";
 
 /**
  * Growth-rule-table version (`docs/design/01-genome.md` §4).

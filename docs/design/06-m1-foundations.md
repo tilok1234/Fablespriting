@@ -382,10 +382,30 @@ S = S_role
 V = clamp(V_role + asr(oh · contrast, 1), 0, 65536)
 ```
 
+The half-step arithmetic is pinned exactly: `oh = 2t − (n−1)` is a
+**plain integer**, never a raw; `oh · hue_shift` and `oh · contrast` are
+plain integer products of that small int with the locus raw (int32-safe
+by domain: |oh| ≤ 3, so the worst magnitude is 3·2949120 = 8847360 —
+machine-verified), then `asr(…, 1)` per §5.1 (floor, also for negative
+products). `hue_base` sums are plain int32 adds performed **unwrapped**
+(underside's `base_hue + hue_shift` may leave [0, 360) in either
+direction); wrapping happens exactly once, at H, via §0's wrap360 —
+mathematical mod 360.0, i.e. mod raw 23592960, result in
+[0, 23592960), negative inputs wrapping up (the `base_hue` locus hi is
+raw 23592959, the largest in-domain raw; the worst unwrapped H input,
+23592959 + 2949120 + asr(3·2949120, 1), stays far inside int32 —
+machine-verified). `H div 60.0` / `H mod 60.0` below are integer floor
+division and mathematical mod of the wrapped H raw by raw 3932160
+(= 60.0); `byte(c) = RHE(c·255 / 65536)` is the exact integer rounding
+`rheDiv(c·255, 65536)`.
+
 Pinned role constants: hide `hue_base = base_hue`, S = 0.41, V = 0.58;
 underside `hue_base = base_hue + hue_shift`, S = 0.30, V = 0.77. The
 outline (shared by hide and underside, per design 04 §5) is
-`H = wrap360(base_hue − 84.0)`, S = 0.37, V = 0.18. The **focal** ramp is
+`H = wrap360(base_hue − 84.0)`, S = 0.37, V = 0.18. Per the §0 notation
+rule these decimals are the raws S/V hide (26870, 38011), underside
+(19661, 50463), outline (24248, 11796), offset 84.0 = 5505024 — all
+machine-verified `RHE(d·2^16)`. The **focal** ramp is
 the pinned constant table [(20,14,24), (20,14,24), (30,22,34), (52,44,58)]
 (the spike's `eye` ramp), independent of palette loci and merge-protected
 (F16).
@@ -428,6 +448,52 @@ guessing which row eyes follow:
 | 3 | light iff d > 0.025 |
 | 4 | mid iff d > −0.25, light iff d > 0.30 (the S1 values) |
 | 5 | d > −0.35, d > 0.15, d > 0.55 |
+
+**Application: crafted pixel → RGBA8 (normative).** The palette layer
+consumes §1.5 craft pixels; only `(role, tone, edge)` select the color.
+A transparent cell emits exactly RGBA (0, 0, 0, 0) — the §6 artifact-1
+rule, no hidden color under zero alpha; every opaque cell emits
+alpha 255. The pixel's ramp is its role's ramp — hide and underside the
+derived `ramp_len`-entry ramps above, focal **always** the pinned
+4-entry focal table (edge = 1 on a focal pixel takes the focal table's
+own slot 0: the focal ramp carries its own outline color, never the
+shared hide/underside outline). The slot:
+
+```
+edge = 1  →  slot 0                    (outline)
+edge = 2  →  slot tone                 (one darker than body slot tone+1)
+edge = 0  →  slot tone + 1             (body tone)
+```
+
+**edge = 2 may reach slot 0** — there is no floor at slot 1, for focal
+exactly as for hide/underside. Rationale: slot 0 is not a foreign
+color — design 04 §5 pins it as the ramp's shared *darkest tone* used
+as outline — so design 04 §4 rule 4's "one-tone-darker edge" applied to
+the darkest body tone (rasterizer tone 0, slot 1) lands on slot 0
+naturally; flooring at slot 1 would render edge = 2 identically to the
+body tone and erase the interior-boundary cue exactly where the form
+is darkest. Evidence: Spike S3's `colorize()`
+(`spikes/spike03_craft_clip.py`) implements exactly `slot = tone` with
+no floor, uniformly for every material including the focal `eye` ramp,
+and the accepted S3 renders were produced with it. For focal the
+reading is additionally safe by construction: focal slots 0 and 1 are
+the same color (20, 14, 24) in the pinned table, so a focal edge = 2 at
+tone 0 is byte-identical to its body color.
+
+The pinned output form is the §6 artifact-1 buffer: `applyPalette`
+returns the flat RGBA byte array — width·height·4 bytes, rows
+top-to-bottom, pixels left-to-right, byte order R, G, B, A — chosen so
+the buffer is byte-identical to what the §6 RGBA hash and the M1 PNG
+encoder consume, with no intermediate reshaping.
+
+A pixel whose tone lies outside its ramp's body-tone range
+(tone > ramp_len − 2 for hide/underside, tone > 2 for focal) is a
+grid/palette ramp mismatch: implementations trap (throw), never clamp
+— **whatever the edge**. The tone-range form is deliberate: an edge = 2
+pixel selects slot `tone`, which can land inside a too-short ramp and
+silently mask a mismatch that the edge = 0 slot `tone + 1` would trap
+on; validating the tone itself catches the mismatch on every edge
+path.
 
 ### 1.4 Rasterization arithmetic (normative)
 
