@@ -18,6 +18,12 @@ S2–S4 extend `spike01`'s code. Estimated: each is a day-scale effort.
 
 ## Phase 1 — M1 "one wolf, end to end" (production code begins)
 
+**Status: ✅ ACCEPTED 2026-07-11.** All criteria met: goldens byte-identical
+twice locally and across ubuntu+windows CI; 260-test suite green incl. craft
+property sweeps on 200 random genomes; owner reviewed the 50-genome sheet
+(`qa/sheet_0_49.png`) — zero degenerates flagged, §6.3 shadow pin confirmed;
+flicker gate live in CI at 32.0.
+
 First production code in the chosen stack (Decision D1 — decided:
 TypeScript + web). Scope: ONE plan
 (quadruped), full pipeline: genome (locus tree, streams, fixed-point) →
