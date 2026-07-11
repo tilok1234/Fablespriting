@@ -1231,9 +1231,8 @@ golden-image testing cannot sit on a third-party encoder). Decisions:
 2. **Per-frame PNG bytes from M1's own encoder** — one 32×32 PNG per
    rendered frame, fully determined by the recipe below; the shipped
    file format, compared byte-equal in CI on two platforms (R6). The
-   packed sprite-sheet layout (design 05 §2) is pinned at M1 alongside
-   the export layer and joins the golden set then; until it does, the
-   per-frame PNGs are the canonical pixel container.
+   packed sprite-sheet layout (design 05 §2) is pinned in §6.2 and its
+   PNG joins the golden set alongside the per-frame PNGs.
 
 **M1 ships its own minimal PNG encoder, using zlib stored blocks** (chosen
 over fixed-Huffman: zero bit-packing logic and no length/distance coding
@@ -1279,7 +1278,160 @@ using the two-character short forms where they exist (`\b \t \n \f \r
 \" \\`) and lowercase `\u00XX` otherwise; the solidus is never escaped.
 Its SHA-256 joins the golden set. A golden entry is therefore
 (genome string, version) → {per-frame RGBA hashes, per-frame PNG bytes,
-JSON hash}, checked on every CI run on two platforms.
+sheet PNG bytes, JSON hash}, checked on every CI run on two platforms.
+
+### 6.1 The M1 frame set (normative)
+
+The frame set per creature: clips **[walk, idle]** × directions
+**[down, left, up, right]** (the §1.4 DIRECTIONS order) × **K = 4**
+phases (§1.2, φ_k = k·16384 raw turns), in exactly that nesting order —
+clip outer, direction middle, phase inner — **32 frames** of 32×32.
+Frame index i decomposes as clip = i div 16, direction = (i div 4) mod
+4, phase k = i mod 4.
+
+Pipeline per clip × direction cell, pinned: `poseQuadruped` per phase →
+`snapOffsets(slabLists, direction)` (§1.5) → `rasterize(slabs,
+direction, 32, palette.ramp_len, offsets)` (§1.4) → `craftClip` (§1.5)
+→ `applyPalette` with the creature's **one** `derivePalette(genome)`
+palette (§1.3). Poses are direction-independent (design 03 §2:
+direction handling is projection); snapping, rasterization, and craft
+are per cell.
+
+**Durations are uniform 140 ms per frame, both clips.** Uniformity is
+the S2/F10 verdict (constraint row 1); the millisecond value is pinned
+here because no design doc had pinned one: 140 ms is the cadence every
+accepted spike GIF was rendered and judged at (S1, S1b, S2's 560 ms =
+4 × 140 ms cycles, S3), so the pinned cadence is exactly the judged
+look. Duration metadata emits the constant per frame (design 05 §2's
+non-uniform-capable field, degraded to constants per F10).
+
+### 6.2 Sheet packing (normative)
+
+A grid of 32×32 cells: **one row per (clip, direction) cell in
+frame-set order (8 rows), K = 4 columns, row-major, no padding** —
+sheet = 128×256 RGBA. Frame i occupies the cell at column i mod 4, row
+i div 4, i.e. pixels x ∈ [32·(i mod 4), …+32), y ∈ [32·(i div 4),
+…+32); uncovered sheet pixels are exactly (0, 0, 0, 0). The sheet PNG
+uses the §6 encoder (its stream is 256·513 = 131328 bytes — three
+stored blocks).
+
+**No mirror optimization in M1.** The trot phase groups make left and
+right views non-mirror-identical in general (the diagonal pairs {FL,
+BR} / {FR, BL} swap roles under reflection, so a mirrored left view
+plays the gait half a cycle out of phase — and per-leg loci may differ
+besides). The metadata schema nevertheless keeps a per-direction
+`mirror` boolean, **false everywhere in M1**, so an M2 mirror
+optimization for genuinely symmetric cells is an additive metadata
+change, not a schema break.
+
+### 6.3 Metadata schema (normative — the JSON is golden-hashed)
+
+Top-level keys (serialized in the §6 key order): `clips`, `frames`,
+`generator_version`, `genome`, `hitboxes`, `palette`, `sheet`. All
+numbers are integers; fp raws live in `*_fp` fields; booleans are
+legal; null never appears.
+
+- `generator_version` — the build's GENERATOR_VERSION (int).
+- `genome` — the canonical DNA string (§3): the sheet is reproducible
+  from its own metadata (design 05 §2), trait tags included via the
+  tape.
+- `sheet` — `{cell: 32, h: 256, w: 128}`.
+- `frames` — 32 entries in frame-set order:
+  `{duration_ms: 140, pivot: {x_fp, y_fp}, rect: {h, w, x, y}}`.
+  `rect` is the frame's §6.2 sheet cell in integer pixels. `pivot` is
+  the ground anchor in **cell-local** fp raws — the §1.2 frame anchor
+  (ox, oy) = (16.0, 26.5), raws (1048576, 1736704); constant across M1
+  frames by construction (the renderer never moves the anchor).
+- `clips` — clip name → direction name →
+  `{frames: [i, i+1, i+2, i+3], mirror: false}` — the cell's frame
+  indices in phase order, and the §6.2 mirror flag.
+- `hitboxes` — 32 entries, index-aligned with `frames`:
+  `{aabb: {h, w, x, y}, shadow: {cx_fp, cy_fp, rx_fp, ry_fp}}`, both
+  derived from the frame's **snapped slab set** (slabs, not pixels —
+  design 05 §2), arithmetic pinned below.
+- `palette` — `{focal, hide, underside}`: the role ramps as arrays of
+  `[r, g, b]` byte triples (slot 0 = outline; hide/underside have
+  `ramp_len` entries, focal always 4 — §1.3), plus
+  `roles: ["hide", "underside", "focal"]` — the §1.3 wire-id order,
+  recording the role↔ramp correspondence for engine-side recolors.
+
+**Hitbox arithmetic (pinned).** Per frame, per slab, after
+`yawSlab(direction)` and the frame's §1.5 snap offset translation
+(cx += dx, cz −= dy) — the same slab set the rasterizer consumed:
+
+```
+sxc = cx
+syc = fp_sub(fp_sub(0, cz), fp_mul(TILT, cy))       §1.4 screen mapping
+t   = fp_mul(TILT, hy)
+ry  = fp_sqrt(fp_add(fp_mul(hz, hz), fp_mul(t, t)))
+```
+
+`ry` is the exact screen-y half-extent of the sheared ellipsoid (the
+extremum of the linear form −z − TILT·y over an axis-aligned ellipsoid
+is √(hz² + (TILT·hy)²); x never enters); the screen-x half-extent is
+plain hx. The body AABB is the min/max over **all 13 slabs** of
+sxc ∓ hx and syc ∓ ry, anchored to the frame (add the §1.2 ox/oy raws)
+and rounded **outward** to integer pixels — floor on mins, ceil on
+maxes: x0 = asr(ox + minX, 16), x1 = −asr(−(ox + maxX), 16), likewise
+y — emitted as the half-open rect {x: x0, y: y0, w: x1 − x0,
+h: y1 − y0}. It is **not clamped** to the 32×32 canvas: the hitbox is
+geometry-derived and may legally overhang the frame.
+
+The **ground-shadow ellipse** comes from the body chain's x-extent on
+the ground line (§1.5 chain table, slabs 0–1):
+
+```
+bMinX = min over slabs {0, 1} of fp_sub(sxc, hx)
+bMaxX = max over slabs {0, 1} of fp_add(sxc, hx)
+cx_fp = fp_add(ox, asr(fp_add(bMinX, bMaxX), 1))
+cy_fp = oy                       (the ground line — raw 1736704)
+rx_fp = asr(fp_sub(bMaxX, bMinX), 1)
+ry_fp = asr(rx_fp, 2)            (pinned ¼ flattening)
+```
+
+All four shadow fields are frame-local fp raws (`*_fp`). The ¼
+flattening approximates the TILT = 0.5 foreshortening of a ground
+disc at sprite scale while keeping the shadow inside the leg span; it
+is an aesthetic pin, not a derivation.
+
+### 6.4 Serializer details (amending the §6 rules)
+
+- **Key order is UTF-8 BYTE-lexicographic** — the §6 rule made
+  precise. This coincides with RFC 8785 (JCS)'s UTF-16 code-unit order
+  for every key the M1 schema emits (all ASCII), but diverges when a
+  non-BMP key (UTF-8 `F0`–`F4`, UTF-16 surrogates `D800`–`DBFF`) meets
+  a key in U+E000–U+FFFF (UTF-8 `EE`–`EF`): bytes put the non-BMP key
+  AFTER, UTF-16 puts it before. The byte order is the pin
+  (machine-verified vectors in tests/export.test.ts).
+- **Numbers must be safe integers**; implementations trap on floats,
+  non-finite values, and anything past 2^53 − 1 — never round, never
+  emit an exponent. Negative zero serializes as `0` (its ECMAScript
+  ToString, matching RFC 8785 §3.2.2.3).
+- Booleans serialize as `true`/`false`; null is not part of the M1
+  value domain and traps.
+
+### 6.5 The all-defaults golden (normative values)
+
+The first full golden entry — the all-defaults wolf (DNA `AQ`),
+version 1. Pinned in tests/export.test.ts: all 32 per-frame PNG
+SHA-256s and RGBA-buffer SHA-256s, plus
+
+```
+sheet PNG  sha256 efd38af16fb8b1b1e3c8c9bbec17c77a453f27256684b13fc1461d65bfaaac84
+sheet RGBA sha256 08b70125c46b5d00b91f75068c7e8a944f7628830b2b7981b06c07bc72e6bdcd
+JSON       sha256 ec506673c30aba31a40f3049d80b936c44f4a0a4e6ab400d0913f10c4558157f
+```
+
+The committed artifacts `tests/goldens/defaults.sheet.png` and
+`tests/goldens/defaults.json` (the full canonical string: UTF-8, no
+BOM, single line, no trailing newline) are byte-compared against a
+fresh render on every CI run. Provenance: the hashes were pinned only
+after an independent differential pass — every frame PNG and sheet PNG
+of the defaults and seeds 0..14 decoded with Python PIL and
+pixel-compared against the RGBA buffers, the JSON re-canonicalized
+byte-identically by an independent Python serializer, and the hitboxes
+recomputed from the slab math by a from-spec Python oracle
+(2026-07-11).
 
 ## 7. What M1 consumes from the spikes
 

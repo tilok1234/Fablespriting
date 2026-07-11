@@ -25,7 +25,8 @@ Everything below is committed and pushed through `c9d4e86`; suite =
 | ✅ | `src/pose.ts` | 13-slab quadruped template (order is normative), derived anchors, walk/idle |
 | ✅ | `src/raster.ts` | tagged-pixel rasterizer; first golden: SHA-256 `3121cea8…a477ed` (all-defaults wolf, down, walk φ=0); §1.5 offset hook (golden-safe) |
 | ✅ | `src/craft.ts` | clip-scoped craft pass (design 06 §1.5): rules 2/3/5 fixpoint → selout, chain-snap offsets, focal never erased |
-| ✅ | `src/palette.ts` | fp HSV ramps + exact HSV→RGB8 + application rule (design 06 §1.3 as amended); normative defaults table reproduced byte-exactly; 195 tests |
+| ✅ | `src/palette.ts` | fp HSV ramps + exact HSV→RGB8 + application rule (design 06 §1.3 as amended); normative defaults table reproduced byte-exactly |
+| ✅ | `src/png.ts` + `src/export.ts` | own §6 PNG encoder (73-byte vector), canonical JSON (§6.4), frame set/sheet/hitboxes (§§6.1–6.3); first full golden in tests/goldens/ (sheet `efd38af1…`, JSON `ec506673…`); 235 tests |
 
 ## In flight at handoff time — RESOLVED (2026-07-11, this session)
 
@@ -63,14 +64,16 @@ it, and part-level stats are merge-invariant so F15's intent holds.)
 spike colorize() evidence; edge=0 → tone+1), the artifact-1 flat RGBA
 output form, and the tone-range mismatch trap.)
 
-1. **PNG encoder + export** (`src/png.ts`, `src/export.ts`) — design 06
-   §6: OWN encoder, zlib stored blocks, normative 1×1 vector; per-frame
-   PNGs are the golden artifacts; canonical JSON per RFC 8785; sheet
-   packing gets pinned here (design 05 §2) and joins the goldens.
-2. **Contact-sheet CLI** (`fablesprite sheet --seed-range`, ROADMAP
+(PNG + export: DONE 2026-07-11 — §§6.1–6.5 pin the 32-frame set,
+140 ms durations, 8×4 sheet with no mirror optimization, the JSON
+schema incl. slab-derived hitboxes + ¼-flattened shadow (fresh
+aesthetic pin, golden-hashed), and UTF-8-byte key order. Golden files
+in tests/goldens/.)
+
+1. **Contact-sheet CLI** (`fablesprite sheet --seed-range`, ROADMAP
    standing practice) + flicker metric in CI (gate: max pair ratio <
    12.0 per walk cell, INF auto-fail, recalibrate per F12 caveat).
-3. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
+2. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
    locally + across the two CI platforms; craft property tests on 200
    random genomes; 50-genome sheet with zero degenerates; flicker gate.
 
