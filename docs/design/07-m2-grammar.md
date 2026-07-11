@@ -40,9 +40,10 @@ Non-goals, with reasons:
   cells rare, and nothing in the M2 acceptance needs the bytes saved.
 - **16×16** (D5), **salience sampling** (F10; the levitant-sweep lead
   stays a recorded observation — do not fold it into U3).
-- **LICENSE file** — still owed from the 2026-07-09 licensing decision
-  ("before M1's CI setup"; M1 shipped without it). Needs the owner's
-  text pick (MIT or Apache-2.0); add it in the U1 commit once picked.
+- **LICENSE file** — resolved in U1: the owner picked **MIT**; the
+  LICENSE file and the package.json `license` field land in the U1
+  commit (owed since the 2026-07-09 licensing decision, "before M1's CI
+  setup"; M1 shipped without it).
 
 ## 1. Architecture: the grammar replaces the template
 
@@ -92,6 +93,112 @@ paths):
 - Amorphous: `body.blob` (core field), `body.ball[B:0..]` (serial
   metaball control points), `body.eye[L]`/`[R]` (mirror slab face
   parts, S1b-proven composition).
+
+### 1.4 U1 amendment — engine pins and the quadruped grammar
+
+*Amended with U1 (2026-07-11), per this doc's header rule. Evidence:
+the §1.2 fidelity sweep (all-defaults + seeds 0..1999,
+sha256(sheet PNG ‖ canonical JSON) equal to the M1 hardcoded path for
+all 2001 genomes — including identical trap behavior on seed 1132, the
+pre-existing craft fixpoint trap, unchanged by U1; comparison run and
+confirmed by the orchestrator 2026-07-11 against a baseline
+authenticated on a pristine `d084325` worktree; evidence fingerprint =
+sha256 over the newline-joined hash values sorted by key, as UTF-8
+bytes — a cp1252 read of the seed-1132 ERROR entry's `§` yields a
+different digest:
+`d90e1e0084dbaa89fc494fc7bd76c4e0af4298cc4138c75a95950f796a3067f7`),
+and a 101-graph differential corpus (all-defaults + seeds 0..99)
+exact-matched against an independent Python oracle on every field
+class.*
+
+**Engine discipline** (grammar.ts `growPlan`, proven by U1's
+synthetic-plan tests):
+
+- **Expansion is depth-first**: all members of one fill emit
+  contiguously, then each member's own sockets fill in member order,
+  then the parent's next socket. Canonical socket order = the pinned
+  array order of each part's socket list, never map iteration.
+- **Fill draws**: a socket fill with more than one surviving candidate
+  consumes exactly one draw from `stream(seed, draw_path, "fill")`
+  (draw paths pinned per socket). Single-candidate and closed sockets
+  consume **no** draw — the `meta.plan` precedent (06 §4.2: a draw that
+  could only return one value is not spent).
+- **Pre-draw pruning order**: budget, then allowed kinds, then
+  exclusion groups (max-one per group) — never draw-then-reject. A
+  socket whose symmetry needs more members than the remaining budget
+  closes without drawing; later, smaller sockets may still fill.
+- **Symmetry recording**: nodes record `single` or
+  `<mirror|radial|serial>:<group>`, the group name defaulting to the
+  socket name. Mirror fills emit the −x member first (06 §1.2's
+  FL-before-FR convention); serial/radial ordinals run 0..N−1 in
+  placement order within their socket (06 §2).
+- **Rest pose**: graph slabs carry every oscillator term at zero
+  (b = wag = dy_i = dz_i = 0) — growth precedes animation. Gait
+  templates (pose.ts, per-plan code) add per-frame deltas: b to cz on
+  every non-limb chain, wag to the tail chain's cx, and per-limb
+  cy += dy_i, cz += asr(dz_i, 1) + asr(b, 1). Deltas are exact int32
+  additions onto rest raws, which is what makes the growth/gait
+  decomposition byte-identical to the retired template.
+- `clearance_fp` is carried on every socket but **inert until U5**
+  (quadruped sockets carry 0; U5 pins real radii with the retry
+  machinery).
+
+**The quadruped plan** (its 13 nodes, kinds, and paths — two readings
+diverged here before this pin):
+
+- **Node decomposition: one node per normative slab — 13 nodes.**
+  Forced by three committed facts: a node carries ONE `material_role`
+  (design 02 §1) while core (hide) and core underside (underside)
+  differ; raster part-tag ids index the normative 13-slab list
+  (06 §1.2); and 13 lands inside the 8–14 budget (design 02 §3) where
+  coarser locus-path groupings (7 nodes) fall below it.
+  This supersedes §1.1's abstract node shape in two respects: `slabs[]`
+  collapses to exactly one slab per grown node, and grown nodes carry
+  no socket list (sockets exist on the plan's part choices during
+  growth, not on the output graph).
+- **Node table** (id, name, path, kind, role, chain, symmetry group —
+  names are the frozen M1 `PART_NAMES`, 06 §1.2's normative slab list):
+
+  | id | name | path | kind | role | chain | symmetry |
+  |----|------|------|------|------|-------|----------|
+  | 0 | core | body.core | core | hide | body | single |
+  | 1 | core_underside | body.core.underside | segment | underside | body | single |
+  | 2 | head | body.head | head | hide | head | single |
+  | 3 | snout | body.head.snout | segment | underside | head | single |
+  | 4 | ear_l | body.head.ear[L] | sensor | hide | head | mirror:ears |
+  | 5 | ear_r | body.head.ear[R] | sensor | hide | head | mirror:ears |
+  | 6 | eye_l | body.head.eye[L] | sensor | focal | head | mirror:eyes |
+  | 7 | eye_r | body.head.eye[R] | sensor | focal | head | mirror:eyes |
+  | 8 | leg_fl | body.leg[FL] | limb | hide | leg_fl | mirror:legs_fore |
+  | 9 | leg_fr | body.leg[FR] | limb | hide | leg_fr | mirror:legs_fore |
+  | 10 | leg_bl | body.leg[BL] | limb | hide | leg_bl | mirror:legs_hind |
+  | 11 | leg_br | body.leg[BR] | limb | hide | leg_br | mirror:legs_hind |
+  | 12 | tail | body.tail | segment | hide | tail | single |
+
+- **Canonical socket order (quadruped)**:
+  `body.core: [underside, head, leg_fore, leg_hind, tail]`;
+  `body.head: [snout, ears, eyes]` — the unique depth-first order that
+  reproduces the 06 §1.2 normative slab order.
+- **Paths of un-locus'd parts** are the table's: `body.core.underside`,
+  `body.head.snout`, `body.head.ear[L]`/`[R]`, `body.head.eye[L]`/`[R]`
+  — the `[L]`/`[R]` member spelling per §1.3's levitant vocabulary; the
+  −x member is L and emits first. Locus'd parts reconstruct their
+  subtrees from their paths (`body.leg[FL].phase_group` etc. — how the
+  gait template reads per-leg loci off the graph, no side table).
+- **Mirror groups**: ears and eyes are unbroken one-gene pairs
+  (06 §1.1); the legs record as two mirror pairs `legs_fore`/`legs_hind`
+  (design 02 §2 "mirror leg pairs ×2") while keeping per-socket loci,
+  so only their ±hip_x placement mirrors. `mirror_broken` is false for
+  every v1 genome (no asymmetry loci exist).
+- **Zero draws**: every quadruped socket is a single-candidate
+  mandatory fill, so growth consumes no stream draw for any genome (the
+  fidelity law fixes the 13-part set) — machine-verified over the
+  101-graph corpus. Growth draws first appear with the M2 plans.
+- **Module seam**: the geometry (template constants, derived anchors,
+  eye visibility coupling) lives in grammar.ts as the quadruped plan's
+  slab builders; `PART_NAMES` / `CHAINS` / `PART_ROLES` are now derived
+  from the grown graph (the §1.2 promise, discharged); pose.ts keeps
+  only clip phases and the gait template.
 
 ## 2. The plan trio
 

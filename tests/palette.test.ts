@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CraftGrid, CraftPixel } from "../src/craft.js";
 import { getScalar, makeGenome, sampleGenome } from "../src/genome.js";
-import type { MaterialRole } from "../src/pose.js";
+import type { MaterialRole } from "../src/grammar.js";
 import {
   DEG_360_RAW,
   DEG_60_RAW,

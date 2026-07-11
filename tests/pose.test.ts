@@ -3,13 +3,8 @@ import { describe, expect, test } from "vitest";
 import { FP_ONE, INT32_MAX, INT32_MIN, asr, fp_div, fp_mul, fp_sqrt } from "../src/fixed.js";
 import { getScalar, makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
-import {
-  PART_NAMES,
-  PART_ROLES,
-  clipPhases,
-  deriveAnchors,
-  poseQuadruped,
-} from "../src/pose.js";
+import { PART_NAMES, PART_ROLES, deriveAnchors } from "../src/grammar.js";
+import { clipPhases, poseQuadruped } from "../src/pose.js";
 import type { Slab } from "../src/pose.js";
 
 const DEFAULTS = makeGenome();

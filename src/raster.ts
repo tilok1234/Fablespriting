@@ -19,7 +19,8 @@
  */
 
 import { FP_ONE, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub, rheDiv } from "./fixed.js";
-import type { MaterialRole, Slab } from "./pose.js";
+import type { MaterialRole } from "./grammar.js";
+import type { Slab } from "./pose.js";
 
 // ---------------------------------------------------------------------------
 // Pinned constants (design 06 §1.2 rasterization block)

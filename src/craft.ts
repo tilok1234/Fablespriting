@@ -25,8 +25,9 @@
  */
 
 import { fp_mul, fp_sub, rheDiv } from "./fixed.js";
-import type { MaterialRole, Slab } from "./pose.js";
-import { CHAINS, PART_NAMES } from "./pose.js";
+import type { MaterialRole } from "./grammar.js";
+import { CHAINS, PART_NAMES } from "./grammar.js";
+import type { Slab } from "./pose.js";
 import { DIRECTION_TURNS, ROLE_IDS, ROLE_NAMES, TILT_RAW, yawSlab } from "./raster.js";
 import type { Direction, RasterGrid, SlabOffset } from "./raster.js";
 

@@ -36,8 +36,9 @@ import { fp_mul, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { getScalar } from "./genome.js";
 import { applyPalette, derivePalette } from "./palette.js";
+import { PART_NAMES } from "./grammar.js";
 import type { ClipName, Slab } from "./pose.js";
-import { PART_NAMES, clipPhases, poseQuadruped } from "./pose.js";
+import { clipPhases, poseQuadruped } from "./pose.js";
 import type { Direction } from "./raster.js";
 import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./raster.js";
 

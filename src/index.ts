@@ -1,20 +1,23 @@
 /**
  * Fablesprite — M1 production code (TypeScript).
  *
- * Modules land per `docs/design/06-m1-foundations.md`: the fixed-point
- * kernel (§5), named PRNG streams (§4), the genome layer — locus
- * registry, varint tape codec, sampler (§§1–4) — and the quadruped
- * pose/geometry layer (§1.2 wolf template, oscillators, derived anchors),
- * the projection/rasterization layer (§1.2 pinned rasterization block,
- * design 04 §§2–3), the craft pass + chain snapping (§1.5, design 04
- * §4), the palette layer (§1.3 ramps + application, design 04 §5), the
- * §6 PNG encoder, and the §6 export layer (frame set, sheet, canonical
- * JSON, goldens) are all in.
+ * Modules land per `docs/design/06-m1-foundations.md` and
+ * `docs/design/07-m2-grammar.md`: the fixed-point kernel (06 §5), named
+ * PRNG streams (06 §4), the genome layer — locus registry, varint tape
+ * codec, sampler (06 §§1–4) — the grammar core (07 §1: PartGraph,
+ * budgeted expansion, the quadruped plan), the quadruped gait template
+ * (06 §1.2 oscillators consuming the grown graph), the
+ * projection/rasterization layer (06 §1.2 pinned rasterization block,
+ * design 04 §§2–3), the craft pass + chain snapping (06 §1.5, design 04
+ * §4), the palette layer (06 §1.3 ramps + application, design 04 §5),
+ * the 06 §6 PNG encoder, and the 06 §6 export layer (frame set, sheet,
+ * canonical JSON, goldens) are all in.
  */
 
 export * from "./fixed.js";
 export * from "./prng.js";
 export * from "./genome.js";
+export * from "./grammar.js";
 export * from "./pose.js";
 export * from "./raster.js";
 export * from "./craft.js";

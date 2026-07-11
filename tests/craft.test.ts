@@ -21,8 +21,10 @@ import type { CraftGrid, CraftPixel } from "../src/craft.js";
 import { fp_mul, fp_sub } from "../src/fixed.js";
 import { makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
-import { CHAINS, PART_NAMES, clipPhases, poseQuadruped } from "../src/pose.js";
-import type { MaterialRole, Slab } from "../src/pose.js";
+import { CHAINS, PART_NAMES } from "../src/grammar.js";
+import type { MaterialRole } from "../src/grammar.js";
+import { clipPhases, poseQuadruped } from "../src/pose.js";
+import type { Slab } from "../src/pose.js";
 import { DIRECTION_TURNS, ROLE_NAMES, TILT_RAW, rasterize, yawSlab } from "../src/raster.js";
 import type { RasterGrid } from "../src/raster.js";
 
