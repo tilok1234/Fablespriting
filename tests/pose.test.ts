@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { FP_ONE, INT32_MAX, INT32_MIN, asr, fp_div, fp_mul } from "../src/fixed.js";
-import { makeGenome, sampleGenome } from "../src/genome.js";
+import { FP_ONE, INT32_MAX, INT32_MIN, asr, fp_div, fp_mul, fp_sqrt } from "../src/fixed.js";
+import { getScalar, makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
 import {
   PART_NAMES,
@@ -251,17 +251,95 @@ describe("oscillator vectors — independent oracle (spec equations via the LUT)
       [0, -32768, 537396, 393216, 786432, 131072], // core
       [0, 174186, 471859, 302382, 579600, 84804], // underside
       [0, 858865, 622207, 117966, 133695, 117966], // head
-      [0, 988628, 575021, 104858, 65536, 98304], // snout
+      [0, 988628, 575021, 62915, 65536, 58983], // snout (scale·(1.6, ·, 1.5))
       [-78644, 815611, 732309, 106168, 117965, 200540], // ear_l
       [78644, 815611, 732309, 106168, 117965, 200540], // ear_r
-      [-94373, 961102, 645800, 31458, 27525, 31458], // eye_l
-      [94373, 961102, 645800, 31458, 27525, 31458], // eye_r
+      [-94373, 961102, 645800, 52429, 45875, 52429], // eye_l (floors; EY base branch)
+      [94373, 961102, 645800, 52429, 45875, 52429], // eye_r
       [-262145, 290637, 222822, 52429, 98304, 157286], // leg FL
       [262145, 661365, 485898, 131072, 98304, 327680], // leg FR
       [-262145, -352719, 361380, 75366, 98304, 203162], // leg BL
       [262145, -723447, 315098, 98304, 98304, 249562], // leg BR
       [-185364, -865075, 614497, 39322, 393216, 39322], // tail
     ]);
+  });
+});
+
+describe("eye visibility coupling (design 06 §1.2)", () => {
+  // Expected raws below come from an independent Python transcription of
+  // the spec's fp steps (RHE mul/div, isqrt-based fp_sqrt), never from
+  // this implementation.
+
+  test("all-default genome renders the original wolf eye raws exactly", () => {
+    // Both floors and the EY max take the plain branch (EY margin
+    // 1016 raw: base 170394 vs floor 169378 — machine-verified).
+    const s = poseQuadruped(DEFAULTS, "walk", 0);
+    expect(centersAndHalves(s.slice(6, 8))).toEqual([
+      [-104858, 714343, 681575, 52429, 45875, 52429],
+      [104858, 714343, 681575, 52429, 45875, 52429],
+    ]);
+  });
+
+  test("protrusion floor engages: scale 1.6, eye_size 0.6, eye_offset 1.0", () => {
+    // Oracle: Xn = 21845, inside = 55633, ySurf = 328479,
+    // EY = max(272631, 314716) = 314716 (floor branch); extents floored.
+    const g = makeGenome({
+      values: [
+        ["body.head.scale", 104858],
+        ["body.head.eye_size", 39322],
+        ["body.head.eye_offset", 65536],
+      ],
+    });
+    const s = poseQuadruped(g, "walk", 0);
+    expect(centersAndHalves(s.slice(6, 8))).toEqual([
+      [-104858, 858665, 705168, 52429, 45875, 52429],
+      [104858, 858665, 705168, 52429, 45875, 52429],
+    ]);
+  });
+
+  test("footprint floors reproduce the default eye at eye_size 0.8", () => {
+    // Genomic extents (41943, 36700, 41943) floor to the default raws;
+    // EY stays on the base branch (oracle: floor 169378 < base 170394),
+    // so the slab equals the all-default eye byte-for-byte.
+    const g = makeGenome({ values: [["body.head.eye_size", 52429]] });
+    const s = poseQuadruped(g, "walk", 0);
+    expect(centersAndHalves(s.slice(6, 8))).toEqual([
+      [-104858, 714343, 681575, 52429, 45875, 52429],
+      [104858, 714343, 681575, 52429, 45875, 52429],
+    ]);
+  });
+
+  test("snout cross-extents scale with the head; identity at scale 1", () => {
+    const small = poseQuadruped(
+      makeGenome({ values: [["body.head.scale", 39322]] }),
+      "walk",
+      0,
+    )[3]!;
+    expect([small.hx, small.hz]).toEqual([62915, 58983]); // fp_mul(0.6, (1.6, 1.5))
+    const def = poseQuadruped(DEFAULTS, "walk", 0)[3]!;
+    expect([def.hx, def.hy, def.hz]).toEqual([104858, 144179, 98304]); // unchanged
+  });
+
+  test("protrusion holds across 2,000 sampled genomes (spec inequality)", () => {
+    // The spec's guarantee EY + EHY − ySurf ≥ 0.7·EHY, recomputed from
+    // the PUBLISHED slab list only (head slab + eye slab), not from
+    // pose.ts internals. Plain non-expect loop for speed; first
+    // violation reported.
+    for (let seed = 0; seed < 2000; seed++) {
+      const g = sampleGenome(BigInt(seed));
+      const s = poseQuadruped(g, "walk", 0);
+      const head = s[2]!;
+      const eye = s[7]!;
+      const xn = fp_div(getScalar(g, "body.head.eye_offset"), 196608);
+      const inside = 62915 - fp_mul(xn, xn);
+      if (inside <= 0) expect.fail(`seed ${seed}: inside ${inside} ≤ 0`);
+      const ySurf = fp_mul(head.hy, fp_sqrt(inside));
+      const protrusion = eye.cy - head.cy + eye.hy - ySurf;
+      const bound = eye.hy - fp_mul(19661, eye.hy);
+      if (protrusion < bound) {
+        expect.fail(`seed ${seed}: protrusion ${protrusion} < bound ${bound}`);
+      }
+    }
   });
 });
 
@@ -289,6 +367,21 @@ describe("analytical properties (design 06 §1.2 claims)", () => {
     for (const i of [8, 9, 10, 11]) {
       expect(slabs[i]!.cz - slabs[i]!.hz).toBe(0);
       expect(slabs[i]!.cz + slabs[i]!.hz).toBe(2 * 203162);
+    }
+  });
+
+  test("legs ride a negative odd bob with FLOOR semantics (asr, not trunc)", () => {
+    // The one template path where floor-toward−∞ vs truncate-toward-zero
+    // is observable end-to-end: idle φ = 0.75 turns (sin = −1 exactly)
+    // with bob_amp 98766 → b = −asr(98766, 1) = −49383 (odd), so the
+    // legs' asr(b, 1) is −24692 under floor but −24691 under truncation.
+    // Expected raw derived by the independent Python differential oracle
+    // (2026-07-11), not by this implementation. A port using `x/2|0`
+    // truncation passes every other template vector but fails here.
+    const g = makeGenome({ values: [["anim.quadruped.bob_amp", 98766]] });
+    const slabs = poseQuadruped(g, "idle", 49152);
+    for (const i of [8, 9, 10, 11]) {
+      expect(slabs[i]!.cz, PART_NAMES[i]).toBe(203162 - 24692); // 178470
     }
   });
 

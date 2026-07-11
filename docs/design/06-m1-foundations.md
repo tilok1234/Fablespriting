@@ -150,11 +150,16 @@ Symmetry: `±` rows are mirror pairs placed by one locus.
 | core | (0, −0.5, CZ + b) | (girth, length, depth) | hide |
 | core underside | (0, UY, UZ + b) | (0.769·girth, 0.737·length, 0.647·depth) | underside |
 | head | H = (0, HY, HZ + b) | scale·(3.0, 3.4, 3.0) | hide |
-| snout | H + scale·(0, 3.3, −1.2) | (1.6, snout_len, 1.5) | underside |
+| snout | H + scale·(0, 3.3, −1.2) | (scale·1.6, snout_len, scale·1.5) | underside |
 | ears (±) | H + scale·(±2.0, −1.1, 2.8) | ear_size·(0.9, 1.0, 1.7) | hide |
-| eyes (±) | H + scale·(±eye_offset, 2.6, 0.6) | eye_size·(0.8, 0.7, 0.8) | focal |
+| eyes (±) | H + (±scale·eye_offset, EY, scale·0.6) | (EHX, EHY, EHZ) | focal |
 | legs ×4 | (hip_x, hip_y + dy_i, length_i + asr(dz_i,1) + asr(b,1)) | (girth_i, 1.5, length_i) | hide |
 | tail | (wag, TY, TZ + b) | (tail.girth, tail.length, tail.girth) | hide |
+
+Snout cross-extents scale with the head, and the eye row's EY/EHX/
+EHY/EHZ are derived values — see **eye visibility coupling** below; at
+the all-default loci both rows reduce exactly to the original wolf
+constants (1.6, ·, 1.5) and (2.6 forward, eye_size·(0.8, 0.7, 0.8)).
 
 **Slab-list order is normative** (part-tag ids index it): core, core
 underside, head, snout, ear −x, ear +x, eye −x, eye +x, legs FL, FR,
@@ -254,6 +259,73 @@ rest pose):
 No other domain produces disconnection at its extremes. Raw defaults
 are unchanged by the coupling, so the §3.4 worked example still stands
 (its leg value 3.6 lies inside the narrowed domain).
+
+**Eye visibility coupling.** Rasterization exposed a failure family the
+anchor coupling doesn't cover: eyes are the template's only
+sub-pixel-scale feature, and merely *placing* them left 323 of the
+first 2000 sampled genomes eyeless in the down view — 72 buried (the
+eye's front face never leaves the head ellipsoid), the rest occluded by
+the snout on small heads or lost to sub-pixel straddling (an eye disc
+under ~1 px splits its ≤ 16 supersamples across 2–4 pixels and loses
+every §1.2 majority vote to the single-tone head behind it, however far
+it protrudes — F18 again: one lever cannot fix a different-dimensional
+failure). Three derived guarantees repair this, all delta-form — at the
+all-default loci the extent floors equal the genomic raws exactly and
+the EY max takes the plain wolf branch, so the default wolf is
+byte-identical, pinned golden included (machine-verified):
+
+```
+EHX = max(fp_mul(eye_size, 52429), 52429)   half-extents floored at the
+EHY = max(fp_mul(eye_size, 45875), 45875)   default wolf's raws — no
+EHZ = max(fp_mul(eye_size, 52429), 52429)   rendered eye smaller than
+                                            eye_size 1.0 · (0.8, 0.7, 0.8)
+Xn     = fp_div(eye_offset, 196608)         eye column in the head frame —
+                                            head scale cancels exactly
+inside = fp_sub(62915, fp_mul(Xn, Xn))      62915 = RHE(0.96·2^16); 0.96 =
+                                            1 − (0.6/3.0)²; also identically
+                                            FP_ONE − fp_mul(13107, 13107)
+ySurf  = fp_mul(fp_mul(scale, 222822), fp_sqrt(inside))
+EY     = max(fp_mul(scale, 170394),
+             fp_sub(ySurf, fp_mul(19661, EHY)))
+```
+
+The step order is normative (floors first: the slack term uses the
+FLOORED forward half-extent EHY). `inside` stays positive over the
+whole domain (max Xn = 0.8 raw 52429 → inside = 20972 ≥ 0.32).
+
+- **Protrusion floor** (buries): `ySurf` is the head surface's forward
+  extent at the eye's own (x, z) column, so the EY floor guarantees
+  protrusion `EY + EHY − ySurf ≥ 0.7·EHY` (slack raw 19661 =
+  RHE(0.3·2^16)). κ = 0.7 is the largest round ratio below the default
+  wolf's own ≈ 0.7221 (= 33128/45875 in raws): the default genome takes
+  the plain branch by 1016 raw (170394 vs floor 169378,
+  machine-verified); any κ ≥ 0.7222 would lift the default and break
+  the golden.
+- **Footprint floor** (straddles): a 0.8 px half-extent disc claims
+  ≥ 8 of a pixel's 16 samples in the worst straddle positions where the
+  genomic minimum (0.48 px at eye_size 0.6) claims 3.
+- **Snout cross-extent scaling** (occlusions): fixed (1.6, ·, 1.5)
+  cross-extents on a scale-0.6 head are ~42% of head height (1.5/3.6)
+  vs the authored 25% (1.5/6.0), ride up over the eye rows, and win
+  every depth contest (the snout is nearer the camera). Scaling them
+  with the head restores the authored proportion at every scale.
+
+Vote-rule repairs were evaluated and are **rejected** — the default
+wolf itself contains focal-tie pixels, so any §1.2 vote amendment
+breaks all-default byte-identity somewhere: pooling focal samples
+changes the default at walk φ = 0.25 down pixel (18, 21); focal
+priority on count ties changes idle φ = 0.25 right pixel (26, 16).
+The §1.2 vote is frozen.
+
+Coupled result (empirical, seeds 0..1999, down, walk φ = 0): eyeless
+323 → 1. The residual is seed 1142 (scale 1.297, eye_size 0.893,
+eye_offset 1.480): its floored eye claims exactly 8 of 16 samples in
+two pixels — a dead tie against the head's 8 — and the pinned
+first-seen tie-break resolves both to the head (plus two 9 vs 7
+near-misses); profile views render its eye. All three floors sit at
+their maximum default-byte-identical values, so this residual is the
+principled optimum for M1; it is pinned as a characterization in
+tests/raster.test.ts and revisits with M2's template work (D4).
 
 Oscillators, per frame k of K (M1 pins K = 4 for both clips, uniform
 sampling and uniform durations per S2/F10; φ_k = k · 16384 raw turns —

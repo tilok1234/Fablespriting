@@ -20,7 +20,7 @@
  * spec's `RHE(d · 2^16)` raw with the authored decimal in a comment.
  */
 
-import { asr, fp_add, fp_mul, fp_sub, sin_fp } from "./fixed.js";
+import { asr, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub, sin_fp } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { getScalar } from "./genome.js";
 
@@ -119,7 +119,13 @@ const HEAD_HZ = 196608; // 3.0
 /** Snout center offset from H, scaled: scale·(0, 3.3, −1.2). */
 const SNOUT_OY = 216269; // 3.3
 const SNOUT_OZ = -78643; // −1.2
-/** Snout half-extents (1.6, snout_len, 1.5). */
+/**
+ * Snout half-extents (scale·1.6, snout_len, scale·1.5) — cross-extents
+ * scale with the head (§1.2 as amended by the eye visibility coupling):
+ * fixed 1.6/1.5 extents on a shrunken head rode up over the eye rows and
+ * occluded them from the camera. `fp_mul(1.0, c) = c`, so scale-1
+ * genomes are byte-identical to the original constants.
+ */
 const SNOUT_HX = 104858; // 1.6
 const SNOUT_HZ = 98304; // 1.5
 /** Ear center offset from H, scaled: scale·(±2.0, −1.1, 2.8). */
@@ -130,13 +136,40 @@ const EAR_OZ = 183501; // 2.8
 const EAR_HX = 58982; // 0.9
 const EAR_HY = 65536; // 1.0
 const EAR_HZ = 111411; // 1.7
-/** Eye center offset from H, scaled: scale·(±eye_offset, 2.6, 0.6). */
-const EYE_OY = 170394; // 2.6
+/**
+ * Eye center offset from H: (±scale·eye_offset, EY, scale·0.6), with EY
+ * the derived forward offset of the §1.2 eye visibility coupling —
+ * `EY = max(scale·2.6, ySurf − 0.3·eyeHy)`, guaranteeing the eye's front
+ * face protrudes at least 0.7 of its forward half-extent beyond the head
+ * surface at the eye's own (x, z) column. 0.7 sits just below the
+ * default wolf's own protrusion ratio (≈ 0.7221), so the all-default
+ * genome takes the plain-constant branch with a 1016-raw margin
+ * (machine-verified) and stays byte-identical.
+ */
+const EYE_OY = 170394; // 2.6 — the wolf forward-offset constant
 const EYE_OZ = 39322; // 0.6
-/** Eye half-extents eye_size·(0.8, 0.7, 0.8). */
+/**
+ * Eye half-extents eye_size·(0.8, 0.7, 0.8), floored at these same raws
+ * (§1.2 eye visibility coupling: no rendered eye is smaller than the
+ * default wolf's — sub-pixel eye discs split their ≤ 16 supersamples
+ * across pixel boundaries and lose every majority vote). Factor and
+ * floor coincide because the default `eye_size` is exactly 1.0.
+ */
 const EYE_HX = 52429; // 0.8
 const EYE_HY = 45875; // 0.7
 const EYE_HZ = 52429; // 0.8
+/**
+ * Head-frame column base of the eye's head-surface extent:
+ * 1 − (0.6/3.0)² = 0.96, raw RHE(0.96·2^16) = 62915 — identically
+ * FP_ONE − fp_mul(13107, 13107) (both derivations agree,
+ * machine-verified). The eye's x column enters as
+ * `Xn = fp_div(eye_offset, 3.0)` (head scale cancels), and
+ * `inside = 0.96 − Xn²` stays > 0 over the whole eye_offset domain
+ * (max Xn = 0.8 → inside ≥ 0.32).
+ */
+const EYE_INSIDE_BASE = 62915; // 0.96
+/** 1 − κ with κ = 0.7 the guaranteed protrusion ratio; raw RHE(0.3·2^16). */
+const EYE_SLACK = 19661; // 0.3
 /** Leg half-extent along y (1.5). */
 const LEG_HY = 98304; // 1.5
 
@@ -288,7 +321,12 @@ function slab(
  * center z = length + asr(dz, 1) + asr(b, 1) — and span z ∈ [0, 2·length]
  * at rest, standing on the ground plane. Head children (snout, ears,
  * eyes) offset from H scaled by `head.scale`, so grown heads keep their
- * features attached (S4-F18).
+ * features attached (S4-F18). The §1.2 eye visibility coupling extends
+ * that lesson: eye half-extents floor at the default wolf's raws, the
+ * eye forward offset floors at a guaranteed-protrusion value, and the
+ * snout's cross-extents scale with the head — so every sampled genome's
+ * eyes survive rasterization (known residual: one sub-pixel straddle,
+ * seed 1142, characterized in tests/raster.test.ts).
  *
  * The phase argument must be an integer raw; it may lie outside
  * [0, 65536) — oscillator arguments wrap through the LUT (§5.3), so any
@@ -358,19 +396,21 @@ export function poseQuadruped(
   // head — H = (0, HY, HZ + b), half scale·(3.0, 3.4, 3.0), hide
   const headY = a.hy;
   const headZ = fp_add(a.hz, b);
+  const headHy = fp_mul(scale, HEAD_HY);
   slabs.push(
-    slab(0, headY, headZ, fp_mul(scale, HEAD_HX), fp_mul(scale, HEAD_HY), fp_mul(scale, HEAD_HZ), "hide"),
+    slab(0, headY, headZ, fp_mul(scale, HEAD_HX), headHy, fp_mul(scale, HEAD_HZ), "hide"),
   );
 
-  // snout — H + scale·(0, 3.3, −1.2), half (1.6, snout_len, 1.5), underside
+  // snout — H + scale·(0, 3.3, −1.2), half (scale·1.6, snout_len,
+  // scale·1.5), underside
   slabs.push(
     slab(
       0,
       fp_add(headY, fp_mul(scale, SNOUT_OY)),
       fp_add(headZ, fp_mul(scale, SNOUT_OZ)),
-      SNOUT_HX,
+      fp_mul(scale, SNOUT_HX),
       snoutLen,
-      SNOUT_HZ,
+      fp_mul(scale, SNOUT_HZ),
       "underside",
     ),
   );
@@ -386,14 +426,21 @@ export function poseQuadruped(
   slabs.push(slab(-earX, earY, earZ, earHx, earHy, earHz, "hide"));
   slabs.push(slab(earX, earY, earZ, earHx, earHy, earHz, "hide"));
 
-  // eyes (±) — H + scale·(±eye_offset, 2.6, 0.6), half
-  // eye_size·(0.8, 0.7, 0.8), focal; −x (left) member first
+  // eyes (±) — H + (±scale·eye_offset, EY, scale·0.6), half-extents
+  // eye_size·(0.8, 0.7, 0.8) floored at the default raws, focal; −x
+  // (left) member first. EY per the §1.2 eye visibility coupling: the
+  // exact fp step order below is normative (floors first — the slack
+  // term uses the FLOORED forward half-extent).
+  const eyeHx = Math.max(fp_mul(eyeSize, EYE_HX), EYE_HX);
+  const eyeHy = Math.max(fp_mul(eyeSize, EYE_HY), EYE_HY);
+  const eyeHz = Math.max(fp_mul(eyeSize, EYE_HZ), EYE_HZ);
+  const eyeXn = fp_div(eyeOffset, HEAD_HX); // head scale cancels
+  const eyeInside = fp_sub(EYE_INSIDE_BASE, fp_mul(eyeXn, eyeXn));
+  const eyeYSurf = fp_mul(headHy, fp_sqrt(eyeInside));
+  const eyeMinOy = fp_sub(eyeYSurf, fp_mul(EYE_SLACK, eyeHy));
   const eyeX = fp_mul(scale, eyeOffset);
-  const eyeY = fp_add(headY, fp_mul(scale, EYE_OY));
+  const eyeY = fp_add(headY, Math.max(fp_mul(scale, EYE_OY), eyeMinOy));
   const eyeZ = fp_add(headZ, fp_mul(scale, EYE_OZ));
-  const eyeHx = fp_mul(eyeSize, EYE_HX);
-  const eyeHy = fp_mul(eyeSize, EYE_HY);
-  const eyeHz = fp_mul(eyeSize, EYE_HZ);
   slabs.push(slab(-eyeX, eyeY, eyeZ, eyeHx, eyeHy, eyeHz, "focal"));
   slabs.push(slab(eyeX, eyeY, eyeZ, eyeHx, eyeHy, eyeHz, "focal"));
 

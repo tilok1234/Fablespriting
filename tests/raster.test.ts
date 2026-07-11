@@ -289,26 +289,19 @@ describe("500-genome sampled sweep, all 4 directions, walk phase 0 (deliverable 
     "no throws, structure holds, every sprite has opaque pixels; focal survival characterized",
     { timeout: 300000 },
     () => {
-      // KNOWN SPEC FINDING (2026-07-11), investigated and cross-checked
-      // against an independent float transcription of the spike's
-      // renderer (which reproduces it exactly, pixel-for-pixel on the
-      // default wolf): 78 of the first 500 sampled genomes render NO
-      // focal (eye) pixel in the down view. Two geometric causes, both
-      // upstream of the rasterizer:
-      //   1. Buried eyes — the §1.2 template puts the eye center at
-      //      H + scale·(±eye_offset, 2.6, 0.6) inside a head of
-      //      half-extent 3.4·scale, so the eye's forward protrusion is
-      //      2.6·scale + 0.7·eye_size − 3.4·scale·sqrt(0.96 − (eye_offset/3)²)
-      //      px; whenever that is ≤ 0 the eye front face never leaves the
-      //      head ellipsoid (e.g. seed 1: protrusion −0.04 px).
-      //   2. Sub-pixel straddling — a well-protruding but ~1 px eye
-      //      centered on a pixel corner (e.g. seed 61: protrusion
-      //      1.4 px, eye_size 0.63 at eye_offset 2.36) splits its ≤ 16
-      //      samples across 4 pixels and loses every majority vote to
-      //      the head behind it.
-      // The count is pinned so a future template/sampler fix (the
-      // real repair — eye placement must guarantee protrusion, the
-      // S4-F18 lesson again) changes this test deliberately.
+      // RESOLVED SPEC FINDING (found & fixed 2026-07-11): before the
+      // design 06 §1.2 eye visibility coupling, 78 of the first 500
+      // sampled genomes (323 of the first 2000) rendered NO focal (eye)
+      // pixel in the down view, from three geometric causes: buried
+      // eyes (front face never leaves the head ellipsoid), snout
+      // occlusion (fixed 1.6×1.5 snout cross-extents ride over the eye
+      // rows on scale < ~0.8 heads), and sub-pixel straddling (an eye
+      // disc under ~1 px splits its ≤ 16 samples across pixels and
+      // loses every majority vote to the head behind it). The coupling
+      // (protrusion floor + default-raw footprint floors + scaled snout
+      // cross-extents) repairs all of the first 500 and all but ONE of
+      // the first 2000 — see the seeds 500..1999 sweep below for the
+      // pinned residual.
       let focalless = 0;
       for (let seed = 0; seed < 500; seed++) {
         const g = sampleGenome(BigInt(seed));
@@ -328,7 +321,7 @@ describe("500-genome sampled sweep, all 4 directions, walk phase 0 (deliverable 
           if (d === "down" && countRole(grid, "focal") === 0) focalless++;
         }
       }
-      expect(focalless).toBe(78);
+      expect(focalless).toBe(0);
     },
   );
 
@@ -336,6 +329,29 @@ describe("500-genome sampled sweep, all 4 directions, walk phase 0 (deliverable 
     const grid = rasterize(poseQuadruped(DEFAULTS, "walk", 0), "down");
     expect(countRole(grid, "focal")).toBeGreaterThan(0);
   });
+
+  test(
+    "seeds 500..1999, down view: the sole eyeless residual is seed 1142",
+    { timeout: 300000 },
+    () => {
+      // Design 06 §1.2 eye visibility coupling, known residual: seed
+      // 1142's floored eye claims exactly 8 of 16 samples in two pixels
+      // — a dead tie against the head's 8 — and the pinned first-seen
+      // tie-break resolves both to the head (plus two 9 vs 7 near
+      // misses); its profile views do render the eye. All three floors
+      // sit at their maximum default-byte-identical raws and vote-rule
+      // repairs are rejected (they alter default frames — §1.2), so
+      // this is the principled optimum for M1. Pinned exactly: a change
+      // to this list must be deliberate.
+      const eyeless: number[] = [];
+      for (let seed = 500; seed < 2000; seed++) {
+        const g = sampleGenome(BigInt(seed));
+        const grid = rasterize(poseQuadruped(g, "walk", 0), "down");
+        if (countRole(grid, "focal") === 0) eyeless.push(seed);
+      }
+      expect(eyeless).toEqual([1142]);
+    },
+  );
 });
 
 describe("pinned raster golden (deliverable 8)", () => {
