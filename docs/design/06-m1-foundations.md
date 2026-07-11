@@ -156,6 +156,12 @@ Symmetry: `±` rows are mirror pairs placed by one locus.
 | legs ×4 | (hip_x, hip_y + dy_i, length_i + asr(dz_i,1) + asr(b,1)) | (girth_i, 1.5, length_i) | hide |
 | tail | (wag, TY, TZ + b) | (tail.girth, tail.length, tail.girth) | hide |
 
+**Slab-list order is normative** (part-tag ids index it): core, core
+underside, head, snout, ear −x, ear +x, eye −x, eye +x, legs FL, FR,
+BL, BR, tail — 13 slabs; each mirror pair emits its −x member first,
+matching the FL-before-FR socket convention. (The S1 spike interleaved
+ears/eyes per side; the table's row order above is the contract.)
+
 Hips: FL = (−hip_x, fore hip_y), FR = (+hip_x, fore hip_y),
 BL = (−hip_x, hind hip_y), BR = (+hip_x, hind hip_y) — derived anchors
 per the coupling table below; at all-default dims they are exactly the
@@ -236,8 +242,8 @@ rest pose):
   is identically zero). **`body.leg[*].length` is therefore narrowed
   from [1.8, 5] to [2.4, 5]** (lo raw 157286, §1.1): below 2.35 the
   shortest legs detach from the underside at the idle peak, while 2.4
-  keeps ≥ 0.1 px of contact in every rendered frame of both clips for
-  every genome. The default (3.1) is unchanged, and the worst-case tape
+  keeps ≈ 0.1 px of contact (exactly 6552 raw = 0.099976 px at the
+  worst case) in every rendered frame of both clips for every genome. The default (3.1) is unchanged, and the worst-case tape
   size (§3.5) is unaffected — the hi extreme dominates that locus's
   payload either way.
 - **Tail stays attached.** Its front edge penetrates the core's rear
