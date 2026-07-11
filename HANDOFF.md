@@ -26,7 +26,8 @@ Everything below is committed and pushed through `c9d4e86`; suite =
 | ✅ | `src/raster.ts` | tagged-pixel rasterizer; first golden: SHA-256 `3121cea8…a477ed` (all-defaults wolf, down, walk φ=0); §1.5 offset hook (golden-safe) |
 | ✅ | `src/craft.ts` | clip-scoped craft pass (design 06 §1.5): rules 2/3/5 fixpoint → selout, chain-snap offsets, focal never erased |
 | ✅ | `src/palette.ts` | fp HSV ramps + exact HSV→RGB8 + application rule (design 06 §1.3 as amended); normative defaults table reproduced byte-exactly |
-| ✅ | `src/png.ts` + `src/export.ts` | own §6 PNG encoder (73-byte vector), canonical JSON (§6.4), frame set/sheet/hitboxes (§§6.1–6.3); first full golden in tests/goldens/ (sheet `efd38af1…`, JSON `ec506673…`); 235 tests |
+| ✅ | `src/png.ts` + `src/export.ts` | own §6 PNG encoder (73-byte vector), canonical JSON (§6.4), frame set/sheet/hitboxes (§§6.1–6.3); first full golden in tests/goldens/ (sheet `efd38af1…`, JSON `ec506673…`) |
+| ✅ | `src/flicker.ts` + `src/cli.ts` | §1.6 flicker metric (gate RECALIBRATED 12.0→32.0 per F12: production max 25.12 over 800 cells, evidence in §1.6) + `fablesprite sheet` CLI (`npm run build`, dist/cli.js); first pinned QA sheet qa/sheet_0_49.png; 260 tests |
 
 ## In flight at handoff time — RESOLVED (2026-07-11, this session)
 
@@ -70,12 +71,16 @@ schema incl. slab-derived hitboxes + ¼-flattened shadow (fresh
 aesthetic pin, golden-hashed), and UTF-8-byte key order. Golden files
 in tests/goldens/.)
 
-1. **Contact-sheet CLI** (`fablesprite sheet --seed-range`, ROADMAP
-   standing practice) + flicker metric in CI (gate: max pair ratio <
-   12.0 per walk cell, INF auto-fail, recalibrate per F12 caveat).
-2. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
+(CLI + flicker: DONE 2026-07-11 — §1.6 pins the exact metric
+arithmetic and the recalibrated gate 32.0 (S3's 12.0 did not hold:
+sampled low-motion genomes legitimately reach 25.12; ROADMAP
+acceptance line amended). qa/sheet_0_49.png reviewed by orchestrator:
+50 distinct coherent creatures, zero degenerates spotted.)
+
+1. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
    locally + across the two CI platforms; craft property tests on 200
-   random genomes; 50-genome sheet with zero degenerates; flicker gate.
+   random genomes; 50-genome sheet with zero degenerates (OWNER review
+   of qa/sheet_0_49.png is the remaining human step); flicker gate.
 
 ## Working method that got us here (keep it)
 

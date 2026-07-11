@@ -27,3 +27,42 @@ pixels-last.
 model per creature.*
 
 7. [`src/`](src/) — production code (M1, TypeScript), with tests in [`tests/`](tests/)
+
+## Contact-sheet CLI (human QA)
+
+The ROADMAP standing-practice QA tool. It is **not normative
+rendering** — it composes the golden-tested `exportCreature()` sheets
+(design 06 §6) into one review grid; the design docs pin nothing about
+it, this section is its contract.
+
+```
+npm run build
+node dist/cli.js sheet --seed-range 0..49 [--out DIR]     # or the
+                                                          # `fablesprite`
+                                                          # bin after
+                                                          # npm link
+```
+
+- Renders the **sampled genome** of every seed in the inclusive range
+  (design 06 §4.2 sampler, so sheets are reproducible across
+  implementations) through the full pipeline, ~0.6 s per genome on a
+  desktop (50 genomes ≈ 30 s — fine for a QA tool, don't put it in a
+  hot loop).
+- Each genome contributes its full 128×256 export sheet at 1×,
+  composed row-major into `ceil(√N)` columns (capped at 31 so the
+  output stays under ~4096 px wide) with a 2-px transparent gutter.
+- Output: `sheet_<A>_<B>.png` + `sheet_<A>_<B>.json` in `--out`
+  (default `./out`). The JSON manifest maps every grid position to
+  `{seed, dna}` (plus grid geometry and `generator_version`), so
+  creatures stay identifiable without in-image text — M1 renders no
+  fonts.
+- **Build step**: the repo is ESM TypeScript with `.js` import
+  specifiers; Node 24's type stripping does not remap those onto `.ts`
+  files, so the bin runs from `dist/` via `npm run build` (plain
+  `tsc`, no new dependencies). CI builds before testing, which also
+  arms the CLI subprocess smoke test in `tests/cli.test.ts`.
+- Pinned QA sheets live in [`qa/`](qa/) (first entry:
+  `sheet_0_49.png`). They **re-render on every grammar/craft change by
+  design** — they are reviewed artifacts for human judgment
+  (constraint row 10: the flicker gate alone is not a quality gate),
+  never byte-pinned goldens.

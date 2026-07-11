@@ -880,6 +880,95 @@ order or depth tags. An absent offset list (and equally an all-zero
 one) is byte-identical to the un-hooked rasterizer — the §1.4 pinned
 raster golden is rendered without offsets and stands unchanged.
 
+### 1.6 Flicker metric (normative)
+
+The CI flicker gate of constraint row 5 (S3/F12; design 03 §4 as
+built), transcribed to exact fixed point. The metric is diagnostic
+instrumentation over the §6.1 pipeline's outputs — it adds nothing to
+the render path and no goldens hash it — but its arithmetic is pinned
+here so two implementations agree on every pass/fail verdict.
+
+**Inputs.** One clip × direction cell: the K final RGBA frames (the
+§1.3 artifact-1 buffers, post-palette — the shipped bytes; K = 4 in
+M1) and the K continuous PRE-SNAP model-space slab lists that produced
+them (the §1.2 13-slab template — snapping never enters the energy
+side). Frame pairs wrap: the K scored pairs are (f, (f+1) mod K) for
+f = 0..K−1, so the (K−1, 0) pair is included.
+
+**changed(f, g)** = the count of pixel positions whose 4 RGBA bytes
+differ in any byte. Transparent is exactly (0, 0, 0, 0) (§1.3), so the
+byte comparison is total — no alpha special-casing.
+
+**motion_energy(f, g)** = the sum over the 13 slabs of the Euclidean
+screen-space displacement of the slab's CONTINUOUS pre-snap projected
+center between the two frames. The center mapping is byte-for-byte the
+§1.5 snap-position mapping, applied here to EVERY slab (not only chain
+anchors): after yawSlab for the direction, `sx = cx`,
+`sy = fp_sub(fp_sub(0, cz), fp_mul(TILT, cy))` — model-scale screen
+raws; the §1.2 frame anchor is a constant and cancels in
+displacements. Per slab, with dx, dy the int32 raw center differences:
+
+```
+disp   = RHE(√(dx² + dy²))               exact integer square sum
+energy = Σ over the 13 slabs of disp     exact integer, 16.16 raw
+```
+
+The square sum is computed EXACTLY: it exceeds int32 over the locus
+domains (machine-verified worst case: |dx| = 524288 raw = 8 px — tail
+wag at gait_freq 2, tail_amp 4, tail_lag 0.25 — square sum 2^38), so
+fp_mul is not a legal carrier; the reference implementation uses
+BigInt (the sum stays below 2^53, so exact doubles also conform).
+RHE(√n) is the §5.2 fp_sqrt rounding applied to the exact sum — a tie
+is impossible ((q+½)² is never an integer) — decided by the remainder
+test `q = isqrt(n); if n − q² > q: q += 1`. The form is identically
+fp_sqrt with its input scale shifted: fp_sqrt(a) = RHE(√(a·2^16)), and
+here a·2^16 is replaced by the exact 2^32-scale square sum instead of
+RHE((dx² + dy²)/2^16) — chosen to eliminate the two intermediate
+fp_mul roundings along with their range ceiling.
+
+**Gate.** The pinned gate is the rational GATE_NUM / GATE_DEN =
+32 / 1 = 32.0 (recalibration evidence below). Scoring one pair, in
+this order:
+
+- energy = 0 and changed = 0 → the pair passes (score 0 — the S3/F12
+  zero-motion convention);
+- energy = 0 and changed > 0 → INF: churn at zero motion — the pair
+  auto-fails;
+- otherwise the pair passes iff, in exact integer arithmetic (the gate
+  never divides): `changed · 2^16 · GATE_DEN < GATE_NUM · energy` —
+  strict `<`, so a score exactly at the gate fails.
+
+A cell passes iff all K pairs pass. The CI gate applies to every
+**walk** clip × direction cell (idle cells are measurable but ungated —
+walk is where motion must justify churn); tests/flicker.test.ts
+enforces seeds 0..49 (200 cells) plus the all-defaults wolf on every
+CI run, and the INF branch via constructed frames.
+
+**Recalibration evidence (the F12 mandate).** Measured on the
+production renderer, seeds 0..199 × 4 directions = 800 walk cells =
+3200 pairs (2026-07-11): mean 5.93, median 5.89, p90 9.81, p99 18.70,
+max 25.1166 (seed 199, down, pair 0: changed 30, energy 78278 raw);
+zero INF pairs. Histogram (score bin: pairs) — [0,1): 322, [1,2): 71,
+[2,3): 189, [3,4): 376, [4,5): 299, [5,6): 389, [6,7): 413,
+[7,8): 373, [8,9): 281, [9,10): 200, [10,11): 96, [11,12): 60,
+[12,13): 48, [13,14): 20, [14,15): 15, [15,16): 6, [16,17): 4,
+[17,18): 3, [18,19): 14, [19,20): 4, [20,21): 4, [21,22): 1,
+[23,24): 4, [24,25): 4, [25,26): 4. The S3 gate 12.0 does NOT hold in
+production — 131/3200 pairs exceed it. Cause, recorded honestly: the
+S3 substrate (wolf variants) never reached the sampled domain's
+low-motion corners — a gait_freq = 2 genome freezes legs and bob
+entirely at K = 4 (sin(2·g·φ_k) and sin(g·φ_k + G_i) are identically
+0 on the quarter-phase grid, leaving only the tail moving), and
+small-amplitude g = 1 genomes move ~1 px per pair — so legitimate
+few-pixel silhouette changes divide by near-zero energies. All nine
+seeds in 0..199 with a pair above 15 are such genomes (four of nine
+gait_freq = 2). **32.0** is the tightest round value with ≥ 1.25×
+margin over the measured max (25.1166 · 1.25 = 31.40 required;
+32/25.1166 = 1.274× actual). Per F12 the gate remains a BACKSTOP
+against egregious churn (INF and runaway ratios), not a regression
+detector; the pinned-contact-sheet human QA (constraint row 10) stays
+the quality guard.
+
 ## 2. Path identity: socket names, never positional indices
 
 Locus paths key three load-bearing mechanisms: PRNG streams (§4),

@@ -21,6 +21,7 @@ export * from "./craft.js";
 export * from "./palette.js";
 export * from "./png.js";
 export * from "./export.js";
+export * from "./flicker.js";
 
 /**
  * Growth-rule-table version (`docs/design/01-genome.md` §4).

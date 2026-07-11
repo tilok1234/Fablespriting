@@ -27,9 +27,12 @@ pipeline v1 (rules 1–5) → PNG+JSON export, 32×32, idle+walk, 4 dirs.
 Accepts when: same DNA string renders byte-identical twice and across two
 machines; every craft property test passes on 200 random genomes; contact
 sheet of 50 genomes contains zero degenerate creatures; flicker metric under
-the S3 gate (max pair ratio < 12.0 per walk clip × direction cell; churn at
-zero motion fails — a backstop gate, recalibrated on the production
-renderer; caveat in `ASSESSMENT.md` F12).
+the recalibrated gate (max pair ratio < 32.0 per walk clip × direction cell;
+churn at zero motion fails; design 06 §1.6 — the F12-mandated production
+recalibration measured 800 cells, max 25.12: sampled low-motion genomes,
+e.g. gait_freq 2 freezing legs+bob at K=4 quarter phases, legitimately
+exceed the S3 substrate's 12.0; still a backstop, human QA sheets remain
+the quality guard).
 
 ## Phase 2 — M2 grammar breadth
 
