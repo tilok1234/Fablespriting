@@ -357,6 +357,135 @@ guessing which row eyes follow:
 | 4 | mid iff d > −0.25, light iff d > 0.30 (the S1 values) |
 | 5 | d > −0.35, d > 0.15, d > 0.55 |
 
+### 1.4 Rasterization arithmetic (normative)
+
+The §1.2 rasterization block pins the frame constants and the vote
+tie-break; this section pins the fixed-point arithmetic itself — step
+orders, the remaining tie rules, the per-pixel tags, and the golden
+serialization — so a second implementer reproduces the tagged grid
+bit-exactly from this document. All ops are the §5 fixed-point ops; the
+input is the §1.2 slab list in its normative order, yawed for the facing
+direction. Directions are quarter-turn CCW yaws of the creature about z —
+down/left/up/right = 2/1/0/3 turns; each turn maps a slab center
+(x, y) → (−y, x) and an odd turn count swaps the (x, y) half-extents, an
+exact integer permutation/negation with no resampling error.
+
+**Camera and ray/ellipsoid intersection (P1–P4, C1, R1, Q1–Q5).** The
+fixed camera of design 04 §2: screen `sx = x`, `sy = −z − TILT·y`,
+depth `= y` — smaller depth is closer to the camera, and the −TILT term
+puts closer geometry lower in the sprite (invariant P1). For a yawed slab
+with center (cx, cy, cz) and half-extents (hx, hy, hz), the entry depth
+of the sample ray through (sx, sy) is the smaller root in y of the
+ellipsoid quadratic, evaluated in the **ellipsoid-normalized frame**:
+substituting X = (sx−cx)/hx, Y = (y−cy)/hy, Z = (z−cz)/hz with
+z = −TILT·y − sy gives Z = Z0 + Zs·Y and X² + Y² + (Z0 + Zs·Y)² = 1,
+whose discriminant factors as disc/4 = (1+Zs²)(1−X²) − Z0². This is
+algebraically the spike's literal A/B/C quadratic over the reals, but the
+A/B/C form is **not conformant**: its B² intermediate overflows int32 for
+legal domain-extreme genomes, while every intermediate below stays inside
+the 16.16 domain. The normative steps and their order (P-steps once per
+slab; C1 once per sample column; R1 once per sample row; Q-steps once per
+sample):
+
+```
+P1. tiltCy = fp_mul(TILT, cy)
+P2. Zs     = fp_sub(0, fp_div(fp_mul(TILT, hy), hz))
+P3. A      = fp_add(1.0, fp_mul(Zs, Zs))
+P4. invA   = fp_div(1.0, A)
+C1. X = fp_div(fp_sub(sx, cx), hx);  if |X| > 1.0 → miss in x;
+    else oneMinusX2 = fp_sub(1.0, fp_mul(X, X))
+R1. w  = fp_sub(fp_sub(fp_sub(0, tiltCy), sy), cz)
+    Z0 = fp_div(w, hz);   Z0sq = fp_mul(Z0, Z0);   B0 = fp_mul(Z0, Zs)
+Q1. Q = fp_sub(fp_mul(A, oneMinusX2), Z0sq)
+Q2. if Q < 0 → miss  (disc < 0; Q = 0 is a tangent hit)
+Q3. sqrtQ = fp_sqrt(Q)
+Q4. Y = fp_mul(fp_sub(fp_sub(0, B0), sqrtQ), invA)     — the smaller
+    root = the entry (camera-side) intersection
+Q5. depth = fp_add(cy, fp_mul(hy, Y))
+    hit z = fp_sub(fp_sub(0, fp_mul(TILT, depth)), sy)
+    hit point p = (sx, depth, hit z)
+```
+
+C1's |X| > 1.0 miss test is exactly equivalent to oneMinusX2 < 0 —
+fp_mul is monotone in |X| on integer raws (RHE(X²/2^16) > 2^16 ⟺
+|X| > 2^16) — and it is **required, not an optimization**: it keeps both
+C1's squaring and Q1's fp_mul inside int32 for arbitrarily distant sample
+columns.
+
+**Nearest-sample selection and the depth tie rule.** Per sample, slabs
+are scanned in ascending slab-index order and the smallest entry depth
+wins, compared with strict `<` — so on exactly equal entry-depth raws
+**the lower slab index wins**.
+
+**Surface tone (T1–T7).** The tone of a hit (design 04 §3): the ellipsoid
+normal at the hit point p, normalized, dotted with the pinned light
+direction L = raw (−29565, −36135, 45990), quantized by the §1.3
+threshold table:
+
+```
+T1. invE2_i = fp_div(1.0, fp_mul(h_i, h_i))          (per slab, per axis i ∈ {x, y, z})
+T2. n_i     = fp_mul(fp_sub(p_i, c_i), invE2_i)      ((p − c)/h² per axis)
+T3. len     = fp_sqrt(fp_add(fp_add(fp_mul(nx,nx), fp_mul(ny,ny)), fp_mul(nz,nz)))
+T4. invL    = len == 0 ? 1.0 : fp_div(1.0, len)      (zero guard: a degenerate
+    normal is used unnormalized)
+T5. u_i     = fp_mul(n_i, invL)
+T6. d       = fp_add(fp_add(fp_mul(ux, Lx), fp_mul(uy, Ly)), fp_mul(uz, Lz))
+T7. tone    = the number of row thresholds d strictly exceeds
+```
+
+T7's row is selected by the genome's `palette.ramp_len` for hide and
+underside samples; **focal samples always use the ramp_len = 4 row**
+(§1.3), so focal tone stays in {0, 1, 2} for every genome. Tone ranges
+over [0, ramp_len − 2] (rasterizer tone t maps to ramp slot t + 1).
+
+**Coverage.** §1.2's "opaque iff hits/S² ≥ 0.42" is evaluated as plain
+integer arithmetic, bit-exact against the raw threshold — a pixel is
+opaque iff
+
+```
+hits · 2^16 ≥ S² · 27525
+```
+
+(at S = 4, 32×32: hits·65536 ≥ 440400, i.e. hits ≥ 7) — **not** a
+precomputed rounded sample count.
+
+**Per-pixel tags.** The winning (material, tone) key is the §1.2 majority
+vote with the first-seen tie-break. The pixel then carries:
+
+- **part tag** — the slab index (into the normative §1.2 slab list) with
+  the most contributing samples *among the winning key's samples*; ties
+  on the part vote count break to the part whose first contributing
+  sample (again among the winning key's samples) occurs earliest in the
+  pinned scan order — the same first-seen rule as the key vote.
+- **depth tag** — the mean entry depth of the winning key's samples,
+  RHE-rounded to a 16.16 raw: `RHE(Σ entry_depth_raw / sample_count)`,
+  an exact integer division rounded half to even. This is the per-pixel
+  depth design 04 §4 rule 4 consumes.
+
+**Canonical serialization and the raster golden.** The tagged grid
+serializes to the byte form the raster goldens hash (SHA-256 over exactly
+these bytes):
+
+- header: width u8, height u8 (grids beyond 255 px per side do not
+  serialize);
+- then every pixel in scan order (py outer ascending, px inner
+  ascending): a transparent pixel is the single byte 0x00; an opaque
+  pixel is 0x01, role id u8 (hide = 0, underside = 1, focal = 2 — the
+  §1.3 role order), tone u8, part tag u8, then the depth tag as int32
+  little-endian two's complement (4 bytes).
+
+Pinned raster golden: the all-defaults genome, walk φ = 0, facing down,
+32×32 serializes and hashes to SHA-256
+`3121cea8d4833a2fa5a5a7f51c56cf253d8bfd0827a9f460244f3e67a8a477ed`.
+
+**Size scope.** Only size = 32 is normative in M1 (16×16 was descoped,
+D5). The frame generalizes as ox = size/2 → raw size·2^15,
+oy = size·(26.5/32) → raw size·54272 (26.5·2^16/32 = 54272 exactly),
+scale = size/32 → raw size·2^11 (exact), with sample coordinates
+`fp_div(cell·2^16 + OFF − o, scale)` — at size 32 the divide is by 1.0
+and is the identity. Other sizes exist to give craft rules resolution
+context (constraint row 8) and are not golden-pinned.
+
 ## 2. Path identity: socket names, never positional indices
 
 Locus paths key three load-bearing mechanisms: PRNG streams (§4),

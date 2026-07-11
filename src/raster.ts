@@ -1,6 +1,6 @@
 /**
  * Fablesprite — projection + rasterization (design 04 §§2–3, design 06 §1.2
- * pinned rasterization block, §1.3 tone thresholds).
+ * pinned rasterization block, §1.3 tone thresholds, §1.4 pinned arithmetic).
  *
  * slabs → tagged pixel grid: this module implements the fixed camera
  * (orthographic along +y with top-down shear TILT), the four quarter-turn
@@ -9,8 +9,8 @@
  * coverage threshold and tie-breaks, and the surface-tone quantization.
  * Everything is 16.16 fixed point through fixed.ts (RISKS R6): no floats,
  * no PRNG, fully deterministic. A second implementer must be able to
- * reproduce the pixels from design 06 §1.2 plus the numbered step orders
- * pinned in the doc comments below.
+ * reproduce the pixels from design 06 §§1.2/1.4 alone — the numbered step
+ * orders in the doc comments below are transcribed there as normative text.
  *
  * Screen mapping (design 04 §2): sx = x, sy = −z − TILT·y, depth = y.
  * Invariant P1: smaller depth = closer to camera, and the −TILT term puts
@@ -173,15 +173,13 @@ export interface RasterPixel {
    * among the winning key's samples; ties on the part vote count are
    * broken in favor of the part whose first contributing sample (among
    * the winning key's samples) occurs earliest in the pinned scan order —
-   * the same first-seen rule as the (material, tone) vote. PINNED HERE
-   * (the spec does not yet state the part tie rule).
+   * the same first-seen rule as the (material, tone) vote (design 06 §1.4).
    */
   readonly partId: number;
   /**
    * The per-pixel depth tag design 04 §4 rule 4 consumes: the mean entry
    * depth of the winning key's samples, RHE-rounded to a 16.16 raw
-   * (rheDiv(sum of entry depths, sample count)). PINNED HERE (the spec
-   * names the tag but not its aggregation).
+   * (rheDiv(sum of entry depths, sample count)) — design 06 §1.4.
    */
   readonly depthRaw: number;
 }
@@ -281,8 +279,7 @@ interface SlabSetup {
  *
  * **Nearest-sample selection**: slabs are scanned in ascending slab-index
  * order; the smallest entry depth wins, compared with strict `<` — so on
- * exactly equal entry depth raws the LOWER SLAB INDEX wins. PINNED HERE
- * (the spec does not yet state the depth tie rule).
+ * exactly equal entry depth raws the LOWER SLAB INDEX wins (design 06 §1.4).
  *
  * **Tone — pinned fixed-point step order** (design 04 §3 / the spike's
  * `surface_tone`): the ellipsoid normal at the hit point, normalized,
