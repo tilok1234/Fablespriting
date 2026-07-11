@@ -43,9 +43,10 @@ the quality guard).
 ## Phase 2 — M2 grammar breadth
 
 Real grammar replaces the hardcoded graph. Ship 3 plans with maximum spread
-(D4 recommendation: quadruped, levitant, amorphous — the amorphous renderer
-fork lands here), trait tags, exclusion groups, part budgets, degeneracy
-defenses. Attack/hurt/death clips. Form-follows-function prior mapping.
+(D4, decided 2026-07-11: quadruped, levitant, amorphous — the amorphous
+renderer fork lands here), trait tags, exclusion groups, part budgets,
+degeneracy defenses. Attack/hurt/death clips. Form-follows-function prior
+mapping. Contract: `docs/design/07-m2-grammar.md` (build order in its §8).
 
 Accepts when: 100-genome pinned contact sheet reviewed and ≥80% judged
 "would ship in a game jam" by review; plan mix visibly distinct at

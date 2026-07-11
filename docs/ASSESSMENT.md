@@ -382,12 +382,12 @@ retrofit. Full design: `docs/design/01-genome.md`.
 | D1 | Production language/platform | TypeScript+web · Rust+wasm · Python tool | ✅ 2026-07-09: **TypeScript + web editor** |
 | D2 | Primary product shape | in-browser tool · CLI/batch · runtime game library | ✅ 2026-07-09: **browser tool first, library extracted later** |
 | D3 | Art-direction lock | outline style (selout vs hard black), tilt, palette philosophy | ✅ 2026-07-09: **selout + TILT=0.5 + hue-shifted ramps, as rendered in S1's sheet** |
-| D4 | MVP body plans | which 3 plans ship M2 first | Open — recommendation: quadruped, levitant, amorphous (max spread) |
+| D4 | MVP body plans | which 3 plans ship M2 first | ✅ 2026-07-11: **quadruped, levitant, amorphous** (owner accepted the standing recommendation at M2 kickoff; design 07 §0) |
 | D5 | 16×16 output tier | keep as generated tier · derived-but-hand-tunable side output · drop | ✅ 2026-07-10: **dropped as a generated tier** (owner call on S4 evidence); revisit post-M5 only on real demand |
 
 D1–D3 were decided 2026-07-09; M1 is unblocked (they never blocked spikes
-S2–S4, which are language-agnostic evidence gathering). D4 blocks M2 only
-and stays open until M2 planning. D5 was decided 2026-07-10 after Spike
+S2–S4, which are language-agnostic evidence gathering). D4 was decided
+2026-07-11 at M2 kickoff. D5 was decided 2026-07-10 after Spike
 S4, and goes beyond the pre-registered R3 fallback (which would have kept
 16×16 as a derived-but-hand-tunable side output): Fablesprite is a 32×32
 sprite generator. At a quarter of the pixel budget the generator's honest
