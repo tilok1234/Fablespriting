@@ -23,7 +23,8 @@ Everything below is committed and pushed through `c9d4e86`; suite =
 | ✅ | `src/prng.ts` | FNV-1a64 → splitmix64 → PCG32 streams keyed (seed, path, draw) |
 | ✅ | `src/genome.ts` | locus registry ids 0–34, varint tape codec, sampler |
 | ✅ | `src/pose.ts` | 13-slab quadruped template (order is normative), derived anchors, walk/idle |
-| ✅ | `src/raster.ts` | tagged-pixel rasterizer; first golden: SHA-256 `3121cea8…a477ed` (all-defaults wolf, down, walk φ=0) |
+| ✅ | `src/raster.ts` | tagged-pixel rasterizer; first golden: SHA-256 `3121cea8…a477ed` (all-defaults wolf, down, walk φ=0); §1.5 offset hook (golden-safe) |
+| ✅ | `src/craft.ts` | clip-scoped craft pass (design 06 §1.5): rules 2/3/5 fixpoint → selout, chain-snap offsets, focal never erased; 166 tests |
 
 ## In flight at handoff time — RESOLVED (2026-07-11, this session)
 
@@ -51,23 +52,21 @@ rebuilt from the mandate and landed:
 
 ## Remaining M1 build order (each unit: implement → adversarial verify → commit)
 
-1. **Craft pass** (`src/craft.ts`) — design 04 §4 as amended by S3:
-   quantize → rules 2/3/5 to a joint fixpoint → selout decided/applied
-   on POST-merge geometry. Clip-scoped decisions keyed by
-   (part_id, material, tone); presence-based medians; chain-GROUPED
-   snapping with ties-to-even (F14/F16 — chains group slabs, e.g. the
-   whole head assembly); focal materials merge-protected (F16); F7
-   thinness exemptions from PRE-merge part-level stats (F15).
-2. **Palette** (`src/palette.ts`) — design 06 §1.3: fp HSV ramps, pinned
+(Craft pass: DONE 2026-07-11 — design 06 §1.5 is the normative craft
+spec; note it pins F15 exemption stats at the rules-2/3/5 fixpoint,
+superseding the finding's "pre-merge" phrasing — idempotence required
+it, and part-level stats are merge-invariant so F15's intent holds.)
+
+1. **Palette** (`src/palette.ts`) — design 06 §1.3: fp HSV ramps, pinned
    HSV→RGB, focal ramp constant table, tone→color application.
-3. **PNG encoder + export** (`src/png.ts`, `src/export.ts`) — design 06
+2. **PNG encoder + export** (`src/png.ts`, `src/export.ts`) — design 06
    §6: OWN encoder, zlib stored blocks, normative 1×1 vector; per-frame
    PNGs are the golden artifacts; canonical JSON per RFC 8785; sheet
    packing gets pinned here (design 05 §2) and joins the goldens.
-4. **Contact-sheet CLI** (`fablesprite sheet --seed-range`, ROADMAP
+3. **Contact-sheet CLI** (`fablesprite sheet --seed-range`, ROADMAP
    standing practice) + flicker metric in CI (gate: max pair ratio <
    12.0 per walk cell, INF auto-fail, recalibrate per F12 caveat).
-5. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
+4. **M1 acceptance** (ROADMAP Phase 1): byte-identical goldens twice
    locally + across the two CI platforms; craft property tests on 200
    random genomes; 50-genome sheet with zero degenerates; flicker gate.
 

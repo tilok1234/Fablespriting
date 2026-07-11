@@ -84,6 +84,26 @@ export const PART_NAMES = Object.freeze([
   "tail",
 ] as const);
 
+/**
+ * The M1 quadruped skeleton chains (design 06 §1.5 pinned chain table):
+ * pixel snapping is chain-GROUPED (constraint row 3, F14/F16 — per-slab
+ * snapping reshaped the wolf's head), so all slabs of a chain receive
+ * one snap offset per frame. Indices index {@link PART_NAMES}; each
+ * chain's FIRST slab is its anchor (core, head, each leg, tail) — the
+ * slab whose continuous projected screen center defines the chain's
+ * screen position in craft.ts `snapOffsets`.
+ */
+export const CHAINS: readonly { readonly name: string; readonly slabs: readonly number[] }[] =
+  Object.freeze([
+    Object.freeze({ name: "body", slabs: Object.freeze([0, 1]) }),
+    Object.freeze({ name: "head", slabs: Object.freeze([2, 3, 4, 5, 6, 7]) }),
+    Object.freeze({ name: "leg_fl", slabs: Object.freeze([8]) }),
+    Object.freeze({ name: "leg_fr", slabs: Object.freeze([9]) }),
+    Object.freeze({ name: "leg_bl", slabs: Object.freeze([10]) }),
+    Object.freeze({ name: "leg_br", slabs: Object.freeze([11]) }),
+    Object.freeze({ name: "tail", slabs: Object.freeze([12]) }),
+  ]);
+
 /** Material role of each pinned slab position (§1.2 part-table column). */
 export const PART_ROLES: readonly MaterialRole[] = Object.freeze([
   "hide", // core

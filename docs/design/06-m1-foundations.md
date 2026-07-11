@@ -558,6 +558,262 @@ scale = size/32 → raw size·2^11 (exact), with sample coordinates
 and is the identity. Other sizes exist to give craft rules resolution
 context (constraint row 8) and are not golden-pinned.
 
+### 1.5 Craft pass (normative)
+
+Design 04 §4's rule pipeline as amended by S3 (constraint rows 2, 3, 4,
+6, 7, 8), pinned to the bit. Everything here is integer arithmetic over
+the §1.4 tagged grids — no floats anywhere (R6). Rules 6 and 7 are
+M2/M3 and must not leak into M1 (R10); the flicker *metric* and its CI
+gate (constraint row 5) are a separate unit and not part of this pass.
+
+**Scope: clip-scoped only.** The unit of work is one clip × direction
+cell: the K tagged §1.4 grids of that cell (M1: K = 4, §1.2), rendered
+with the chain-snap offsets below. The craft pass takes the K grids and
+returns K crafted grids plus a decisions record; every clip-wide
+decision (budget merges, selout exemptions) is computed once from
+clip aggregates and applied to every frame identically (design 03 §4).
+The spike's per-frame flavor was an S3 comparison arm and does not
+ship. K ≥ 1 is legal (aggregates degrade to the single frame); all K
+grids must share one width × height.
+
+**Craft pixel.** An opaque cell carries
+`(role, tone, partId, depthRaw, edge)` — the four §1.4 tags plus
+`edge ∈ {0, 1, 2}`: 0 = none, 1 = boundary-vs-transparent (outline —
+the palette layer will draw ramp slot 0), 2 = farther side of an
+interior part boundary (one tone darker). Input grids are cloned,
+never mutated (edge enters as 0); budget merges reassign (role, tone)
+only — partId and depthRaw keep their rasterizer provenance on every
+surviving pixel. The donor-based repairs of rules 2 and 3 adopt donor
+tags exactly as specified per rule below.
+
+**Constants (the 32×32 row).** Every craft threshold is
+resolution-scoped in principle (S1/F4, constraint row 8); M1 pins the
+size-32 row only (D5) and hardcodes it:
+
+| constant | value | meaning |
+|----------|-------|---------|
+| MAX_CLUSTERS | 14 | rule 5 cluster-key budget |
+| MIN_CLUSTER_PX | 4 | rule 5 sub-threshold size |
+| SOFT_MIN_PX | 6 | F7 softening: part size threshold |
+| SOFT_MIN_DIM | 3 | F7 softening: part bbox-min threshold |
+| MAX_PASS_ITERS | 40 | fixpoint safety cap, one craft pass |
+| MAX_MERGE_ITERS | 300 | safety cap inside rule 5 |
+
+Exceeding either iteration cap is a spec violation — implementations
+must trap (throw), never emit a half-crafted clip.
+
+**Shared machinery.** The pinned 4-neighborhood order is N4 = (0, −1),
+(0, 1), (−1, 0), (1, 0) — up, down, left, right; out-of-bounds cells
+are transparent. A **cluster** is a 4-connected region of opaque
+pixels sharing (role, tone). Its clip-stable **key** is the integer
+triple `(partId, roleId, tone)` — roleId the §1.3 wire ids (hide 0,
+underside 1, focal 2) — where partId is the majority part tag over the
+region's pixels, ties on the part count breaking to the LOWEST partId.
+Key order is lexicographic on the triple. **Doubled presence-medians**
+(R6 — no float halves, ever): a per-key/per-part statistic over the
+clip is medianed over the frames where the key/part is *present*
+(value > 0, F13); the median of n sorted integer samples is carried
+DOUBLED — odd n: 2·middle; even n: the sum of the two middle samples —
+and every threshold comparison happens on doubled values
+(doubled-median < 2·threshold), so no half is ever materialized.
+**Contact counts**: for each frame, each 4-adjacent pixel pair lying
+in two distinct clusters is counted once (scan every opaque pixel,
+look at its (+1, 0) and (0, +1) neighbors only); pair counts map to
+unordered key pairs, pairs whose two clusters share a key are dropped,
+and counts sum over the K frames.
+
+**Rule 2 — orphan cull.** Per frame; detect on the pre-rule grid, then
+apply. For every opaque pixel p: if p has **no** opaque 4-neighbor, p
+is culled (deleted). Else if p has exactly 4 opaque 4-neighbors and
+none of them shares p's (role, tone), p is an interior 1-px island and
+is reassigned: the dominant neighbor key = the (roleId, tone) with the
+most of the 4 neighbors, ties to the lexicographically smallest
+(roleId, tone); the donor is the FIRST neighbor in N4 order carrying
+that key; p becomes (donor's role, donor's tone, donor's partId, p's
+own depthRaw, edge 0). Donor tags are read from the pre-rule grid —
+all culls and reassignments are detected, and their donor values
+captured, before any is applied, so two adjacent islands that are each
+other's donors both copy pre-rule tags, never each other's
+reassignment. **Focal pixels are exempt from rule 2
+entirely** (neither culled nor reassigned): a 1-px eye straddling into
+an island position is exactly the face pixel F16 exists to protect,
+and constraint row 6's "a craft rule may never erase a face" is
+normative for every rule, not only rule 5. (Deviation from the spike,
+which predates F16.)
+
+**Rule 3 — jaggy repair.** Per frame; detect on the pre-rule grid,
+then apply. Define v(x, y) = the (role, tone) of an opaque cell, or ⊥
+for transparent/out-of-bounds; transparent cells participate (a 1-px
+notch in an otherwise straight silhouette edge is filled, a 1-px tooth
+into transparency is shaved). For every cell (x, y) — opaque or not —
+scan d ∈ N4 in the pinned order and fire on the FIRST d matching all
+of (then stop scanning directions for this cell):
+
+- v(x+d) = v(x, y) — one 4-neighbor continues p's own cluster;
+- the other three 4-neighbors (N4 order minus d) all carry one common
+  value w ≠ v — p is a 1-px tooth of v into w;
+- with the perpendiculars p1 = (−dy, dx), p2 = (dy, −dx): the two
+  diagonal cells beside the v-neighbor, (x+dx+p1x, y+dy+p1y) and
+  (x+dx+p2x, y+dy+p2y), are both v, and the two diagonals beside the
+  opposite neighbor, (x−dx+p1x, y−dy+p1y) and (x−dx+p2x, y−dy+p2y),
+  are both w — the boundary is otherwise straight, so the repair is
+  locally stable and cannot cascade.
+
+Repair: if w = ⊥ the cell is deleted; otherwise the cell becomes a
+full copy of the opposite neighbor (x−dx, y−dy) — role, tone, partId,
+depthRaw — with edge 0. (The opposite neighbor is one of the three
+w-neighbors, so it is opaque exactly when w ≠ ⊥.) One repair per cell
+per invocation; all repairs are detected before any is applied. Rule 3
+can never erase a cluster's last pixel: the pattern requires a
+same-value 4-neighbor, and two mutually-supporting pixels of a 2-px
+cluster cannot both match (each would need the other's flank diagonals
+to be v and w simultaneously).
+
+**Focal pixels are exempt from rule 3 entirely**, exactly as from
+rule 2 (F16 / constraint row 6): a cell whose v is focal never fires.
+Without the exemption the shave branch could delete a face pixel and
+the copy branch could recolor one away from focal — the no-last-pixel
+argument above only protects a cluster's LAST pixel, so on its own it
+would still let rule 3 whittle a ≥ 2-px eye down. The exemption is
+one-sided, matching rule 2's donor behavior: a transparent notch in a
+focal silhouette still fills (v = ⊥, w focal — the donor copy ADDS a
+face pixel), and a non-focal tooth may still adopt a focal donor.
+Rule 3 may grow a face, never shrink it.
+
+**Rule 5 — cluster budget (clip-scoped).** Operates on all K frames
+jointly. Maintain a skip set (empty at each rule-5 invocation) and
+loop (≤ MAX_MERGE_ITERS):
+
+1. Stats: per frame, find clusters; size[key][frame] = total pixels of
+   that key in that frame (same-key clusters sum); contacts as pinned
+   above; dmed[key] = doubled presence-median of the present sizes.
+2. **Focal keys (roleId = 2) are merge-protected (F16): never
+   selectable as src — neither merged nor deleted.** They still count
+   toward the budget and may be chosen as dst.
+3. under = the non-focal, non-skipped keys with
+   dmed < 2·MIN_CLUSTER_PX. If under is empty and the total key count
+   ≤ MAX_CLUSTERS: converged, stop.
+4. pool = under if non-empty, else all non-focal non-skipped keys. If
+   pool is empty: **stop at the floor** — over budget with only
+   protected/skipped keys left is a normal stop, not an error (a craft
+   rule may never erase a face).
+5. src = the pool minimum by (dmed, key) — smallest doubled median,
+   ties to the smallest key.
+6. Sum src's contact counts per neighboring key. If src has none:
+   if dmed[src] < 2·MIN_CLUSTER_PX it is floating debris — dst = ∅
+   (delete); else add src to the skip set and continue (a large
+   contact-less cluster — a whole thin body — is skipped, never
+   deleted).
+7. Else dst = the neighbor minimum by (−contact, −dmed, key) — most
+   contact, then largest doubled median, then smallest key.
+8. Apply to EVERY frame: each pixel of each cluster whose key = src is
+   deleted (dst = ∅) or reassigned to dst's (role, tone), keeping its
+   own partId and depthRaw, edge 0. Record the decision (src, dst) —
+   deletions record dst = ∅.
+
+**Rule 4 — selout, decided and applied post-merge (F13).**
+
+- **F7 exemptions from PART-LEVEL stats (F15).** Computed ONCE per
+  craft pass, from the POST-FIXPOINT grids (immediately before selout,
+  after the rules-2/3/5 loop below converges), superseding the spike's
+  post-merge per-KEY stats: per frame, per partId, over the part's
+  full pixel set (every opaque pixel tagged partId, regardless of
+  role/tone/connectivity): size = pixel count, bboxMin =
+  min(bounding-box width, height); a part is present in a frame iff
+  size > 0; the part is **exempt** iff its doubled presence-median
+  size < 12 (= 2·SOFT_MIN_PX) OR its doubled presence-median
+  bboxMin < 6 (= 2·SOFT_MIN_DIM). Part-level stats are what defeats
+  the F15 failure: rule-5 merges reassign (role, tone) only, so the
+  budget merge can never inflate a part's size or bbox out of its
+  exemption — the thin body stays soft however its clusters
+  consolidate. The stats are pinned at the FIXPOINT rather than at
+  the pass's input because idempotence demands it (machine-verified:
+  input-grid stats broke the idempotence contract on 5 of the first
+  50 sampled walk cells — rules 2/3/5 shave a few pixels off
+  borderline parts, so a second run computed a strictly larger exempt
+  set from the crafted grids and re-decided edges; fixpoint stats are
+  identical on every re-run by construction, and they describe the
+  geometry selout actually paints).
+- **Part mean depths, compared exactly.** Over all K post-fixpoint
+  grids: depthSum[part] and count[part] over every opaque pixel. Part
+  a is *strictly farther* than part b iff
+  `depthSum[a]·count[b] > depthSum[b]·count[a]` — an exact integer
+  cross-multiplication of the (sum, count) rationals (counts are
+  positive; implementations must use exact arithmetic — the spike's
+  1e-9 epsilon is superseded by exact strict >).
+- Per frame: find clusters; a cluster is exempt iff its majority part
+  (its key's partId) is exempt. Reset every edge flag to 0, then for
+  every opaque pixel p: p is *open* iff any 4-neighbor is
+  transparent/out-of-bounds. If p's cluster is exempt, edge stays 0.
+  Else if p is open, edge = 1. Else if any opaque 4-neighbor n has
+  n.partId ≠ p.partId and p's part is strictly farther than n's part,
+  edge = 2. Else 0.
+
+**Orchestration (one craft pass).** Clone the K input grids; iterate —
+rule 2 over every frame in ascending frame order, rule 3 likewise,
+then one rule-5 invocation — until an iteration reports zero rule-2
+changes, zero rule-3 repairs, and zero rule-5 decisions
+(≤ MAX_PASS_ITERS, else trap). Then compute the F15 exempt-part set
+from the fixpoint grids, and rule 4 decides and applies edges. The decisions record
+carries, at minimum: the per-iteration counts (rule-2 changes, rule-3
+repairs, rule-5 decisions), the ordered merge-decision list, the
+exempt part ids (ascending), and the number of work rounds
+(iterations with any change). **Idempotence is a hard contract**
+(constraint row 2, CI property test): running the pass on its own
+output must reproduce that output exactly.
+
+**Chain-grouped pixel snapping (constraint row 3, F14/F16).** Snapping
+is a pre-rasterization step of the same unit: slabs are grouped by
+skeleton chain so assemblies shift together (per-slab snapping
+reshaped the wolf's head — F16). The M1 quadruped chain table, over
+the §1.2 normative slab order, is pinned (and exported beside
+PART_NAMES):
+
+| chain | slab indices |
+|-------|--------------|
+| body | 0, 1 |
+| head | 2, 3, 4, 5, 6, 7 |
+| leg_fl | 8 |
+| leg_fr | 9 |
+| leg_bl | 10 |
+| leg_br | 11 |
+| tail | 12 |
+
+A chain's screen position is the continuous (pre-snap) projected
+screen center of its FIRST slab (its anchor: core, head, each leg,
+tail), in 16.16 raws, reusing the §1.4 screen mapping: after yawSlab
+for the direction, `sx = cx`,
+`sy = fp_sub(fp_sub(0, cz), fp_mul(TILT_RAW, cy))`. (These are
+model-scale screen raws without the §1.2 frame anchor; the anchor is a
+constant and plays no role in displacements, and the whole-sprite
+placement rounding is pinned on THIS form.) Per clip × direction ×
+chain, per axis:
+
+```
+mean       = rheDiv(Σ_f pos(f), K)         K divides exactly or RHE
+                                           ties-to-even applies (§5.1)
+roundPx(x) = rheDiv(x, 65536) · 65536      whole-pixel raw, ties-to-even
+                                           (F14 — a ±0.5 px oscillation
+                                           parks instead of strobing)
+snapped(f) = roundPx(mean) + roundPx(pos(f) − mean)
+offset(f)  = snapped(f) − pos(f)
+```
+
+One (dx, dy) raw pair per chain per frame, applied to EVERY slab of
+the chain. Snapped positions are whole-pixel raws by construction;
+offsets are general int32 raws (fractional in general — they carry the
+slab from its continuous position onto the snapped one).
+
+**Rasterizer offset hook.** `rasterize` accepts an optional per-slab
+screen-space offset list (raws), index-aligned with the slab list.
+After yawSlab, the slab is translated `cx += dx`, `cz −= dy` — plain
+int32 adds, exact for any raw offset. Because screen y = −z − TILT·y
+(§1.4), the −dy on cz shifts the slab's screen y by exactly +dy
+without touching the depth axis y: snapping can never change occlusion
+order or depth tags. An absent offset list (and equally an all-zero
+one) is byte-identical to the un-hooked rasterizer — the §1.4 pinned
+raster golden is rendered without offsets and stands unchanged.
+
 ## 2. Path identity: socket names, never positional indices
 
 Locus paths key three load-bearing mechanisms: PRNG streams (§4),
@@ -972,7 +1228,7 @@ evidence, not a suggestion. Pointers are findings in `ASSESSMENT.md` §2.
 | 4 | Rasterizer exports per-pixel part + depth tags; clip-stable cluster key = (part_id, material, tone); aggregates use presence-based medians | design 04 §4 (S3 machinery), F13 |
 | 5 | Flicker CI gate: max pair ratio < 12.0 per walk clip × direction, INF (churn at zero motion) auto-fails; a backstop, recalibrated on the production renderer | F12 |
 | 6 | Focal materials (eyes, emitters) are merge-protected in the cluster budget — a craft rule may never erase a face | F16 (extends F5) |
-| 7 | Selout thin-cluster (F7) exemptions decided from pre-merge part-level stats, or a local-thickness measure instead of bbox-min | F15 |
+| 7 | Selout thin-cluster (F7) exemptions decided from PART-level stats (merge-invariant: budget merges reassign role/tone only), pinned at the rules-2/3/5 fixpoint — §1.5, which supersedes the finding's "pre-merge" phrasing (fixpoint stats are what row 2's idempotence contract requires) | F15 |
 | 8 | Coverage threshold 0.42 at 32×32; every craft rule takes resolution context | S1 / F4 |
 | 9 | House style pinned: selout outlines, TILT = 0.5, hue-shifted ramps; projection sign invariant P1 locked by a golden | D3, F1 / F2 |
 | 10 | Pinned-contact-sheet human QA remains the readability guard — the flicker gate alone is not a quality gate | F16, ROADMAP standing practices |

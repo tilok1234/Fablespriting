@@ -107,8 +107,11 @@ Shared machinery (as built in Spike S3):
   thinness test — once a thin body merges into one whole-body cluster, its
   bbox-min and size exceed the exemption thresholds, outline softening
   stops firing, and the body drowns in outline. At M1, selout decides F7
-  exemptions from *pre-merge* part-level cluster stats, or from a
-  local-thickness measure instead of bbox-min.
+  exemptions from *part-level* stats, which are merge-invariant (budget
+  merges reassign material/tone only), pinned at the rules-2/3/5 fixpoint
+  — design 06 §1.5 is normative (it supersedes the finding's original
+  "pre-merge" phrasing: fixpoint stats are what the idempotence contract
+  requires).
 
 ## 5. Palette engine
 

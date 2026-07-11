@@ -187,6 +187,19 @@ export interface RasterPixel {
 /** The tagged grid: `grid[py][px]` is null (transparent) or a pixel tag. */
 export type RasterGrid = ReadonlyArray<ReadonlyArray<RasterPixel | null>>;
 
+/**
+ * A per-slab screen-space translation in 16.16 raws (design 06 §1.5
+ * rasterizer offset hook) — the craft pass's chain-snap offsets. dx
+ * shifts the slab's screen x, dy its screen y (positive = down). Offsets
+ * are general int32 raws: snap offsets carry a slab from its continuous
+ * position onto the whole-pixel snapped one, so they are fractional in
+ * general.
+ */
+export interface SlabOffset {
+  readonly dx: number;
+  readonly dy: number;
+}
+
 // ---------------------------------------------------------------------------
 // rasterize
 // ---------------------------------------------------------------------------
@@ -305,12 +318,22 @@ interface SlabSetup {
  * ties on vote count break to the key whose first contributing sample is
  * earliest in the pinned scan order. partId and depthRaw per
  * {@link RasterPixel}.
+ *
+ * **Offset hook (design 06 §1.5).** `offsets`, when present, is
+ * index-aligned with `slabs`: after yawSlab, slab i is translated
+ * `cx += dx`, `cz −= dy` — plain int32 adds, exact for any raw offset.
+ * Because screen y = −z − TILT·y, the −dy on cz shifts the slab's screen
+ * y by exactly +dy without touching the depth axis y: snapping can never
+ * change occlusion order or depth tags. Absent (or all-zero) offsets are
+ * byte-identical to the un-hooked rasterizer — the §1.4 pinned raster
+ * golden is rendered without offsets and stands unchanged.
  */
 export function rasterize(
   slabs: readonly Slab[],
   direction: Direction,
   size = 32,
   rampLen: 3 | 4 | 5 = 4,
+  offsets?: readonly SlabOffset[],
 ): RasterGrid {
   const turns = DIRECTION_TURNS[direction];
   if (turns === undefined) {
@@ -326,6 +349,18 @@ export function rasterize(
   const focalThresholds = TONE_THRESHOLDS[4];
   if (slabs.length > 255) {
     throw new RangeError(`raster: at most 255 slabs (part tags are bytes), got ${slabs.length}`);
+  }
+  if (offsets !== undefined) {
+    if (offsets.length !== slabs.length) {
+      throw new RangeError(
+        `raster: offsets length ${offsets.length} must match slab count ${slabs.length}`,
+      );
+    }
+    for (const o of offsets) {
+      if (!Number.isInteger(o.dx) || !Number.isInteger(o.dy)) {
+        throw new RangeError(`raster: offsets must be integer raws, got (${o.dx}, ${o.dy})`);
+      }
+    }
   }
 
   const s = SUPERSAMPLE;
@@ -350,9 +385,20 @@ export function rasterize(
     }
   }
 
-  // Yaw the slabs (exact permutation) and run the per-slab setup steps.
-  const setups: SlabSetup[] = slabs.map((raw) => {
-    const sl = yawSlab(raw, turns);
+  // Yaw the slabs (exact permutation), apply the §1.5 screen-space
+  // offsets when present (cx += dx, cz −= dy — depth-invariant), and run
+  // the per-slab setup steps.
+  const setups: SlabSetup[] = slabs.map((raw, i) => {
+    const yawed = yawSlab(raw, turns);
+    const off = offsets?.[i];
+    const sl =
+      off === undefined
+        ? yawed
+        : {
+            ...yawed,
+            cx: fp_add(yawed.cx, off.dx),
+            cz: fp_sub(yawed.cz, off.dy),
+          };
     const tiltCy = fp_mul(TILT_RAW, sl.cy); // P1
     const zs = fp_sub(0, fp_div(fp_mul(TILT_RAW, sl.hy), sl.hz)); // P2
     const a = fp_add(FP_ONE, fp_mul(zs, zs)); // P3
