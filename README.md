@@ -45,10 +45,11 @@ node dist/cli.js sheet --seed-range 0..49 [--out DIR]     # or the
 
 - Renders the **sampled genome** of every seed in the inclusive range
   (design 06 §4.2 sampler, so sheets are reproducible across
-  implementations) through the full pipeline, ~0.6 s per genome on a
-  desktop (50 genomes ≈ 30 s — fine for a QA tool, don't put it in a
+  implementations) through the full pipeline, ~1.5 s per genome on a
+  desktop (50 genomes ≈ 75 s — fine for a QA tool, don't put it in a
   hot loop).
-- Each genome contributes its full 128×256 export sheet at 1×,
+- Each genome contributes its full 128×640 export sheet at 1× (since
+  U2: 20 rows — [walk, idle, attack, hurt, death] × 4 directions),
   composed row-major into `ceil(√N)` columns (capped at 31 so the
   output stays under ~4096 px wide) with a 2-px transparent gutter.
 - Output: `sheet_<A>_<B>.png` + `sheet_<A>_<B>.json` in `--out`

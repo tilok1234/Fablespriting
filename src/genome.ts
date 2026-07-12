@@ -104,12 +104,14 @@ function s(
 }
 
 /**
- * The canonical version-1 locus registry of design 06 §1.1, transcribed
- * exactly: ids 0–34, append-only per version-table, never renumbered,
- * never reused. `REGISTRY[i].id === i` for every entry. All fp bounds and
- * defaults are the spec's pinned raws (`RHE(d · 2^16)` of the authored
- * decimals); the half-open [0, 360) hue domain carries the largest raw
- * inside it, 23592959, per the §0 pinned rule.
+ * The canonical version-1 locus registry of design 06 §1.1 as extended by
+ * design 07 §4 (U2 appends id 35), transcribed exactly: ids 0–35,
+ * append-only per version-table, never renumbered, never reused.
+ * `REGISTRY[i].id === i` for every entry. All fp bounds and defaults are
+ * the spec's pinned raws (`RHE(d · 2^16)` of the authored decimals); the
+ * half-open [0, 360) hue domain carries the largest raw inside it,
+ * 23592959, per the §0 pinned rule. Appends carry absent-meaning defaults
+ * (06 §3 wire law), so every issued v1 DNA string decodes unchanged.
  */
 export const REGISTRY: readonly Locus[] = Object.freeze([
   s(0, "meta.plan", "enum", 0, 0, 0),
@@ -153,6 +155,7 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
   s(32, "body.leg[BR].phase_group", "enum", 0, 1, 0),
   s(33, "body.tail.length", "fp", 98304, 393216, 209715), // 3.2 px of [1.5, 6]
   s(34, "body.tail.girth", "fp", 39322, 131072, 72090), // 1.1 px of [0.6, 2]
+  s(35, "anim.quadruped.anticipation", "fp", 32768, 131072, 65536), // 1.0 of [0.5, 2] — U2 (design 07 §4)
 ]);
 
 const BY_PATH: ReadonlyMap<string, Locus> = new Map(

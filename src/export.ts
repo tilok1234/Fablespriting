@@ -6,20 +6,22 @@
  * per-frame RGBA buffers + PNGs, the packed sheet PNG, and the canonical
  * JSON metadata — every byte pinned, every hash golden-testable.
  *
- * The M1 frame set (§6, pinned): clips [walk, idle] × directions
- * [down, left, up, right] × K = 4 phases, in exactly that nesting order
- * (clip outer, direction middle, phase inner) — 32 frames of 32×32.
- * Per clip × direction cell the pipeline is: poseQuadruped per phase →
- * snapOffsets → rasterize (with the genome's ramp_len and the snap
- * offsets) → craftClip → applyPalette with the creature's ONE derived
- * palette.
+ * The M2 frame set (design 07 §4.1, pinned): clips [walk, idle, attack,
+ * hurt, death] × directions [down, left, up, right] × per-clip K
+ * {4, 4, 4, 2, 4}, in exactly that nesting order (clip outer, direction
+ * middle, phase inner) — 72 frames of 32×32, frames 0..31 keeping their
+ * exact M1 meaning (the §4.3 anchor law). Per clip × direction cell the
+ * pipeline is: poseQuadruped per phase → snapOffsets → rasterize (with
+ * the genome's ramp_len and the snap offsets) → craftClip → applyPalette
+ * with the creature's ONE derived palette.
  *
- * Sheet (§6, pinned): a grid of 32×32 cells, one row per
- * (clip, direction) cell in frame-set order (8 rows), K = 4 columns,
- * row-major, no padding — 128×256 RGBA. NO mirror optimization in M1:
- * the trot phase groups make left/right views non-mirror-identical in
- * general; the schema keeps a per-direction `mirror` boolean, false
- * everywhere in M1.
+ * Sheet (design 07 §4.1, pinned): a grid of 32×32 cells, one row per
+ * (clip, direction) cell in frame-set order (20 rows), 4 columns,
+ * row-major, no padding — 128×640 RGBA; row cells beyond a clip's K
+ * (the hurt rows' last two) are exactly (0,0,0,0) and the frames/rects
+ * metadata is authoritative. NO mirror optimization: the trot phase
+ * groups make left/right views non-mirror-identical in general; the
+ * schema keeps a per-direction `mirror` boolean, false everywhere.
  *
  * JSON: the §6 canonical form — UTF-8, no whitespace, UTF-8
  * byte-lexicographic key order, RFC 8259-minimal escaping, integers only
@@ -42,7 +44,7 @@ import type { Genome } from "./genome.js";
 import { encodeGenome, getScalar } from "./genome.js";
 import { GENERATOR_VERSION } from "./index.js";
 import type { ClipName, Slab } from "./pose.js";
-import { clipPhases, poseQuadruped } from "./pose.js";
+import { CLIP_KS, clipPhases, poseQuadruped } from "./pose.js";
 import type { Direction, SlabOffset } from "./raster.js";
 import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./raster.js";
 import type { Palette } from "./palette.js";
@@ -150,39 +152,57 @@ export function canonicalJson(value: JsonValue): string {
 // Pinned frame-set / sheet constants (design 06 §6 extension)
 // ---------------------------------------------------------------------------
 
-/** Frame edge in pixels — the only normative M1 resolution (D5). */
+/** Frame edge in pixels — the only normative M1/M2 resolution (D5). */
 export const FRAME_SIZE = 32;
 
-/** Frames per clip × direction cell (K = 4, §1.2 per S2/F10). */
+/**
+ * Sheet columns per clip × direction cell — the max clip K (design 07
+ * §4.1: all K ≤ 4, so the sheet stays 4 columns; rows of shorter clips
+ * pad with fully transparent cells).
+ */
 export const FRAMES_PER_CELL = 4;
 
 /**
- * The M1 clip roster in pinned frame-set order (clip is the OUTER
- * nesting level): walk first, idle second.
+ * The M2 clip roster in pinned frame-set order (clip is the OUTER
+ * nesting level — design 07 §4.1): walk and idle keep their exact M1
+ * positions, so frames 0..31 keep their exact M1 meaning (the §4.3
+ * anchor law); attack, hurt, death append in that order.
  */
-export const EXPORT_CLIPS: readonly ClipName[] = Object.freeze(["walk", "idle"]);
+export const EXPORT_CLIPS: readonly ClipName[] = Object.freeze([
+  "walk",
+  "idle",
+  "attack",
+  "hurt",
+  "death",
+]);
 
-/** Total frames: 2 clips × 4 directions × K = 32. */
-export const FRAME_COUNT = EXPORT_CLIPS.length * DIRECTIONS.length * FRAMES_PER_CELL;
+/**
+ * Total frames (design 07 §4.1): Σ over clips of K × 4 directions =
+ * 16 + 16 + 16 + 8 + 16 = 72.
+ */
+export const FRAME_COUNT = EXPORT_CLIPS.reduce(
+  (sum, clip) => sum + CLIP_KS[clip] * DIRECTIONS.length,
+  0,
+);
 
-/** Sheet columns = K (one row per clip × direction cell). */
+/** Sheet columns = max K = 4 (one row per clip × direction cell). */
 export const SHEET_COLS = FRAMES_PER_CELL;
 
-/** Sheet rows = clips × directions = 8. */
+/** Sheet rows = clips × directions = 20 (design 07 §4.1). */
 export const SHEET_ROWS = EXPORT_CLIPS.length * DIRECTIONS.length;
 
 /** Sheet pixel width: 4 × 32 = 128. */
 export const SHEET_WIDTH = SHEET_COLS * FRAME_SIZE;
 
-/** Sheet pixel height: 8 × 32 = 256. */
+/** Sheet pixel height: 20 × 32 = 640 (design 07 §4.1). */
 export const SHEET_HEIGHT = SHEET_ROWS * FRAME_SIZE;
 
 /**
- * Uniform per-frame duration, both clips (design 06 §6 extension): the
- * S2/F10 verdict pins uniform durations; 140 ms/frame is the cadence
- * every accepted spike GIF ran at (S1/S1b/S2/S3 all rendered 140 ms
- * frames — a 560 ms walk cycle at K = 4), so the judged look IS the
- * 140 ms look.
+ * Uniform per-frame duration, ALL clips (design 06 §6 extension; design
+ * 07 §4 U2 pin): the S2/F10 uniformity verdict and the judged cadence
+ * extend to the new clips; 140 ms/frame is the cadence every accepted
+ * spike GIF ran at (S1/S1b/S2/S3 all rendered 140 ms frames — a 560 ms
+ * walk cycle at K = 4), so the judged look IS the 140 ms look.
  */
 export const FRAME_DURATION_MS = 140;
 
@@ -353,9 +373,9 @@ export interface ExportedFrame {
 
 /** Everything exportCreature renders and derives for one genome. */
 export interface CreatureExport {
-  /** The 32 frames in pinned frame-set order. */
+  /** The 72 frames in pinned frame-set order (design 07 §4.1). */
   readonly frames: readonly ExportedFrame[];
-  /** The packed 128×256 sheet as a flat RGBA buffer. */
+  /** The packed 128×640 sheet as a flat RGBA buffer. */
   readonly sheetRgba: Uint8Array;
   /** The sheet PNG bytes. */
   readonly sheetPng: Uint8Array;
@@ -379,10 +399,10 @@ export function sha256Hex(bytes: Uint8Array | string): string {
 }
 
 /**
- * Render one genome to the complete M1 export (design 06 §6 as extended;
- * design 05 §2 M1 subset): the 32-frame set, the packed sheet, the
- * canonical JSON, and every golden hash. Deterministic — two calls on
- * one genome are byte-identical, property-tested in CI.
+ * Render one genome to the complete M2 export (design 06 §6 as extended
+ * by design 07 §4; design 05 §2 subset): the 72-frame set, the packed
+ * sheet, the canonical JSON, and every golden hash. Deterministic — two
+ * calls on one genome are byte-identical, property-tested in CI.
  *
  * Pipeline per clip × direction cell (pinned): poseQuadruped per phase →
  * snapOffsets(slabLists, direction) → rasterize(slabs, direction, 32,
@@ -397,13 +417,17 @@ export function exportCreature(genome: Genome): CreatureExport {
     throw new RangeError(`export: palette.ramp_len must be 3, 4, or 5, got ${rampLenRaw}`);
   }
   const rampLen: 3 | 4 | 5 = rampLenRaw;
-  const phases = clipPhases(FRAMES_PER_CELL);
 
   const frames: ExportedFrame[] = [];
   const hitboxes: FrameHitbox[] = [];
+  /** Per frame, its sheet cell (row = cell index, col = phase index). */
+  const cells: Array<{ readonly row: number; readonly col: number }> = [];
   const clipsJson: Record<string, Record<string, JsonValue>> = {};
 
+  let row = 0;
   for (const clip of EXPORT_CLIPS) {
+    const kClip = CLIP_KS[clip];
+    const phases = clipPhases(kClip);
     const perDirection: Record<string, JsonValue> = {};
     // Slab lists are direction-independent (poses live in model space —
     // design 03 §2 "direction handling is free"); snapping is per
@@ -416,8 +440,9 @@ export function exportCreature(genome: Genome): CreatureExport {
       );
       const { grids } = craftClip(rawGrids);
       const indices: number[] = [];
-      for (let k = 0; k < FRAMES_PER_CELL; k++) {
+      for (let k = 0; k < kClip; k++) {
         indices.push(frames.length);
+        cells.push(Object.freeze({ row, col: k }));
         const rgba = applyPalette(grids[k] as CraftGrid, palette);
         frames.push(
           Object.freeze({
@@ -430,24 +455,29 @@ export function exportCreature(genome: Genome): CreatureExport {
         );
         hitboxes.push(deriveHitbox(slabLists[k]!, direction, offsets[k]!));
       }
-      perDirection[direction] = Object.freeze({
-        frames: Object.freeze(indices),
-        mirror: false, // pinned false everywhere in M1 (§6 extension)
-      });
+      // The design 07 §4.1 clip entry: hurt cells additionally carry
+      // flash: true (an additive metadata key — the engine-side palette
+      // flash cue of design 03 §2); mirror stays false everywhere.
+      perDirection[direction] = Object.freeze(
+        clip === "hurt"
+          ? { flash: true, frames: Object.freeze(indices), mirror: false }
+          : { frames: Object.freeze(indices), mirror: false },
+      );
+      row++;
     }
     clipsJson[clip] = perDirection;
   }
 
-  // Sheet: one row per (clip, direction) cell in frame-set order, K
-  // columns, row-major, no padding (§6 extension).
+  // Sheet: one row per (clip, direction) cell in frame-set order, up to
+  // 4 columns, row-major, no padding; row cells beyond a clip's K stay
+  // exactly (0,0,0,0) (design 07 §4.1).
   const sheetRgba = new Uint8Array(SHEET_WIDTH * SHEET_HEIGHT * 4);
   for (let i = 0; i < frames.length; i++) {
-    const row = Math.floor(i / SHEET_COLS);
-    const col = i % SHEET_COLS;
+    const cell = cells[i]!;
     const frame = frames[i]!;
     for (let y = 0; y < FRAME_SIZE; y++) {
       const src = y * FRAME_SIZE * 4;
-      const dst = ((row * FRAME_SIZE + y) * SHEET_WIDTH + col * FRAME_SIZE) * 4;
+      const dst = ((cell.row * FRAME_SIZE + y) * SHEET_WIDTH + cell.col * FRAME_SIZE) * 4;
       sheetRgba.set(frame.rgba.subarray(src, src + FRAME_SIZE * 4), dst);
     }
   }
@@ -464,8 +494,8 @@ export function exportCreature(genome: Genome): CreatureExport {
       rect: {
         h: FRAME_SIZE,
         w: FRAME_SIZE,
-        x: (i % SHEET_COLS) * FRAME_SIZE,
-        y: Math.floor(i / SHEET_COLS) * FRAME_SIZE,
+        x: cells[i]!.col * FRAME_SIZE,
+        y: cells[i]!.row * FRAME_SIZE,
       },
     })),
     generator_version: GENERATOR_VERSION,

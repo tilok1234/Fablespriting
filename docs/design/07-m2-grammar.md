@@ -291,7 +291,8 @@ pinned: walk 4, idle 4 (M1), **attack 4** (anticipation, strike,
 recovery, recovery — design 03 §2's 1+1+2 envelope at K=4), **hurt 2**
 (offset-against-facing, return), **death 4** (envelope to the plan's
 collapse pose, holding the final frame). All K ≤ 4, so the sheet stays
-4 columns: **56 frames, 20 rows, sheet = 128×640 RGBA**; row cells
+4 columns: **72 frames (16+16+16+8+16), 20 rows, sheet = 128×640
+RGBA**; row cells
 beyond a clip's K are exactly (0,0,0,0) and the frames/rects metadata
 is authoritative (M1 already reads rects, not arithmetic, from JSON).
 Envelopes are piecewise fixed-point curves layered on the idle preset
@@ -312,8 +313,8 @@ frame; wrapping would gate on a transition that never plays). Metric,
 zero-motion convention, and INF-fail are unchanged. The walk gate stays
 32.0; per-clip gates for the new clips are set by the M1 recalibration
 method (production histogram over ≥800 cells, gate above observed max
-with margin, evidence recorded in the unit amendment) — *pinned at unit
-end*, mechanism pinned now.
+with margin, evidence recorded in the unit amendment) — **pinned at U2
+(§4.4.6): attack 19.0, hurt 14.0, death 25.0**.
 
 ### 4.3 Versioning and the M1 anchors
 
@@ -334,6 +335,189 @@ M1 fixtures:
 
 M2 goldens re-pin the full v2 output; the M1 goldens stay in the tree
 as the anchor fixtures.
+
+### 4.4 U2 amendment — envelopes, versioning evidence, the craft cycle-breaker
+
+*Amended with U2 (2026-07-11), per this doc's header rule. Every
+constant below is machine-verified (the independent Python envelope +
+hitbox oracles exact-matched all 260 slab vectors and the pinned hitbox
+spots before these tables were pinned; PIL decode and an independent
+Python re-canonicalization verified the v2 sheet PNG and JSON bytes).
+The frame count is **72 (16+16+16+8+16)** — §4.1's arithmetic was
+corrected from a 56 slip at U2 kickoff; this amendment inherits 72
+everywhere.*
+
+**§4.4.1 Durations.** Uniform **140 ms per frame for ALL five clips**
+— the S2/F10 uniformity verdict and the judged 140 ms cadence extend to
+attack/hurt/death unchanged. Duration metadata emits the constant per
+frame, all 72 entries.
+
+**§4.4.2 Envelope semantics (normative).** A one-shot clip's frame k is
+the **idle preset evaluated at the clip's own uniform phase
+φ_k = k·(65536/K)** (design 06 §1.2 idle oscillators, unchanged) plus
+the pinned envelope deltas below. Deltas are model-space fp raws
+applied per CHAIN (rigid per-chain translation — F16's assembly
+lesson: faces never scramble); directions stay pure projection, no
+envelope constant is direction-aware. One-shot poses are defined ONLY
+at the K uniform phases; other phase arguments trap. `poseQuadruped`
+evaluates death's k = 3 as k = 2 wholesale (base phase AND envelope),
+so the two final slab lists are identical by construction.
+
+- **attack** (K = 4; design 03 §2's 1+1+2 envelope). Per frame,
+  [dy, dz] raws added to (cy, cz) of every slab in the chain class;
+  **f0's deltas scale by `fp_mul(anticipation, delta)`** (the locus is
+  the wind-up depth — "snappy vs heavy"), f1–f3 do not scale:
+
+  | k | body [dy, dz] | head [dy, dz] | tail [dy, dz] | limbs [dy, dz] |
+  |---|---|---|---|---|
+  | 0 wind-up (×ant) | [−98304, −45875] (−1.5, −0.7) | [−131072, −58982] (−2.0, −0.9) | [+32768, −45875] (+0.5, −0.7) | [0, 0] (planted) |
+  | 1 strike | [+147456, 0] (+2.25) | [+196608, 0] (+3.0) | [+98304, 0] (+1.5) | [+147456, 0] |
+  | 2 recovery | [+49152, 0] (+0.75) | [+65536, 0] (+1.0) | [+32768, 0] (+0.5) | [+49152, 0] |
+  | 3 recovered | [0, 0] | [0, 0] | [0, 0] | [0, 0] |
+
+- **hurt** (K = 2): f0 = whole-body recoil **[dy, dz] = [−147456, 0]
+  (−2.25 px) on every chain, limbs included** (no stretch; tuned up
+  from −1.75 so the down/up views clear one pixel through the TILT
+  projection — a dz "cower" variant was tried and rejected because dy
+  and dz foreshortening cancel in one of the front/back views); f1 =
+  all zeros (the return). The palette flash is METADATA ONLY:
+  `flash: true` on hurt's four per-direction clip entries, no pixel
+  effect (design 03 §2).
+
+- **death** (K = 4): every chain adds **DEATH_DY = −49152 (−0.75 px)
+  to cy on every frame** (the stagger, held through the collapse).
+  Non-limb chains sink: `dz = −fp_mul(DEATH_SINK[k], max(0, restCz −
+  restHz))` computed from the chain's ANCHOR node's rest slab (the
+  chain's first slab in the grown graph: core, head, tail) and applied
+  to every slab of the chain. Limbs fold:
+  `cz → fp_mul(DEATH_FOLD[k], cz)`, `hz → fp_mul(DEATH_FOLD[k], hz)`
+  (feet stay on the ground line since cz = hz at rest; the leg
+  shortens as it folds; folds apply to the post-idle-base raws).
+
+  | k | DEATH_SINK | DEATH_FOLD |
+  |---|---|---|
+  | 0 stagger | 9830 (0.15) | 58982 (0.9) |
+  | 1 sink | 29491 (0.45) | 42598 (0.65) |
+  | 2 collapse | 55706 (0.85) | 22938 (0.35) |
+  | 3 held | = f2 (whole pose copied) | = f2 |
+
+**§4.4.3 The anticipation locus.** Registry append, id **35**, path
+`anim.quadruped.anticipation`, fp domain **[0.5, 2]** raws
+[32768, 131072], default **65536** (1.0). The default serializes
+ABSENT (06 §3 wire law), so every issued v1 DNA string decodes and
+renders v2-identically to the explicit-default genome — CI-tested.
+**Deliberate U2 scope line: the hurt and death constants above are
+pinned template constants, NOT loci** — no gene beyond anticipation
+ships in U2; per-creature death/hurt variation is future registry
+work, not a v1-compat concern.
+
+**§4.4.4 Inert emitter rule.** Design 03 §2's only directional clause
+— "emitter parts orient along facing during attack" — is **inert text
+until a plan grows emitter parts** (v1 quadrupeds have none; the first
+candidate is U5's FFF `ranged` preset). No code path implements it in
+U2; it is recorded here so the rule has a pinned home when emitters
+arrive.
+
+**§4.4.5 The craft cycle-breaker (seed 1132 verdict: FIXED, proven
+inert).** Diagnosis: sampled seed 1132's walk/down cell reaches, at
+craft iteration 2, a state with two vertically adjacent interior
+1-px islands — frame 3, pixels (17,21) hide/2 and (17,22) hide/1 —
+whose rule-2 dominant-donor choice is EACH OTHER (all four neighbor
+keys tie at count 1 in both cases, and the smallest-(roleId, tone)
+tie-break selects the partner). The detect-then-apply simultaneous
+update swaps the pair's tones, the swapped state re-selects mutually
+again, and the trajectory is a period-2 cycle that can never reach the
+fixpoint (the v1 MAX_PASS_ITERS trap fired — correct behavior for v1).
+Fix (craft.ts): one simultaneous rules-2/3/5 iteration is a pure
+function of the grid state (rule 5's skip set is call-local), so a
+post-iteration state equal to ANY previously seen state, while
+activity continues, is PROOF of divergence. `craftClip` fingerprints
+the grids per iteration; on the first repeat it switches rule 2 to a
+**sequential form** (`rule2Sequential`: row-major scan, apply the
+FIRST firing change computed from the current grid, restart the scan;
+stop on a clean scan; cap MAX_SEQ_CHANGES = 4096, trap past it) for
+the remainder of the pass. Sequential update settles mutual-donor
+pairs (the scan-first member adopts its partner's key, the partner
+then shares a (role, tone) neighbor and stops being an island), and
+its fixpoint is a genuine rule-2 fixpoint, so idempotence holds — the
+second craft pass converges with zero work and never re-enters the
+breaker (CI-tested). Inertness is BY CONSTRUCTION (the trigger
+condition "repeated state with activity" is exactly "would have
+trapped") and PROVEN by the §4.4.7 sweep: all 2000 non-trapped anchor
+entries byte-identical, seed 1132 gains output where none existed.
+1132's v2 output is golden-pinned (sheet RGBA sha256
+`4701843b52713b6739f7c88b097cad4fc1cd800a112442bce932829ddd2df02d`,
+JSON sha256
+`545ca06da559760114481b75cd7314fc789846b3f61809711ea5c9f79d402e89`).
+The trap itself is NOT weakened: convergence failures that are not
+proven cycles still trap at MAX_PASS_ITERS.
+
+**§4.4.6 One-shot flicker gates (the §4.2 pin).** Calibrated on the v2
+production renderer, seeds 0..199 × 4 directions = 800 cells per clip,
+consecutive pairs only (attack 2400 pairs, hurt 800, death 2400), no
+INF anywhere; death's 800 held f2→f3 pairs score exactly 0.0 (zero
+changed pixels at zero motion — the zero-motion convention). Gates are
+the tightest integers with ≥ 1.25× margin over the observed max and
+are wired into CI beside the walk gate (walk 32.0 and ungated idle
+unchanged):
+
+| clip | pairs | mean | p50 | p95 | p99 | max | gate | margin |
+|------|-------|------|-----|-----|-----|-----|------|--------|
+| attack | 2400 | 5.86 | 5.32 | 11.04 | 12.80 | 14.6730 | **19.0** | 1.295× |
+| hurt | 800 | 6.43 | 6.35 | 8.48 | 9.66 | 10.8359 | **14.0** | 1.292× |
+| death | 2400 | 3.72 | 3.31 | 10.19 | 14.25 | 19.2914 | **25.0** | 1.296× |
+
+Integer-bucket histograms (floor(score): count): attack {0: 100,
+1: 73, 2: 194, 3: 331, 4: 404, 5: 260, 6: 192, 7: 222, 8: 243,
+9: 149, 10: 109, 11: 63, 12: 41, 13: 13, 14: 6}; hurt {3: 7, 4: 56,
+5: 236, 6: 273, 7: 164, 8: 47, 9: 15, 10: 2}; death {0: 801, 1: 61,
+2: 248, 3: 280, 4: 208, 5: 206, 6: 172, 7: 133, 8: 95, 9: 60, 10: 45,
+11: 25, 12: 24, 13: 16, 14: 9, 15: 9, 16: 3, 17: 1, 18: 3, 19: 1}.
+
+**§4.4.7 Anchor evidence (the §4.3 law, discharged for U2).** Baseline:
+from the pristine committed v1 build (HEAD 510e0df), for the
+all-defaults genome + sampled seeds 0..1999 (2001 entries), sha256 of
+(a) the raw RGBA sheet buffer and (b) the canonical JSON of the
+{clips, frames, hitboxes, palette} subset. Post-implementation: the v2
+tree's (a′) first 256 sheet rows and (b′) the same subset restricted to
+frames[0..32)/clips.walk+idle/hitboxes[0..32)/palette. Result:
+**2000/2000 non-error entries equal on both anchors; the single
+baseline error entry (seed 1132, the craft trap) renders under v2**
+(§4.4.5). Evidence fingerprints (sha256 over the newline-joined hash
+values sorted by key, UTF-8; error entries carry their ERROR string):
+
+```
+v1 sheet-hash fingerprint  34d443725f21e3802dae8324a3360af37e3993afcb12795764d209e90cd9d580
+v1 subset fingerprint      1c5e7f98397936315fc685a9765505d09ac40faa22ba0effab2c882e504f4242
+v2 sheet-hash fingerprint  7a6e021ae6efca17210f633ae6c9158fb637589d0e7497d036f4f3a8caf1a976
+v2 subset fingerprint      8b76e34c1d7199122c7d29993d3d1bd69300170ff2cafe1c4dd0c7d660fc5343
+```
+
+(The v1/v2 fingerprints differ only through the 1132 entry.) The
+PERMANENT CI anchor test covers {defaults, seeds 0, 1, 7, 40, 1142}
+against committed v1 fixture files (`tests/goldens/<name>.v1.sheet.png`
++ `.v1.json`; the defaults pair is the original M1 golden, renamed —
+its sheet PNG sha256 is still
+`efd38af16fb8b1b1e3c8c9bbec17c77a453f27256684b13fc1461d65bfaaac84`).
+The v2 defaults golden re-pins beside them
+(`tests/goldens/defaults.sheet.png` + `.json`):
+
+```
+v2 sheet PNG  sha256 9fa3db255cd622318e2a0a0f49e16fcbb1e6a8d47bf7e7e94ac8f6a9d3ac57a4
+v2 sheet RGBA sha256 1f9c569b7054a625bd44fa0c1e0b200080ebd46fe190e508ab5ef3e21e4fa346
+v2 JSON       sha256 94abf46c766dc1426380b434fefefe98c34157202de6df4f3f34374e902c9748
+```
+
+One sampler consequence, recorded honestly: `sampleGenome` draws every
+registry locus from its own path-keyed stream, so sampled genomes now
+carry a locus-35 value and their DNA strings GREW — the anchor law
+covers pixels and the v1 metadata subset, not the `genome` field.
+Defaults-tape genomes ("AQ" etc.) are unaffected.
+
+**§4.4.8 Growth cache.** `poseQuadruped` memoizes `growQuadruped` per
+genome object identity (WeakMap). Byte-inert by purity (growth is a
+pure function of the frozen genome); the 72-frame set grows the graph
+once instead of once per pose sample.
 
 ## 5. Degeneracy defenses (design 02 §4, made normative)
 
@@ -399,7 +583,7 @@ at unit* sections in the same change.
 | Unit | Delivers | Gate |
 |------|----------|------|
 | U1 | Grammar core: PartGraph, budgeted expansion, symmetry groups, exclusion machinery, canonical socket order; quadruped grammar; hardcoded template deleted. LICENSE lands here once the owner picks the text | §1.2 fidelity sweep: seeds 0..1999 byte-identical vs the M1 path (kept in-tree until the sweep passes, then deleted in the same commit); suite green |
-| U2 | Clip set §4: envelopes, anticipation locus, 56-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
+| U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
 | U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
 | U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |

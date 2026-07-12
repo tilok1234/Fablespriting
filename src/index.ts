@@ -27,11 +27,16 @@ export * from "./export.js";
 export * from "./flicker.js";
 
 /**
- * Growth-rule-table version (`docs/design/01-genome.md` §4).
+ * Generator version (`docs/design/01-genome.md` §4; design 07 §4.3).
  *
- * The version prefix of every DNA string selects a growth-rule table.
- * Additive changes (new loci with defaults) don't bump this; behavioral
- * changes do, and old tables are kept so that any DNA string pasted into
- * any future build renders pixel-identical.
+ * Version 2 lands with U2, the first output-changing unit of M2: the
+ * export gains the attack/hurt/death clips (72 frames, 128×640 sheet).
+ * GENOME version stays 1 — every M2 registry change is an append with an
+ * absent-meaning default, so every issued v1 DNA string decodes
+ * unchanged, and the design 07 §4.3 anchor law pins the v1 SUBSET of the
+ * v2 output byte-identical: sheet rows y ∈ [0, 256) equal the v1 sheet,
+ * and frames[0..31] / clips.walk / clips.idle / palette /
+ * hitboxes[0..31] are value-equal to v1's (CI anchor fixtures in
+ * tests/goldens/*.v1.*).
  */
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;

@@ -1106,6 +1106,11 @@ base64url chars**, machine-verified from the §3.1–§3.2 rules: the
 ≤ ~200-char target of design 01 requirement 4 holds even for fully
 adversarial genomes, and the format degrades linearly, not
 catastrophically. Additive registry growth costs absent genomes nothing.
+*Amended with U2 (2026-07-12): the locus-35 append (07 §4.4.3) adds 4
+worst-case bytes (id uvarint 1 + worst zigzag value 3), moving the
+adversarial bound to **138 bytes = 184 base64url chars** —
+machine-verified, CI-pinned in `tests/genome.test.ts`, still comfortably
+within the ≤ ~200-char target.*
 
 ## 4. Stream keying: hash(seed, path, draw) → PCG32
 

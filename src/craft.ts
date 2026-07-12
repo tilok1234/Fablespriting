@@ -49,6 +49,8 @@ export const SOFT_MIN_DIM = 3;
 export const MAX_PASS_ITERS = 40;
 /** Safety cap inside rule 5 — exceeding it traps (§1.5). */
 export const MAX_MERGE_ITERS = 300;
+/** Safety cap inside the sequential rule-2 cycle-breaker (design 07 §4.4). */
+export const MAX_SEQ_CHANGES = 4096;
 
 /**
  * The pinned 4-neighborhood order (design 06 §1.5): up, down, left,
@@ -111,6 +113,15 @@ export interface CraftIteration {
 export interface CraftInfo {
   /** One entry per fixpoint iteration; the last is all-zero (the proof). */
   readonly iterations: readonly CraftIteration[];
+  /**
+   * True iff the pass detected a repeated grid state (a proven cycle —
+   * the simultaneous iteration is a pure function of the grids, so a
+   * repeat with activity can never converge) and switched rule 2 to its
+   * sequential cycle-breaker form (design 07 §4.4). False for every
+   * genome the v1 pass accepted — the detection condition is exactly
+   * "would have trapped".
+   */
+  readonly cycleBroken: boolean;
   /** Iterations with any change (the S3 "work rounds" log). */
   readonly workRounds: number;
   /** Total rule-2 culls + reassignments across the pass. */
@@ -320,6 +331,94 @@ export function rule2Orphan(grid: CraftGrid): number {
     grid[r.y]![r.x] = { role: r.role, tone: r.tone, partId: r.partId, depthRaw: own.depthRaw, edge: 0 };
   }
   return culls.length + reassigns.length;
+}
+
+/**
+ * Sequential form of rule 2 — the design 06 §1.5 cycle-breaker (U2
+ * amendment, design 07 §4.4): repeatedly scan the grid in row-major order
+ * (y outer, x inner — rule 2's own scan order) and, at the FIRST pixel
+ * where rule 2 would fire (cull or interior-island reassignment, decided
+ * from the CURRENT grid), apply that single change and restart the scan
+ * from the top; stop when a full scan fires nothing. One pixel at a time,
+ * so the mutual-donor island pairs that put the simultaneous
+ * detect-then-apply form into a 2-cycle (the seed-1132 trap) settle
+ * instead: reassigning the scan-first member gives it its partner's key,
+ * and the partner then shares a (role, tone) with it and stops being an
+ * island. Only ever invoked by {@link craftClip} AFTER a repeated grid
+ * state proves the simultaneous form diverges — no non-trapped cell ever
+ * reaches this code path. Mutates `grid`; returns the change count; traps
+ * after MAX_SEQ_CHANGES changes (no termination proof exists — the cap
+ * preserves the §1.5 trap-not-loop discipline).
+ */
+export function rule2Sequential(grid: CraftGrid): number {
+  const h = grid.length;
+  const w = h > 0 ? grid[0]!.length : 0;
+  const cell = (x: number, y: number): CraftPixel | null =>
+    x >= 0 && x < w && y >= 0 && y < h ? (grid[y]![x] ?? null) : null;
+
+  let changes = 0;
+  for (;;) {
+    if (changes > MAX_SEQ_CHANGES) {
+      throw new Error(
+        "craft: sequential rule 2 did not settle within MAX_SEQ_CHANGES (design 06 §1.5 trap discipline)",
+      );
+    }
+    let fired = false;
+    scan: for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c = grid[y]![x] ?? null;
+        if (c === null || c.role === "focal") continue;
+        let opaque = 0;
+        let shares = false;
+        for (const [dx, dy] of N4) {
+          const n = cell(x + dx, y + dy);
+          if (n === null) continue;
+          opaque++;
+          if (n.role === c.role && n.tone === c.tone) shares = true;
+        }
+        if (opaque === 0) {
+          grid[y]![x] = null;
+          fired = true;
+          changes++;
+          break scan;
+        }
+        if (opaque === 4 && !shares) {
+          // Identical dominant-neighbor rule to rule2Orphan.
+          const counts = new Map<number, number>();
+          for (const [dx, dy] of N4) {
+            const n = cell(x + dx, y + dy)!;
+            const k = ROLE_IDS[n.role] * 4 + n.tone;
+            counts.set(k, (counts.get(k) ?? 0) + 1);
+          }
+          let domKey = -1;
+          let domCount = -1;
+          for (const [k, n] of counts) {
+            if (n > domCount || (n === domCount && k < domKey)) {
+              domKey = k;
+              domCount = n;
+            }
+          }
+          for (const [dx, dy] of N4) {
+            const n = cell(x + dx, y + dy)!;
+            if (ROLE_IDS[n.role] * 4 + n.tone === domKey) {
+              grid[y]![x] = {
+                role: n.role,
+                tone: n.tone,
+                partId: n.partId,
+                depthRaw: c.depthRaw,
+                edge: 0,
+              };
+              break;
+            }
+          }
+          fired = true;
+          changes++;
+          break scan;
+        }
+      }
+    }
+    if (!fired) return changes;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -730,15 +829,36 @@ export function craftClip(input: readonly RasterGrid[]): { grids: CraftGrid[]; i
     ),
   );
 
+  // Cycle detection (design 07 §4.4): one simultaneous iteration is a
+  // pure function of the grid state (rule 5's skip set is local to each
+  // rule5Clip call), so a post-iteration state equal to ANY previously
+  // seen state — while the iteration still had activity — is proof the
+  // trajectory is periodic and will never converge. Only then does the
+  // pass switch rule 2 to its sequential cycle-breaker form; genomes the
+  // v1 pass accepted never repeat a state and never take the branch.
+  const stateFingerprint = (): string => {
+    let s = "";
+    for (const g of grids) {
+      for (const row of g) {
+        for (const c of row) {
+          s += c === null ? "." : `${ROLE_IDS[c.role]},${c.tone},${c.partId},${c.depthRaw};`;
+        }
+      }
+    }
+    return s;
+  };
+
   const iterations: CraftIteration[] = [];
   const mergeDecisions: MergeDecision[] = [];
   let rule2Total = 0;
   let rule3Total = 0;
   let converged = false;
+  let cycleBroken = false;
+  const seenStates = new Set<string>([stateFingerprint()]);
   for (let it = 0; it < MAX_PASS_ITERS; it++) {
     let c2 = 0;
     let c3 = 0;
-    for (const g of grids) c2 += rule2Orphan(g);
+    for (const g of grids) c2 += cycleBroken ? rule2Sequential(g) : rule2Orphan(g);
     for (const g of grids) c3 += rule3Jaggy(g);
     const decisions = rule5Clip(grids);
     mergeDecisions.push(...decisions);
@@ -748,6 +868,14 @@ export function craftClip(input: readonly RasterGrid[]): { grids: CraftGrid[]; i
     if (c2 === 0 && c3 === 0 && decisions.length === 0) {
       converged = true;
       break;
+    }
+    if (!cycleBroken) {
+      const fp = stateFingerprint();
+      if (seenStates.has(fp)) {
+        cycleBroken = true; // proven cycle — sequential rule 2 from here on
+      } else {
+        seenStates.add(fp);
+      }
     }
   }
   if (!converged) {
@@ -761,6 +889,7 @@ export function craftClip(input: readonly RasterGrid[]): { grids: CraftGrid[]; i
 
   const info: CraftInfo = Object.freeze({
     iterations: Object.freeze(iterations),
+    cycleBroken,
     workRounds: iterations.filter((e) => e.rule2 > 0 || e.rule3 > 0 || e.merges > 0).length,
     rule2Total,
     rule3Total,

@@ -13,7 +13,7 @@
  *
  * `fablesprite sheet --seed-range A..B [--out DIR]` renders the sampled
  * genome of every seed in [A, B] (design 06 §4.2 sampler — sheet
- * identity is cross-implementation) to its full 128×256 export sheet,
+ * identity is cross-implementation) to its full 128×640 export sheet,
  * composed 1× into a grid of G columns (G = ceil(√N), capped so the
  * output stays under ~4096 px wide) with a 2-px transparent gutter,
  * plus a sidecar canonical-JSON manifest mapping grid position →
@@ -67,9 +67,9 @@ export interface ContactSheet {
 /**
  * Build the contact sheet for the inclusive seed range [from, to]:
  * renders each seed's sampled genome through the FULL pinned pipeline
- * (exportCreature) and composes the 128×256 export sheets row-major
- * into the gutter grid. Deterministic; ~1.2 s per genome (renders 32
- * frames each — a QA tool, not a hot path).
+ * (exportCreature) and composes the 128×640 export sheets row-major
+ * into the gutter grid. Deterministic; a few seconds per genome
+ * (renders 72 frames each — a QA tool, not a hot path).
  */
 export function buildContactSheet(from: number, to: number): ContactSheet {
   if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 0 || to < from) {
@@ -122,9 +122,9 @@ export function buildContactSheet(from: number, to: number): ContactSheet {
 
 const USAGE = `usage: fablesprite sheet --seed-range A..B [--out DIR]
   Renders sampled genomes for every seed in the inclusive range A..B and
-  composes their 128x256 export sheets into one contact-sheet PNG plus a
+  composes their 128x640 export sheets into one contact-sheet PNG plus a
   JSON manifest (grid position -> seed/dna). Writes sheet_<A>_<B>.png and
-  sheet_<A>_<B>.json into DIR (default ./out). ~1.2 s per genome.`;
+  sheet_<A>_<B>.json into DIR (default ./out). A few seconds per genome.`;
 
 /** Parse `--flag value` / `--flag=value` pairs after the subcommand. */
 function parseFlags(args: readonly string[]): Map<string, string> | null {

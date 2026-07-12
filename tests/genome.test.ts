@@ -40,8 +40,8 @@ function genomesEqual(a: Genome, b: Genome): boolean {
 }
 
 describe("design 06 §1.1 registry", () => {
-  test("35 loci, ids 0–34, REGISTRY[i].id === i", () => {
-    expect(REGISTRY.length).toBe(35);
+  test("36 loci, ids 0–35, REGISTRY[i].id === i", () => {
+    expect(REGISTRY.length).toBe(36);
     for (let i = 0; i < REGISTRY.length; i++) expect(REGISTRY[i]!.id).toBe(i);
   });
 
@@ -50,7 +50,7 @@ describe("design 06 §1.1 registry", () => {
       expect(locusById(locus.id)).toBe(locus);
       expect(locusByPath(locus.path)).toBe(locus);
     }
-    expect(locusById(35)).toBeUndefined();
+    expect(locusById(36)).toBeUndefined();
     expect(locusById(-1)).toBeUndefined();
     expect(locusByPath("body.leg[fl].length")).toBeUndefined(); // no normalization (§2)
   });
@@ -71,6 +71,16 @@ describe("design 06 §1.1 registry", () => {
       expect(pg.defaultRaw).toBe(group);
     }
     expect(TRAIT_TAG_NAMES).toEqual(["chitin", "fleshy", "spectral", "mechanical", "verdant"]);
+    // U2 append (design 07 §4): the anticipation locus, id 35, fp
+    // [0.5, 2] default 1.0 — the default serializes absent (wire law).
+    const ant = locusByPath("anim.quadruped.anticipation") as ScalarLocus;
+    expect([ant.id, ant.kind, ant.lo, ant.hi, ant.defaultRaw]).toEqual([
+      35,
+      "fp",
+      32768,
+      131072,
+      65536,
+    ]);
   });
 });
 
@@ -170,7 +180,7 @@ describe("design 06 §3.3 reject rules (each fires with the right error class)",
     ["unknown version prefix 2", "02"],
     ["unknown version prefix 0", "00"],
     ["unknown version prefix 2^32", "80808080107b"],
-    ["locus id 35 beyond the version-1 registry", "012302"],
+    ["locus id 36 beyond the version-1 registry", "012402"],
     ["locus id 300 beyond the version-1 registry", "01ac0202"],
     ["trait tag 5 beyond the version-1 registry", "01020105"],
     ["phase_group enum member 2 beyond the registry", "011704"],
@@ -283,7 +293,7 @@ describe("design 06 §3.3 round-trip and canonical-bytes laws (≥ 10,000 genome
 });
 
 describe("design 06 §3.5 adversarial worst case", () => {
-  test("max seed + full tag set + every scalar at its costliest extreme = 134 bytes = 179 chars", () => {
+  test("max seed + full tag set + every scalar at its costliest extreme = 138 bytes = 184 chars", () => {
     const zz = (d: bigint): bigint => (d >= 0n ? d << 1n : (-d << 1n) - 1n);
     const uvarintLen = (value: bigint): number => {
       let v = value;
@@ -306,8 +316,8 @@ describe("design 06 §3.5 adversarial worst case", () => {
     }
     const g = makeGenome({ seed: (1n << 64n) - 1n, traitTags: [3, 4], values });
     const text = encodeGenome(g);
-    expect(text.length).toBe(179); // the §3.5 machine-verified pin
-    expect(Buffer.from(text, "base64url").length).toBe(134);
+    expect(text.length).toBe(184); // the §3.5 machine-verified pin (U2: +4 bytes for locus 35)
+    expect(Buffer.from(text, "base64url").length).toBe(138);
     expect(text.length).toBeLessThanOrEqual(200); // design 01 requirement 4
     expect(genomesEqual(decodeGenome(text), g)).toBe(true);
   });

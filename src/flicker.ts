@@ -26,8 +26,10 @@
  *
  * This module is diagnostic — it renders through the pinned §6.1
  * pipeline but adds nothing to it; no goldens hash its output. The CI
- * gate applies to every WALK clip × direction cell (idle cells are
- * measurable but not gated — walk is where motion must justify churn).
+ * gates apply to every walk, attack, hurt, and death clip × direction
+ * cell (idle cells are measurable but not gated — M1 policy). One-shot
+ * clips measure consecutive pairs only, per-clip gates per
+ * {@link FLICKER_GATES} (design 07 §4.2).
  */
 
 import { craftClip, snapOffsets } from "./craft.js";
@@ -38,7 +40,7 @@ import { getScalar } from "./genome.js";
 import { applyPalette, derivePalette } from "./palette.js";
 import { PART_NAMES } from "./grammar.js";
 import type { ClipName, Slab } from "./pose.js";
-import { clipPhases, poseQuadruped } from "./pose.js";
+import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, poseQuadruped } from "./pose.js";
 import type { Direction } from "./raster.js";
 import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./raster.js";
 
@@ -64,6 +66,33 @@ export const FLICKER_GATE_NUM = 32n;
 
 /** Flicker gate denominator (the gate is the rational NUM/DEN). */
 export const FLICKER_GATE_DEN = 1n;
+
+/** One clip's flicker gate as the exact rational num/den. */
+export interface FlickerGate {
+  readonly num: bigint;
+  readonly den: bigint;
+}
+
+/**
+ * Per-clip flicker gates (design 07 §4.2). Looping clips keep the M1
+ * walk gate 32.0 (idle is measurable but not CI-gated — unchanged M1
+ * policy). The one-shot gates are CALIBRATED by the M1 recalibration
+ * method on the v2 production renderer (design 07 §4.5 U2 amendment,
+ * 2026-07-11): per clip over seeds 0..199 × 4 directions = 800 cells,
+ * consecutive pairs only (attack 2400 pairs, hurt 800, death 2400 —
+ * death's held f2→f3 pair scores 0.0 by construction), no INF anywhere;
+ * observed maxima attack 14.6730 / hurt 10.8359 / death 19.2914; each
+ * gate is the tightest integer with ≥ 1.25× margin over its observed
+ * max (attack 19 = 1.295×, hurt 14 = 1.292×, death 25 = 1.296× —
+ * histograms in the amendment).
+ */
+export const FLICKER_GATES: Readonly<Record<ClipName, FlickerGate>> = Object.freeze({
+  walk: Object.freeze({ num: 32n, den: 1n }),
+  idle: Object.freeze({ num: 32n, den: 1n }),
+  attack: Object.freeze({ num: 19n, den: 1n }),
+  hurt: Object.freeze({ num: 14n, den: 1n }),
+  death: Object.freeze({ num: 25n, den: 1n }),
+});
 
 // ---------------------------------------------------------------------------
 // Metric pieces (each independently testable)
@@ -177,7 +206,12 @@ export interface PairFlicker {
 
 /** One clip × direction cell's flicker verdict. */
 export interface CellFlicker {
-  /** K wrapping pairs in order: (0,1), (1,2), …, (K−1,0). */
+  /**
+   * Frame pairs in order. Looping clips: K wrapping pairs (0,1), (1,2),
+   * …, (K−1,0). One-shot clips (design 07 §4.2): K−1 consecutive pairs
+   * only — no wrap (a death's final pose legitimately differs from its
+   * first frame; wrapping would gate a transition that never plays).
+   */
   readonly pairs: readonly PairFlicker[];
   /** True iff every pair passes. */
   readonly pass: boolean;
@@ -186,12 +220,19 @@ export interface CellFlicker {
 /**
  * The pinned gate comparison for one pair (design 06 §1.6, exact — no
  * division): zero-motion convention first, then
- * `changed · 2^16 · GATE_DEN < GATE_NUM · energy`, strict `<`.
+ * `changed · 2^16 · gateDen < gateNum · energy`, strict `<`. The default
+ * gate is the M1 walk gate 32.0; one-shot clips pass their own
+ * {@link FLICKER_GATES} rational (design 07 §4.2).
  */
-export function pairPasses(changed: number, energy: bigint): boolean {
+export function pairPasses(
+  changed: number,
+  energy: bigint,
+  gateNum: bigint = FLICKER_GATE_NUM,
+  gateDen: bigint = FLICKER_GATE_DEN,
+): boolean {
   if (energy < 0n) throw new RangeError("flicker: negative energy");
   if (energy === 0n) return changed === 0;
-  return BigInt(changed) * 65536n * FLICKER_GATE_DEN < FLICKER_GATE_NUM * energy;
+  return BigInt(changed) * 65536n * gateDen < gateNum * energy;
 }
 
 /**
@@ -204,17 +245,37 @@ export function pairScore(changed: number, energy: bigint): number {
   return (changed * 65536) / Number(energy);
 }
 
+/** Options for {@link evaluateCell} (design 07 §4.2). */
+export interface EvaluateCellOptions {
+  /**
+   * Include the wrapping (K−1, 0) pair. Defaults to true (looping-clip
+   * behavior — the M1 metric); one-shot clips pass false.
+   */
+  readonly wrap?: boolean;
+  /** Gate numerator (default: the M1 walk gate 32). */
+  readonly gateNum?: bigint;
+  /** Gate denominator (default 1). */
+  readonly gateDen?: bigint;
+}
+
 /**
- * Evaluate one clip × direction cell (design 06 §1.6): `rgbaFrames` are
- * the K final RGBA buffers (§1.3 artifact-1, post-palette), `slabLists`
- * the K continuous model-space slab lists that produced them (the §1.2
- * 13-slab template, PRE-snap — snapping never enters the energy).
+ * Evaluate one clip × direction cell (design 06 §1.6 as extended by
+ * design 07 §4.2): `rgbaFrames` are the K final RGBA buffers (§1.3
+ * artifact-1, post-palette), `slabLists` the K continuous model-space
+ * slab lists that produced them (the §1.2 13-slab template, PRE-snap —
+ * snapping never enters the energy). Looping clips measure K wrapping
+ * pairs; one-shot clips (`wrap: false`) measure the K−1 consecutive
+ * pairs only. Metric, zero-motion convention, and INF-fail are unchanged.
  */
 export function evaluateCell(
   rgbaFrames: readonly Uint8Array[],
   slabLists: readonly (readonly Slab[])[],
   direction: Direction,
+  options: EvaluateCellOptions = {},
 ): CellFlicker {
+  const wrap = options.wrap ?? true;
+  const gateNum = options.gateNum ?? FLICKER_GATE_NUM;
+  const gateDen = options.gateDen ?? FLICKER_GATE_DEN;
   const k = rgbaFrames.length;
   if (k < 1 || slabLists.length !== k) {
     throw new RangeError(
@@ -231,12 +292,13 @@ export function evaluateCell(
   const centers = slabLists.map((slabs) => screenCenters(slabs, direction));
   const pairs: PairFlicker[] = [];
   let pass = true;
-  for (let f = 0; f < k; f++) {
+  const pairCount = wrap ? k : k - 1;
+  for (let f = 0; f < pairCount; f++) {
     const g = (f + 1) % k;
     const changed = changedPixels(rgbaFrames[f]!, rgbaFrames[g]!);
     const energy = pairEnergy(centers[f]!, centers[g]!);
     const infinite = energy === 0n && changed > 0;
-    const ok = pairPasses(changed, energy);
+    const ok = pairPasses(changed, energy, gateNum, gateDen);
     if (!ok) pass = false;
     pairs.push(Object.freeze({ changed, energy, infinite, pass: ok }));
   }
@@ -267,7 +329,7 @@ export function renderClipCells(
   genome: Genome,
   clip: ClipName,
   size = 32,
-  k = 4,
+  k = CLIP_KS[clip],
 ): Record<Direction, RenderedCell> {
   const palette = derivePalette(genome);
   const rampLenRaw = getScalar(genome, "palette.ramp_len");
@@ -294,16 +356,37 @@ export function renderClipCells(
 }
 
 /**
- * Measure the walk-clip flicker of one genome: the four §1.6-gated
- * cells, rendered through the pinned pipeline and evaluated against the
- * gate. The CI test asserts `pass` on every cell.
+ * Measure one clip's flicker for one genome (design 06 §1.6 as extended
+ * by design 07 §4.2): the four direction cells, rendered through the
+ * pinned pipeline and evaluated against the clip's own
+ * {@link FLICKER_GATES} rational, with the wrap pair included exactly
+ * when the clip loops (one-shot clips measure consecutive pairs only).
+ * The CI gate asserts `pass` on every walk, attack, hurt, and death
+ * cell (idle stays measurable but ungated — M1 policy).
  */
-export function measureWalkFlicker(genome: Genome): Record<Direction, CellFlicker> {
-  const cells = renderClipCells(genome, "walk");
+export function measureClipFlicker(
+  genome: Genome,
+  clip: ClipName,
+): Record<Direction, CellFlicker> {
+  const gate = FLICKER_GATES[clip];
+  const wrap = !ONE_SHOT_CLIPS.has(clip);
+  const cells = renderClipCells(genome, clip);
   const out = {} as Record<Direction, CellFlicker>;
   for (const direction of DIRECTIONS) {
     const cell = cells[direction];
-    out[direction] = evaluateCell(cell.rgbaFrames, cell.slabLists, direction);
+    out[direction] = evaluateCell(cell.rgbaFrames, cell.slabLists, direction, {
+      wrap,
+      gateNum: gate.num,
+      gateDen: gate.den,
+    });
   }
   return out;
+}
+
+/**
+ * Measure the walk-clip flicker of one genome — the M1 entry point,
+ * unchanged: `measureClipFlicker(genome, "walk")`.
+ */
+export function measureWalkFlicker(genome: Genome): Record<Direction, CellFlicker> {
+  return measureClipFlicker(genome, "walk");
 }

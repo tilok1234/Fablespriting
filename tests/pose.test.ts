@@ -152,8 +152,14 @@ describe("structure — slab count, order, roles, mirrors (design 06 §1.2 part 
   });
 
   test("rejects unknown clips and non-integer phases", () => {
-    expect(() => poseQuadruped(DEFAULTS, "attack" as never, 0)).toThrow(RangeError);
+    expect(() => poseQuadruped(DEFAULTS, "fly" as never, 0)).toThrow(RangeError);
     expect(() => poseQuadruped(DEFAULTS, "walk", 0.5)).toThrow(RangeError);
+    // One-shot clips are defined only at their K uniform phases
+    // (design 07 §4.4); attack itself is a legal clip since U2.
+    expect(poseQuadruped(DEFAULTS, "attack", 0).length).toBe(13);
+    expect(() => poseQuadruped(DEFAULTS, "attack", 1)).toThrow(RangeError);
+    expect(() => poseQuadruped(DEFAULTS, "hurt", 16384)).toThrow(RangeError);
+    expect(() => poseQuadruped(DEFAULTS, "death", 65536)).toThrow(RangeError);
   });
 });
 
