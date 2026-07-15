@@ -1,6 +1,6 @@
 # Fablesprite — Detailed Design Assessment
 
-**Status:** planning phase · assessment grounded in Spikes S1–S4 (see `spikes/`)
+**Status:** M1 accepted 2026-07-11; M2 in build under `docs/design/07-m2-grammar.md` · assessment grounded in Spikes S1–S4 (see `spikes/`)
 **Companion docs:** deep dives in `docs/design/`, risks in `RISKS.md`, plan in `ROADMAP.md`
 
 This document assesses every pillar of `CONCEPT.md` for value, feasibility,

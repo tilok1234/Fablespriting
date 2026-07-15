@@ -42,6 +42,10 @@ the quality guard).
 
 ## Phase 2 — M2 grammar breadth
 
+**Status: in progress.** U1 (grammar core, fidelity-proven against the M1
+path on 2001 genomes) and U2 (attack/hurt/death clips, 72-frame export,
+generator v2) landed 2026-07-11/12; U3 (levitant) in flight.
+
 Real grammar replaces the hardcoded graph. Ship 3 plans with maximum spread
 (D4, decided 2026-07-11: quadruped, levitant, amorphous — the amorphous
 renderer fork lands here), trait tags, exclusion groups, part budgets,

@@ -101,9 +101,10 @@ Promise: a DNA string pasted into any future build renders pixel-identical.
 
 ## 5. Open questions
 
-- Exact varint/tape format — decide at M1 start (needs the real locus list).
-- Whether `anim` loci should be plan-scoped rather than global (leaning yes:
-  a hover frequency is meaningless to a quadruped, and plan-scoped keeps
-  cross-plan homology honest).
+- ~~Exact varint/tape format~~ — decided at M1: the id-registry varint
+  tape, design 06 §3.
+- ~~Whether `anim` loci should be plan-scoped rather than global~~ —
+  decided at M1: plan-scoped (design 06 §1.1), with cross-plan `anim`
+  transfer via the M2 crossover-time semantic map (design 07 §2.5).
 - Diploid genomes (recessive genes) — fun for breeding-centric games; adds
   complexity; **deferred**, the locus tree doesn't preclude it.

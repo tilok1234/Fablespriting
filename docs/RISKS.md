@@ -45,8 +45,8 @@ design 07).
    amorphous (owner accepted the recommendation at M2 kickoff; design
    07 §0).
 5. **Licensing/distribution:** ✅ Decided 2026-07-09 — open source under a
-   permissive license (MIT or Apache-2.0; pick the exact text when the
-   LICENSE file is added, before M1's CI setup).
+   permissive license. Text picked at M2 U1 (2026-07-11): **MIT** — the
+   LICENSE file, owed since M1, landed in the U1 commit.
 6. **D5 16×16 output tier:** ✅ Decided 2026-07-10 — dropped as a
    generated tier (owner call on S4 evidence); revisit post-M5 only on
    real demand.
