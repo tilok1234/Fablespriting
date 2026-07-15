@@ -4,7 +4,9 @@ A procedural sprite generator for top-down games: 32×32 player characters
 and non-humanoid enemies, animated, in 4 directions — built creature-first,
 pixels-last.
 
-**Currently in planning + spike phase.** Reading order:
+**Currently in production build: M1 (one quadruped, end to end) accepted
+2026-07-11; M2 grammar breadth in progress** (design 07 — quadruped +
+levitant landed, amorphous next). Reading order:
 
 1. [`CONCEPT.md`](CONCEPT.md) — the vision and the seven novel pillars
 2. [`docs/ASSESSMENT.md`](docs/ASSESSMENT.md) — detailed per-pillar
@@ -37,7 +39,8 @@ it, this section is its contract.
 
 ```
 npm run build
-node dist/cli.js sheet --seed-range 0..49 [--out DIR]     # or the
+node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant]
+                       [--out DIR]                        # or the
                                                           # `fablesprite`
                                                           # bin after
                                                           # npm link
@@ -48,6 +51,13 @@ node dist/cli.js sheet --seed-range 0..49 [--out DIR]     # or the
   implementations) through the full pipeline, ~1.5 s per genome on a
   desktop (50 genomes ≈ 75 s — fine for a QA tool, don't put it in a
   hot loop).
+- `--plan` (since U3, design 07 §2.3.1) forces every sampled genome
+  onto that body plan (default `quadruped`). Plan is a sampler
+  parameter, not a draw — shared loci (palette, core dims) sample
+  identically across plans for the same seed. A non-default plan is
+  recorded as a `plan` key in the JSON manifest (absent for quadruped,
+  so committed manifests are unchanged). The U3 owner mini-sheet:
+  `node dist/cli.js sheet --seed-range 0..24 --plan levitant`.
 - Each genome contributes its full 128×640 export sheet at 1× (since
   U2: 20 rows — [walk, idle, attack, hurt, death] × 4 directions),
   composed row-major into `ceil(√N)` columns (capped at 31 so the

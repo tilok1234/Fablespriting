@@ -28,19 +28,19 @@
  * pipeline but adds nothing to it; no goldens hash its output. The CI
  * gates apply to every walk, attack, hurt, and death clip × direction
  * cell (idle cells are measurable but not gated — M1 policy). One-shot
- * clips measure consecutive pairs only, per-clip gates per
- * {@link FLICKER_GATES} (design 07 §4.2).
+ * clips measure consecutive pairs only; gates are per-(plan, clip)
+ * tables per {@link FLICKER_GATES} (design 07 §4.2 as amended at U3).
  */
 
 import { craftClip, snapOffsets } from "./craft.js";
 import type { CraftGrid } from "./craft.js";
 import { fp_mul, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
-import { getScalar } from "./genome.js";
+import { PLAN_NAMES, getScalar } from "./genome.js";
 import { applyPalette, derivePalette } from "./palette.js";
-import { PART_NAMES } from "./grammar.js";
+import { LEVITANT_PART_NAMES, PART_NAMES } from "./grammar.js";
 import type { ClipName, Slab } from "./pose.js";
-import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, poseQuadruped } from "./pose.js";
+import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, growCreature, poseCreature } from "./pose.js";
 import type { Direction } from "./raster.js";
 import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./raster.js";
 
@@ -74,24 +74,52 @@ export interface FlickerGate {
 }
 
 /**
- * Per-clip flicker gates (design 07 §4.2). Looping clips keep the M1
- * walk gate 32.0 (idle is measurable but not CI-gated — unchanged M1
- * policy). The one-shot gates are CALIBRATED by the M1 recalibration
- * method on the v2 production renderer (design 07 §4.5 U2 amendment,
- * 2026-07-11): per clip over seeds 0..199 × 4 directions = 800 cells,
- * consecutive pairs only (attack 2400 pairs, hurt 800, death 2400 —
- * death's held f2→f3 pair scores 0.0 by construction), no INF anywhere;
- * observed maxima attack 14.6730 / hurt 10.8359 / death 19.2914; each
- * gate is the tightest integer with ≥ 1.25× margin over its observed
- * max (attack 19 = 1.295×, hurt 14 = 1.292×, death 25 = 1.296× —
- * histograms in the amendment).
+ * Per-(plan, clip) flicker gates (design 07 §4.2 as amended at U3,
+ * 2026-07-15). Gate POLICY only — the 06 §1.6 metric arithmetic is
+ * normative and untouched. Each plan's row is calibrated by the M1
+ * recalibration method against that plan's OWN production histogram
+ * (per clip over seeds 0..199 × 4 directions = 800 cells; looping
+ * clips wrap, one-shot clips measure consecutive pairs only; gate =
+ * the tightest integer with ≥ 1.25× margin over the plan's observed
+ * max). A plan's gate never prices in the other plan's histogram, so
+ * a regression past a plan's own calibrated ceiling fails even where
+ * the other plan's cells are legitimately louder.
+ *
+ * quadruped — the U2 pins RESTATED, not recalibrated (design 07 §4.4.6,
+ * 2026-07-11; its histograms have not moved): observed maxima walk
+ * 25.1166 (M1) / attack 14.6730 / hurt 10.8359 / death 19.2914 → gates
+ * 32, 19, 14, 25.
+ *
+ * levitant — pinned at U3 from the §4.4.6 addendum sweep (seeds 0..199
+ * levitant-forced × 4 dirs, no INF anywhere, death's 800 held f2→f3
+ * pairs — one per cell, 2400 death pairs total — exactly 0.0): observed
+ * maxima walk 17.2966 / attack 68.9279 /
+ * hurt 17.2825 / death 14.9359 → gates 22 (1.272×), 87 (1.262×),
+ * 22 (1.273×), 19 (1.272×). The attack ceiling is structurally loud —
+ * the one-chain body mass (orb + eye stack + horns, dominating the
+ * 11-slab silhouette) snaps a whole-pixel chain jump on sub-pixel
+ * easing-frame motion. Full integer-bucket histograms in the addendum.
+ *
+ * Idle rows carry the plan's walk rational for callers that measure
+ * idle cells, but idle is NOT CI-gated (unchanged M1 policy).
  */
-export const FLICKER_GATES: Readonly<Record<ClipName, FlickerGate>> = Object.freeze({
-  walk: Object.freeze({ num: 32n, den: 1n }),
-  idle: Object.freeze({ num: 32n, den: 1n }),
-  attack: Object.freeze({ num: 19n, den: 1n }),
-  hurt: Object.freeze({ num: 14n, den: 1n }),
-  death: Object.freeze({ num: 25n, den: 1n }),
+export const FLICKER_GATES: Readonly<
+  Record<(typeof PLAN_NAMES)[number], Readonly<Record<ClipName, FlickerGate>>>
+> = Object.freeze({
+  quadruped: Object.freeze({
+    walk: Object.freeze({ num: 32n, den: 1n }),
+    idle: Object.freeze({ num: 32n, den: 1n }),
+    attack: Object.freeze({ num: 19n, den: 1n }),
+    hurt: Object.freeze({ num: 14n, den: 1n }),
+    death: Object.freeze({ num: 25n, den: 1n }),
+  }),
+  levitant: Object.freeze({
+    walk: Object.freeze({ num: 22n, den: 1n }),
+    idle: Object.freeze({ num: 22n, den: 1n }),
+    attack: Object.freeze({ num: 87n, den: 1n }),
+    hurt: Object.freeze({ num: 22n, den: 1n }),
+    death: Object.freeze({ num: 19n, den: 1n }),
+  }),
 });
 
 // ---------------------------------------------------------------------------
@@ -221,8 +249,8 @@ export interface CellFlicker {
  * The pinned gate comparison for one pair (design 06 §1.6, exact — no
  * division): zero-motion convention first, then
  * `changed · 2^16 · gateDen < gateNum · energy`, strict `<`. The default
- * gate is the M1 walk gate 32.0; one-shot clips pass their own
- * {@link FLICKER_GATES} rational (design 07 §4.2).
+ * gate is the M1 walk gate 32.0; cell callers pass the plan × clip
+ * {@link FLICKER_GATES} rational (design 07 §4.2 as amended at U3).
  */
 export function pairPasses(
   changed: number,
@@ -283,9 +311,11 @@ export function evaluateCell(
     );
   }
   for (const slabs of slabLists) {
-    if (slabs.length !== PART_NAMES.length) {
+    // A plan's normative slab list: 13 (quadruped, 06 §1.2) or 11
+    // (levitant, design 07 §2.3.1).
+    if (slabs.length !== PART_NAMES.length && slabs.length !== LEVITANT_PART_NAMES.length) {
       throw new RangeError(
-        `flicker: expected the ${PART_NAMES.length}-slab §1.2 list, got ${slabs.length}`,
+        `flicker: expected a plan slab list (${PART_NAMES.length} or ${LEVITANT_PART_NAMES.length} slabs), got ${slabs.length}`,
       );
     }
   }
@@ -319,11 +349,12 @@ export interface RenderedCell {
 
 /**
  * Render the four direction cells of one clip through exactly the §6.1
- * per-cell pipeline (poseQuadruped per phase → snapOffsets → rasterize →
- * craftClip → applyPalette): the same arithmetic exportCreature runs, so
- * the metric measures the shipped bytes (cross-checked against
- * exportCreature in tests/flicker.test.ts). Poses once (slab lists are
- * direction-independent), renders per direction.
+ * per-cell pipeline (the plan's pose function per phase — dispatched on
+ * `meta.plan`, design 07 §2.3.1 — → snapOffsets with the grown graph's
+ * chains → rasterize → craftClip → applyPalette): the same arithmetic
+ * exportCreature runs, so the metric measures the shipped bytes
+ * (cross-checked against exportCreature in tests/flicker.test.ts). Poses
+ * once (slab lists are direction-independent), renders per direction.
  */
 export function renderClipCells(
   genome: Genome,
@@ -337,11 +368,12 @@ export function renderClipCells(
     throw new RangeError(`flicker: palette.ramp_len must be 3, 4, or 5, got ${rampLenRaw}`);
   }
   const rampLen: 3 | 4 | 5 = rampLenRaw;
+  const chains = growCreature(genome).chains;
   const phases = clipPhases(k);
-  const slabLists = phases.map((phi) => poseQuadruped(genome, clip, phi));
+  const slabLists = phases.map((phi) => poseCreature(genome, clip, phi));
   const out = {} as Record<Direction, RenderedCell>;
   for (const direction of DIRECTIONS) {
-    const offsets = snapOffsets(slabLists, direction);
+    const offsets = snapOffsets(slabLists, direction, chains);
     const rawGrids = slabLists.map((slabs, f) =>
       rasterize(slabs, direction, size, rampLen, offsets[f]!),
     );
@@ -358,17 +390,25 @@ export function renderClipCells(
 /**
  * Measure one clip's flicker for one genome (design 06 §1.6 as extended
  * by design 07 §4.2): the four direction cells, rendered through the
- * pinned pipeline and evaluated against the clip's own
- * {@link FLICKER_GATES} rational, with the wrap pair included exactly
- * when the clip loops (one-shot clips measure consecutive pairs only).
- * The CI gate asserts `pass` on every walk, attack, hurt, and death
- * cell (idle stays measurable but ungated — M1 policy).
+ * pinned pipeline and evaluated against the {@link FLICKER_GATES}
+ * rational of the genome's OWN plan row (`meta.plan` — quadruped cells
+ * assert quadruped gates, levitant cells levitant gates) and the clip,
+ * with the wrap pair included exactly when the clip loops (one-shot
+ * clips measure consecutive pairs only). The CI gate asserts `pass` on
+ * every walk, attack, hurt, and death cell (idle stays measurable but
+ * ungated — M1 policy).
  */
 export function measureClipFlicker(
   genome: Genome,
   clip: ClipName,
 ): Record<Direction, CellFlicker> {
-  const gate = FLICKER_GATES[clip];
+  const planName = PLAN_NAMES[getScalar(genome, "meta.plan")];
+  if (planName === undefined) {
+    throw new RangeError(
+      `flicker: genome meta.plan ${getScalar(genome, "meta.plan")} names no plan gate row`,
+    );
+  }
+  const gate = FLICKER_GATES[planName][clip];
   const wrap = !ONE_SHOT_CLIPS.has(clip);
   const cells = renderClipCells(genome, clip);
   const out = {} as Record<Direction, CellFlicker>;

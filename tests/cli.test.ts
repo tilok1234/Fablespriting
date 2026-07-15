@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { MAX_SHEET_COLS, SHEET_GUTTER, buildContactSheet } from "../src/cli.js";
+import { MAX_SHEET_COLS, SHEET_GUTTER, buildContactSheet, main } from "../src/cli.js";
 import { SHEET_HEIGHT, SHEET_WIDTH, exportCreature } from "../src/export.js";
 import { encodeGenome, sampleGenome } from "../src/genome.js";
 
@@ -92,6 +92,41 @@ describe("buildContactSheet (seeds 0..3)", { timeout: 120000 }, () => {
 
   test("column cap keeps sheets under ~4096 px wide", () => {
     expect(MAX_SHEET_COLS * (SHEET_WIDTH + SHEET_GUTTER) - SHEET_GUTTER).toBeLessThanOrEqual(4096);
+  });
+});
+
+describe("--plan (design 07 §2.3.1 D-a: the U3 mini-sheet instrument)", { timeout: 120000 }, () => {
+  test("plan-forced sheet: levitant DNA in entries, plan key in the manifest", () => {
+    const sheet = buildContactSheet(0, 0, 1);
+    expect(sheet.entries[0]!.dna).toBe(encodeGenome(sampleGenome(0n, 1)));
+    const manifest = JSON.parse(sheet.manifest) as { plan?: string };
+    expect(manifest.plan).toBe("levitant");
+    // Cell (0,0) is byte-identical to the levitant export sheet.
+    const creature = exportCreature(sampleGenome(0n, 1));
+    expect(Buffer.from(sheet.rgba.subarray(0, SHEET_WIDTH * 4)).equals(
+      Buffer.from(creature.sheetRgba.subarray(0, SHEET_WIDTH * 4)),
+    )).toBe(true);
+  });
+
+  test("the default-plan manifest carries NO plan key (qa/sheet_0_49.json stays byte-intact)", () => {
+    const sheet = buildContactSheet(0, 0);
+    expect("plan" in (JSON.parse(sheet.manifest) as object)).toBe(false);
+  });
+
+  test("bad --plan is a usage error (exit 2), before any rendering", () => {
+    const errs: string[] = [];
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => {
+      errs.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      expect(main(["sheet", "--seed-range", "0..0", "--plan", "amorphous"])).toBe(2);
+    } finally {
+      process.stderr.write = orig;
+    }
+    expect(errs.join("")).toContain("bad --plan");
+    expect(() => buildContactSheet(0, 0, 2)).toThrow(RangeError);
   });
 });
 

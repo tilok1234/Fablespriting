@@ -40,8 +40,8 @@ function genomesEqual(a: Genome, b: Genome): boolean {
 }
 
 describe("design 06 §1.1 registry", () => {
-  test("36 loci, ids 0–35, REGISTRY[i].id === i", () => {
-    expect(REGISTRY.length).toBe(36);
+  test("47 loci, ids 0–46 (U3 appends 36–46), REGISTRY[i].id === i", () => {
+    expect(REGISTRY.length).toBe(47);
     for (let i = 0; i < REGISTRY.length; i++) expect(REGISTRY[i]!.id).toBe(i);
   });
 
@@ -50,7 +50,7 @@ describe("design 06 §1.1 registry", () => {
       expect(locusById(locus.id)).toBe(locus);
       expect(locusByPath(locus.path)).toBe(locus);
     }
-    expect(locusById(36)).toBeUndefined();
+    expect(locusById(47)).toBeUndefined();
     expect(locusById(-1)).toBeUndefined();
     expect(locusByPath("body.leg[fl].length")).toBeUndefined(); // no normalization (§2)
   });
@@ -180,11 +180,11 @@ describe("design 06 §3.3 reject rules (each fires with the right error class)",
     ["unknown version prefix 2", "02"],
     ["unknown version prefix 0", "00"],
     ["unknown version prefix 2^32", "80808080107b"],
-    ["locus id 36 beyond the version-1 registry", "012402"],
+    ["locus id 47 beyond the version-1 registry (U3 extended it to 46)", "012f02"],
     ["locus id 300 beyond the version-1 registry", "01ac0202"],
     ["trait tag 5 beyond the version-1 registry", "01020105"],
     ["phase_group enum member 2 beyond the registry", "011704"],
-    ["meta.plan enum member 1 beyond the registry", "010002"],
+    ["meta.plan enum member 2 beyond the registry (amorphous is U4's append)", "010004"],
   ];
   for (const [name, hex] of upgradeTapes) {
     test(`UpgradeRequired: ${name}`, () => {
@@ -292,18 +292,19 @@ describe("design 06 §3.3 round-trip and canonical-bytes laws (≥ 10,000 genome
   });
 });
 
-describe("design 06 §3.5 adversarial worst case", () => {
-  test("max seed + full tag set + every scalar at its costliest extreme = 138 bytes = 184 chars", () => {
-    const zz = (d: bigint): bigint => (d >= 0n ? d << 1n : (-d << 1n) - 1n);
-    const uvarintLen = (value: bigint): number => {
-      let v = value;
-      let n = 1;
-      while ((v >>= 7n) > 0n) n++;
-      return n;
-    };
+describe("design 06 §3.5 adversarial worst cases (as amended at U3)", () => {
+  const zz = (d: bigint): bigint => (d >= 0n ? d << 1n : (-d << 1n) - 1n);
+  const uvarintLen = (value: bigint): number => {
+    let v = value;
+    let n = 1;
+    while ((v >>= 7n) > 0n) n++;
+    return n;
+  };
+  /** Costliest in-domain extreme of each locus in `ids` (absent if it cannot move). */
+  const worstValues = (ids: ReadonlySet<number>): Array<readonly [number, number]> => {
     const values: Array<readonly [number, number]> = [];
     for (const locus of SCALARS) {
-      // meta.plan cannot move: its enum has a single value (§3.5).
+      if (!ids.has(locus.id)) continue;
       const candidates = [locus.lo, locus.hi].filter((v) => v !== locus.defaultRaw);
       if (candidates.length === 0) continue;
       let best = candidates[0]!;
@@ -314,11 +315,57 @@ describe("design 06 §3.5 adversarial worst case", () => {
       }
       values.push([locus.id, best]);
     }
-    const g = makeGenome({ seed: (1n << 64n) - 1n, traitTags: [3, 4], values });
+    return values;
+  };
+  const idSet = (...ranges: ReadonlyArray<readonly [number, number]>): Set<number> => {
+    const s = new Set<number>();
+    for (const [lo, hi] of ranges) for (let i = lo; i <= hi; i++) s.add(i);
+    return s;
+  };
+
+  test("quadruped sampler-reachable worst: 138 bytes = 184 chars (the U2 pin, unchanged — the byte model validated)", () => {
+    // A sampled quadruped genome carries exactly ids 3..35 (the U3
+    // plan-scoped sampler, design 07 §2.3.1 D-a), so U2's pin holds.
+    const g = makeGenome({
+      seed: (1n << 64n) - 1n,
+      traitTags: [3, 4],
+      values: worstValues(idSet([3, 35])),
+    });
     const text = encodeGenome(g);
-    expect(text.length).toBe(184); // the §3.5 machine-verified pin (U2: +4 bytes for locus 35)
+    expect(text.length).toBe(184);
     expect(Buffer.from(text, "base64url").length).toBe(138);
     expect(text.length).toBeLessThanOrEqual(200); // design 01 requirement 4
+    expect(genomesEqual(decodeGenome(text), g)).toBe(true);
+  });
+
+  test("levitant sampler-reachable worst: 85 bytes = 114 chars (plan entry + shared + ids 36–46)", () => {
+    const g = makeGenome({
+      seed: (1n << 64n) - 1n,
+      traitTags: [3, 4],
+      values: [
+        [0, 1],
+        ...worstValues(idSet([3, 6], [13, 15], [36, 46])),
+      ],
+    });
+    const text = encodeGenome(g);
+    expect(text.length).toBe(114);
+    expect(Buffer.from(text, "base64url").length).toBe(85);
+    expect(text.length).toBeLessThanOrEqual(200); // the design 01 req-4 target holds for every sampler-reachable genome
+    expect(genomesEqual(decodeGenome(text), g)).toBe(true);
+  });
+
+  test("fully-adversarial cross-plan tape (hand-edited, every locus): 179 bytes = 239 chars", () => {
+    // Exceeds design 01 req 4's ~200-char guidance — recorded honestly in
+    // the design 06 §3.5 amendment: the guidance was a target, degradation
+    // is linear, no sampler can emit this tape, and U4 grows it regardless.
+    const g = makeGenome({
+      seed: (1n << 64n) - 1n,
+      traitTags: [3, 4],
+      values: [[0, 1], ...worstValues(idSet([3, 46]))],
+    });
+    const text = encodeGenome(g);
+    expect(text.length).toBe(239);
+    expect(Buffer.from(text, "base64url").length).toBe(179);
     expect(genomesEqual(decodeGenome(text), g)).toBe(true);
   });
 });

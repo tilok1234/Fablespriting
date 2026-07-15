@@ -765,6 +765,362 @@ export function growQuadruped(genome: Genome): PartGraph {
 }
 
 // ---------------------------------------------------------------------------
+// Levitant geometry — design 07 §2.3.1 (U3) pinned template constants.
+// All-defaults reproduces S1's watcher() (spike01_slab_projection.py:187)
+// exactly in raw except the two pinned 1-ulp derivation notes (iris rest
+// y 334233, tendril-2 drop 629145) — machine-verified before pinning.
+// ---------------------------------------------------------------------------
+
+/** Orb half-extent wolf constants C: 5.4, 5.2, 5.4. */
+const ORB_CX = 353894; // 5.4
+const ORB_CY = 340787; // 5.2
+const ORB_CZ = 353894; // 5.4
+/** Orb coupling slopes σ: 5.4/3.9 on girth, 5.2/7.6 on length, 0.5 on depth. */
+const ORB_SX = 90742; // 5.4/3.9
+const ORB_SY = 44840; // 5.2/7.6 (= |hip_y hind σ| — design 06 cross-check)
+const ORB_SZ = 32768; // 0.5 — damped (design 07 §2.3.1: the canvas-safety overrule)
+/** Eye-stack scale-proportional offsets: sclera −1.3·s, iris +1.2·s, pupil +2.0·s from ORB_HY / SCL_Y. */
+const STACK_SCLERA_BACK = 85197; // 1.3
+const STACK_IRIS_FWD = 78643; // 1.2
+const STACK_PUPIL_FWD = 131072; // 2.0
+/** Sclera half-extents ×s: (3.0, 2.0, 3.0). */
+const SCLERA_HALF = [196608, 131072, 196608] as const;
+/** Iris half-extents ×s: (1.6, 1.1, 1.6). */
+const IRIS_HALF = [104858, 72090, 104858] as const;
+/** Pupil half-extents ×s, FLOORED at these raws (the M1 eye-floor mechanism): (0.75, 0.6, 0.75). */
+const PUPIL_HALF = [49152, 39322, 49152] as const;
+/** Wing placement: +0.6 from the orb flank, −1.2, z0 + 2.2. */
+const WING_OX = 39322; // 0.6
+const WING_OY = -78643; // −1.2
+const WING_OZ = 144179; // 2.2
+/** Wing half-extents ×w: (2.1, 0.9, 1.3). */
+const WING_HALF = [137626, 58982, 85197] as const;
+/** Horn x: C 3.4 tracking girth at ratio slope 3.4/3.9. */
+const HORN_CX = 222822; // 3.4
+const HORN_SX = 57134; // 3.4/3.9 — machine-verified (the adjudicator's hand value 57139 was wrong)
+const HORN_OY = 65536; // 1.0
+/** Horn z rides the orb TOP at constant protrusion: rel = ORB_HZ − 0.4. */
+const HORN_OZ_REL = -26214; // −0.4
+/** Horn half-extents — constants: (0.8, 0.8, 1.5). */
+const HORN_HALF = [52429, 52429, 98304] as const;
+/** Tendril taper step: girth_i = girth − i·9830 (plain int multiple). */
+const TAPER_STEP = 9830; // 0.15
+/** Tendril spacing base: SPACING_STEP = 1.7 + (tendril_len − 1.3). */
+const SPACING_BASE = 111411; // 1.7
+const TENDRIL_LEN_D = 85197; // tendril_len default 1.3
+/** DROP_0 = orb_hz − 0.5 + tendril_len (constant 0.5 px overlap with the orb bottom). */
+const DROP_OVERLAP = 32768; // 0.5
+
+/** Registry default of body.sensor[C].scale etc. — shared dim defaults above. */
+
+/**
+ * The derived levitant anchors (design 07 §2.3.1): orb half-extents in
+ * delta form off the shared core dims (`fp_mul(σ, 0) = 0` — exact at
+ * defaults), plus the eye-stack line. G/L/D are ids 14/13/15 (the design
+ * 01 §3 cross-plan homology carriers — no levitant-only dimension
+ * vocabulary exists), ALT id 42, s id 43.
+ */
+export interface LevitantAnchors {
+  /** Orb half-extent x — C 5.4, tracks core.girth, σ 5.4/3.9. */
+  readonly orbHx: number;
+  /** Orb half-extent y — C 5.2, tracks core.length, σ 5.2/7.6. */
+  readonly orbHy: number;
+  /** Orb half-extent z — C 5.4, tracks core.depth, σ 0.5 (damped — canvas safety). */
+  readonly orbHz: number;
+  /** Rest orb center z — the altitude locus, no coupling. */
+  readonly z0: number;
+  /** Sclera center y = orbHy − 1.3·s (scale-proportional embed). */
+  readonly sclY: number;
+}
+
+/** Compute the levitant anchors for a genome (design 07 §2.3.1 table). */
+export function deriveLevitantAnchors(genome: Genome): LevitantAnchors {
+  const girth = getScalar(genome, "body.core.girth");
+  const length = getScalar(genome, "body.core.length");
+  const depth = getScalar(genome, "body.core.depth");
+  const s = getScalar(genome, "body.sensor[C].scale");
+  const orbHy = anchor(ORB_CY, ORB_SY, length, LENGTH_D);
+  return Object.freeze({
+    orbHx: anchor(ORB_CX, ORB_SX, girth, GIRTH_D),
+    orbHy,
+    orbHz: anchor(ORB_CZ, ORB_SZ, depth, DEPTH_D),
+    z0: getScalar(genome, "body.core.altitude"),
+    sclY: fp_sub(orbHy, fp_mul(s, STACK_SCLERA_BACK)),
+  });
+}
+
+/**
+ * The pupil pixel-phase target: the DOWN-view sub-pixel phase of the
+ * all-defaults watcher's own rest pupil — `RHE(386662 / 2) mod 65536` =
+ * 62259 (derived, not authored; machine-verified). See
+ * {@link pupilPhaseCy} for the coupling this anchors.
+ */
+const PUPIL_PHASE_TARGET = 62259;
+
+/**
+ * The U3 pupil pixel-phase coupling (design 07 §2.3.1, the D-i evidence
+ * repair — sweep-triggered per the adjudicated spec's "pin the narrowest
+ * all-defaults-byte-inert coupling ONLY if failures appear").
+ *
+ * Mechanism: the levitant's pupil is structurally CENTERED (cx = 0 on
+ * the snapped body chain), so its down-view footprint always splits its
+ * sample columns evenly across a pixel boundary; whether the 1.5-px
+ * focal disc wins any majority vote then hinges entirely on its screen-y
+ * sub-pixel phase, `fp_mul(TILT, cy) mod one pixel` (the chain snap
+ * plants the orb anchor on a whole-pixel raw, so the phase is exact
+ * geometry, no raster knowledge needed). The evidence sweep (seeds
+ * 0..1999 levitant-forced, down view, 4 walk phases) found 408 of 8000
+ * frames with ZERO focal pixels without this repair, 0 of 8000 with it
+ * (counts + method in the design 07 §2.3.1 amendment). Repair: advance cy
+ * FORWARD (+y only — more protrusion, never occlusion, the M1 EY
+ * spirit) by the smallest delta that lands the phase exactly on
+ * {@link PUPIL_PHASE_TARGET}, the phase the all-defaults watcher proves
+ * out. `2·screenDelta` is exact in model y because TILT is exactly 0.5.
+ * At all defaults the phase already equals the target, so delta = 0 —
+ * byte-inert by construction.
+ */
+function pupilPhaseCy(rawCy: number): number {
+  const syOff = fp_mul(32768, rawCy); // TILT · cy — the exact down-view screen offset
+  const phase = ((syOff % 65536) + 65536) % 65536;
+  const delta = (PUPIL_PHASE_TARGET - phase + 65536) % 65536; // forward-only [0, 1) px screen
+  return fp_add(rawCy, 2 * delta);
+}
+
+function pupilChoice(): PartChoice {
+  return {
+    kind: "sensor",
+    make(genome) {
+      const a = deriveLevitantAnchors(genome);
+      const s = getScalar(genome, "body.sensor[C].scale");
+      return {
+        name: "pupil",
+        path: "body.sensor[C].pupil",
+        materialRole: "focal",
+        animChain: "body",
+        slab: {
+          center: [0, pupilPhaseCy(fp_add(a.sclY, fp_mul(s, STACK_PUPIL_FWD))), a.z0],
+          // Floored at the watcher raws (design 07 §2.3.1 / the M1
+          // eye-floor justification verbatim): a sub-0.8-px disc loses
+          // its majority votes. Identity at s = 1.
+          half: [
+            Math.max(fp_mul(s, PUPIL_HALF[0]), PUPIL_HALF[0]),
+            Math.max(fp_mul(s, PUPIL_HALF[1]), PUPIL_HALF[1]),
+            Math.max(fp_mul(s, PUPIL_HALF[2]), PUPIL_HALF[2]),
+          ],
+        },
+      };
+    },
+  };
+}
+
+function irisChoice(): PartChoice {
+  return {
+    kind: "sensor",
+    make(genome) {
+      const a = deriveLevitantAnchors(genome);
+      const s = getScalar(genome, "body.sensor[C].scale");
+      return {
+        name: "iris",
+        path: "body.sensor[C].iris",
+        materialRole: "hide",
+        animChain: "body",
+        slab: {
+          center: [0, fp_add(a.sclY, fp_mul(s, STACK_IRIS_FWD)), a.z0],
+          half: [fp_mul(s, IRIS_HALF[0]), fp_mul(s, IRIS_HALF[1]), fp_mul(s, IRIS_HALF[2])],
+        },
+      };
+    },
+  };
+}
+
+function scleraChoice(): PartChoice {
+  return {
+    kind: "sensor",
+    make(genome) {
+      const a = deriveLevitantAnchors(genome);
+      const s = getScalar(genome, "body.sensor[C].scale");
+      return {
+        name: "sclera",
+        path: "body.sensor[C]",
+        materialRole: "underside",
+        animChain: "body",
+        slab: {
+          center: [0, a.sclY, a.z0],
+          half: [fp_mul(s, SCLERA_HALF[0]), fp_mul(s, SCLERA_HALF[1]), fp_mul(s, SCLERA_HALF[2])],
+        },
+        // Canonical socket order body.sensor[C]: [iris, pupil]
+        // (design 07 §2.3.1) — the stack expands depth-first here.
+        sockets: [
+          {
+            name: "iris",
+            allowedKinds: ["sensor"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [irisChoice()],
+          },
+          {
+            name: "pupil",
+            allowedKinds: ["sensor"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [pupilChoice()],
+          },
+        ],
+      };
+    },
+  };
+}
+
+function wingsChoice(): PartChoice {
+  return {
+    kind: "locomotor",
+    make(genome, member) {
+      const a = deriveLevitantAnchors(genome);
+      const w = getScalar(genome, "body.core.locomotor_size");
+      const wingX = fp_add(a.orbHx, WING_OX); // flank-tracking, constant 0.6 gap
+      const tag = MIRROR_TAGS[member]!;
+      return {
+        name: `wing_${tag.toLowerCase()}`,
+        path: `body.locomotor[${tag}]`,
+        materialRole: "underside",
+        animChain: `wing_${tag.toLowerCase()}`,
+        slab: {
+          center: [member === 0 ? -wingX : wingX, WING_OY, fp_add(a.z0, WING_OZ)],
+          half: [fp_mul(w, WING_HALF[0]), fp_mul(w, WING_HALF[1]), fp_mul(w, WING_HALF[2])],
+        },
+      };
+    },
+  };
+}
+
+function hornsChoice(): PartChoice {
+  return {
+    kind: "ornament",
+    make(genome, member) {
+      const a = deriveLevitantAnchors(genome);
+      const girth = getScalar(genome, "body.core.girth");
+      const hornX = anchor(HORN_CX, HORN_SX, girth, GIRTH_D);
+      const tag = MIRROR_TAGS[member]!;
+      return {
+        name: `horn_${tag.toLowerCase()}`,
+        path: `body.ornament[${tag}]`,
+        materialRole: "underside",
+        animChain: "body",
+        slab: {
+          center: [
+            member === 0 ? -hornX : hornX,
+            HORN_OY,
+            fp_add(a.z0, fp_add(a.orbHz, HORN_OZ_REL)),
+          ],
+          half: [HORN_HALF[0], HORN_HALF[1], HORN_HALF[2]],
+        },
+      };
+    },
+  };
+}
+
+function tendrilsChoice(): PartChoice {
+  return {
+    kind: "segment",
+    make(genome, member) {
+      const a = deriveLevitantAnchors(genome);
+      const tg = getScalar(genome, "body.core.tendril_girth");
+      const tl = getScalar(genome, "body.core.tendril_len");
+      // DROP_i = DROP_0 + i·SPACING_STEP (plain int multiples — exact).
+      const drop0 = fp_add(fp_sub(a.orbHz, DROP_OVERLAP), tl);
+      const spacing = fp_add(SPACING_BASE, fp_sub(tl, TENDRIL_LEN_D));
+      const gi = tg - member * TAPER_STEP; // plain int multiple (taper)
+      return {
+        name: `tendril_${member}`,
+        path: `body.tendril[T:${member}]`,
+        materialRole: "hide",
+        animChain: `tendril_${member}`,
+        slab: {
+          center: [0, 0, fp_sub(a.z0, fp_add(drop0, member * spacing))],
+          half: [gi, gi, tl],
+        },
+      };
+    },
+  };
+}
+
+function orbChoice(): PartChoice {
+  return {
+    kind: "core",
+    make(genome) {
+      const a = deriveLevitantAnchors(genome);
+      return {
+        name: "orb",
+        path: "body.core",
+        materialRole: "hide",
+        animChain: "body",
+        slab: {
+          center: [0, 0, a.z0],
+          half: [a.orbHx, a.orbHy, a.orbHz],
+        },
+        // Canonical socket order (design 07 §2.3.1):
+        // body.core: [sensor, locomotors, ornaments, tendrils].
+        sockets: [
+          {
+            name: "sensor",
+            allowedKinds: ["sensor"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [scleraChoice()],
+          },
+          {
+            name: "locomotors",
+            allowedKinds: ["locomotor"],
+            symmetry: { kind: "mirror" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [wingsChoice()],
+          },
+          {
+            name: "ornaments",
+            allowedKinds: ["ornament"],
+            symmetry: { kind: "mirror" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [hornsChoice()],
+          },
+          {
+            name: "tendrils",
+            allowedKinds: ["segment"],
+            symmetry: { kind: "serial", n: 3 },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [tendrilsChoice()],
+          },
+        ],
+      };
+    },
+  };
+}
+
+/**
+ * The levitant plan (design 07 §2.3.1, U3): 11 nodes — orb, the sclera/
+ * iris/pupil sensor stack, mirror wings (locomotors), mirror horns
+ * (ornaments — the §1.3 vocabulary amendment), and 3 serial tendrils
+ * (count FIXED at 3 in U3; a count locus would collide with 06 §2's
+ * existence-defaults-absent law — recorded tension, deferred). Every
+ * socket is a single-candidate mandatory fill ⇒ zero draws for every
+ * levitant genome. Chains: body {orb, sensor stack, horns} rides z0
+ * rigidly (F16 — the face never scrambles), wing_l/wing_r flap
+ * independently, each tendril is its own lagged chain. Budget 8–14; the
+ * levitant uses 11. All-defaults reproduces S1's watcher (fp
+ * re-derivation; two pinned 1-ulp notes).
+ */
+export const LEVITANT_PLAN: PlanSpec = Object.freeze({
+  plan: "levitant",
+  budgetMin: 8,
+  budgetMax: 14,
+  core: orbChoice(),
+});
+
+/** Grow the levitant part graph — `growPlan(LEVITANT_PLAN, genome)`. */
+export function growLevitant(genome: Genome): PartGraph {
+  return growPlan(LEVITANT_PLAN, genome);
+}
+
+// ---------------------------------------------------------------------------
 // The grammar's structural output (design 07 §1.2: the frozen M1 wires
 // PART_NAMES / CHAINS / PART_ROLES are now DERIVED from the grown graph)
 // ---------------------------------------------------------------------------
@@ -800,4 +1156,27 @@ export const CHAINS: readonly Chain[] = STRUCTURE.chains;
 /** Material role of each pinned slab position (§1.2 part-table column). */
 export const PART_ROLES: readonly MaterialRole[] = Object.freeze(
   STRUCTURE.parts.map((p) => p.materialRole),
+);
+
+/**
+ * The levitant's structure is likewise genome-independent (no existence
+ * loci; tendril count fixed at 3 in U3), so its structural wires derive
+ * once from the all-defaults growth (design 07 §2.3.1 node table).
+ */
+const LEVITANT_STRUCTURE: PartGraph = growLevitant(makeGenome());
+
+/** Levitant part names in the pinned slab order (design 07 §2.3.1). */
+export const LEVITANT_PART_NAMES: readonly string[] = LEVITANT_STRUCTURE.slabOrder;
+
+/**
+ * The levitant skeleton chains (design 07 §2.3.1 chain table): body =
+ * {orb, sclera, iris, pupil, horn_l, horn_r} (slabs 0,1,2,3,6,7 —
+ * non-contiguous membership is legal), wing_l {4}, wing_r {5},
+ * tendril_0..2 {8},{9},{10}.
+ */
+export const LEVITANT_CHAINS: readonly Chain[] = LEVITANT_STRUCTURE.chains;
+
+/** Material role of each levitant slab position (§2.3.1 node table). */
+export const LEVITANT_PART_ROLES: readonly MaterialRole[] = Object.freeze(
+  LEVITANT_STRUCTURE.parts.map((p) => p.materialRole),
 );

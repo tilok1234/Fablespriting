@@ -25,8 +25,8 @@
  */
 
 import { fp_mul, fp_sub, rheDiv } from "./fixed.js";
-import type { MaterialRole } from "./grammar.js";
-import { CHAINS, PART_NAMES } from "./grammar.js";
+import type { Chain, MaterialRole } from "./grammar.js";
+import { CHAINS } from "./grammar.js";
 import type { Slab } from "./pose.js";
 import { DIRECTION_TURNS, ROLE_IDS, ROLE_NAMES, TILT_RAW, yawSlab } from "./raster.js";
 import type { Direction, RasterGrid, SlabOffset } from "./raster.js";
@@ -912,9 +912,12 @@ function roundPx(x: number): number {
 /**
  * Chain-grouped snap offsets for one clip × direction cell
  * (design 06 §1.5). `slabLists` holds the K frames' model-space slab
- * lists in the §1.2 normative order (13 slabs — the pinned CHAINS table
- * indexes them). A chain's screen position is the continuous projected
- * screen center of its FIRST slab after yawSlab: sx = cx,
+ * lists in the plan's normative order; `chains` is the plan's pinned
+ * chain table (default: the quadruped {@link CHAINS} — every M1-era call
+ * site is byte-identical; exportCreature passes the grown graph's chains
+ * since U3, the design 07 §3.4 seam). The chains must cover each slab
+ * index exactly once. A chain's screen position is the continuous
+ * projected screen center of its FIRST slab after yawSlab: sx = cx,
  * sy = −cz − TILT·cy (the §1.4 screen mapping without the constant frame
  * anchor). Per chain per axis: mean = rheDiv(Σ pos, K);
  * snapped(f) = roundPx(mean) + roundPx(pos(f) − mean);
@@ -925,6 +928,7 @@ function roundPx(x: number): number {
 export function snapOffsets(
   slabLists: readonly (readonly Slab[])[],
   direction: Direction,
+  chains: readonly Chain[] = CHAINS,
 ): readonly (readonly SlabOffset[])[] {
   const turns = DIRECTION_TURNS[direction];
   if (turns === undefined) {
@@ -934,15 +938,19 @@ export function snapOffsets(
   if (k === 0) {
     throw new RangeError("craft: snapOffsets needs at least one frame");
   }
+  // Slab-count check against the chains' covered indices (design 07
+  // §3.4): every chain table pins a full partition of the slab list.
+  let covered = 0;
+  for (const chain of chains) covered += chain.slabs.length;
   for (const slabs of slabLists) {
-    if (slabs.length !== PART_NAMES.length) {
+    if (slabs.length !== covered) {
       throw new RangeError(
-        `craft: snapOffsets expects the ${PART_NAMES.length}-slab §1.2 list, got ${slabs.length}`,
+        `craft: snapOffsets expects the ${covered}-slab list its chain table covers, got ${slabs.length}`,
       );
     }
   }
-  const offsets: SlabOffset[][] = slabLists.map(() => new Array<SlabOffset>(PART_NAMES.length));
-  for (const chain of CHAINS) {
+  const offsets: SlabOffset[][] = slabLists.map(() => new Array<SlabOffset>(covered));
+  for (const chain of chains) {
     const anchor = chain.slabs[0]!;
     const posX: number[] = [];
     const posY: number[] = [];

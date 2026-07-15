@@ -189,11 +189,29 @@ describe("locus 35 wire behavior", () => {
 
 describe("one-shot flicker policy", () => {
   test("pinned gates and one-shot roster", () => {
-    expect(FLICKER_GATES.walk).toEqual({ num: 32n, den: 1n });
-    expect(FLICKER_GATES.idle).toEqual({ num: 32n, den: 1n });
-    expect(FLICKER_GATES.attack).toEqual({ num: 19n, den: 1n });
-    expect(FLICKER_GATES.hurt).toEqual({ num: 14n, den: 1n });
-    expect(FLICKER_GATES.death).toEqual({ num: 25n, den: 1n });
+    // Per-(plan, clip) gate tables (design 07 §4.2 as amended at U3):
+    // each plan is calibrated by the M1 method against its OWN histogram.
+    // The quadruped row is EXACTLY the U2 pins, restated not recalibrated
+    // (its histograms have not moved) — a quadruped regression past its
+    // own calibrated ceiling fails even where levitant cells are
+    // legitimately louder.
+    expect(FLICKER_GATES.quadruped).toEqual({
+      walk: { num: 32n, den: 1n },
+      idle: { num: 32n, den: 1n },
+      attack: { num: 19n, den: 1n },
+      hurt: { num: 14n, den: 1n },
+      death: { num: 25n, den: 1n },
+    });
+    // Levitant row from the §4.4.6 U3 addendum sweep maxima (walk
+    // 17.2966, attack 68.9279, hurt 17.2825, death 14.9359 → tightest
+    // integers with ≥ 1.25× margin).
+    expect(FLICKER_GATES.levitant).toEqual({
+      walk: { num: 22n, den: 1n },
+      idle: { num: 22n, den: 1n },
+      attack: { num: 87n, den: 1n },
+      hurt: { num: 22n, den: 1n },
+      death: { num: 19n, den: 1n },
+    });
     expect([...ONE_SHOT_CLIPS].sort()).toEqual(["attack", "death", "hurt"]);
     expect(CLIP_KS).toEqual({ walk: 4, idle: 4, attack: 4, hurt: 2, death: 4 });
   });
@@ -340,10 +358,14 @@ describe("seed 1132 — the craft fixpoint cycle-breaker (design 07 §4.4)", () 
 
 describe("property sweep — new clips", () => {
   test(
-    "seeds 0..199: every one-shot cell renders; craft output properties hold",
+    "seeds 0..49: every one-shot cell renders; craft output properties hold",
     { timeout: 600000 },
     () => {
-      for (let seed = 0; seed < 200; seed++) {
+      // CI corpus scaled from U2's 200 seeds to 50 for the ~180 s suite
+      // budget (design 07 §2.3.1 suite-time accounting) — this file was
+      // the suite's longest and bounds its wall time; the 200-seed run
+      // is recorded U2 unit evidence.
+      for (let seed = 0; seed < 50; seed++) {
         const genome = sampleGenome(BigInt(seed));
         for (const clip of ["attack", "hurt", "death"] as const) {
           const cells = renderClipCells(genome, clip);

@@ -1112,6 +1112,22 @@ adversarial bound to **138 bytes = 184 base64url chars** —
 machine-verified, CI-pinned in `tests/genome.test.ts`, still comfortably
 within the ≤ ~200-char target.*
 
+*Amended with U3 (2026-07-15): `meta.plan` gains member 1 (levitant)
+and the registry gains ids 36–46 (07 §2.3.1). Since sampling is
+plan-scoped, per-plan worst cases replace the single bound:
+the **quadruped sampler-reachable worst stays exactly 138 B =
+184 chars** (byte model validated against the U2 pin); the largest
+sampler-reachable **levitant** tape (plan entry + shared loci +
+ids 36–46 at costliest extremes) is **85 B = 114 chars** — the ≤
+~200-char target holds for every genome any pinned sampler can emit.
+The FULLY adversarial hand-edited cross-plan tape (all 44 movable
+scalars at their costliest extremes across BOTH plans, which no
+sampler emits) is **179 B = 239 chars**, exceeding the guidance for
+that case alone — accepted and recorded: the target was calibrated to
+issued genomes, degradation stays linear, and the U4 append will grow
+the hand-edited bound regardless. All three bounds machine-verified,
+CI-pinned in `tests/genome.test.ts` and `tests/levitant.test.ts`.*
+
 ## 4. Stream keying: hash(seed, path, draw) → PCG32
 
 Design 01 §2's stability rule, made executable. Every random draw in the
@@ -1186,6 +1202,22 @@ the draw if that tag is already in the set — redraw immediately, per
 position, always over the full 5-tag enum, never over the remaining
 tags. The set serializes in ascending tag order regardless of draw
 order (§3.2).
+
+*Amended with U3 (2026-07-15): the pin above now reads over a
+plan-scoped sampler, in two respects. First, `meta.plan` is a **caller
+parameter**, not a draw — `sampleGenome(seed, plan = 0)` consumes no
+PRNG output for the plan choice, so `meta.plan = 0` above becomes
+`meta.plan = plan` and every pre-U3 sheet seed keeps its bytes
+(plan-MIX sampling defers to U6, which if it samples must use the
+reserved `stream(seed, "meta.plan", "sample")`). Second, "each scalar
+locus" no longer means the whole registry: the drawn set is
+`LOCUS_SCOPES.shared ∪ scope(plan)` — a sampled quadruped draws
+exactly ids 3..35 (the identical set U2 drew under this section's
+original text, DNA byte-identical, CI-asserted) and a sampled levitant
+draws the shared loci plus ids 36–46; neither plan draws the other's
+scope. A second implementation reading this section verbatim against
+the 47-locus registry MUST apply the scope filter or it will emit
+different bytes. Scope column and full rationale: 07 §2.3.1 (D-a).*
 
 ### 4.3 Test vectors (normative)
 

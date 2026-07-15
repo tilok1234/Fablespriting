@@ -90,6 +90,14 @@ paths):
 - Levitant: `body.core`, `body.sensor[C]` (single central),
   `body.locomotor[L]`/`[R]` (mirror pair), `body.tendril[T:0..]`
   (serial, grows/shrinks at the tail per 06 §2).
+  **U3 vocabulary amendment (§2.3.1):** the watcher has horns and a
+  layered eye, so U3 adds `body.ornament[L]`/`[R]` (mirror pair, kind
+  `ornament` from design 02's closed list — mandatory fill, the ears
+  precedent: the parts exist at defaults, so 06 §2's existence-locus
+  optional-ornament form cannot apply) and the sensor-stack child
+  sockets `body.sensor[C].iris` / `body.sensor[C].pupil` (canonical
+  socket order `body.sensor[C]: [iris, pupil]` — both direct children
+  of the sclera node, which IS `body.sensor[C]`).
 - Amorphous: `body.blob` (core field), `body.ball[B:0..]` (serial
   metaball control points), `body.eye[L]`/`[R]` (mirror slab face
   parts, S1b-proven composition).
@@ -213,6 +221,19 @@ the all-defaults amorphous reproduces S1b's slime** (same
 approximate-reproduction rule as 06 §1: fixed-point re-derivation, then
 M2 goldens pin production bytes).
 
+**U3 status:** `levitant = 1` LANDED (§2.3.1; registry ids 36–46).
+`amorphous = 2` deliberately did NOT land with it — U4 appends it: an
+enum member that decodes but cannot grow would be a landmine (a plan-2
+tape would decode fine and then fail at growth; better that old builds
+raise UpgradeRequired at decode, the correct 06 §3.3 behavior — which
+is also exactly what pre-U3 builds do with `plan = 1`). One codec
+repair landed with the append: `encodeGenome` emitted the seed (id 1)
+and tag (id 2) entries before the scalar loop under a comment assuming
+id 0 could never be non-default (true while the enum had one member);
+a plan-1 genome broke strict-ascending id order. The id-0 entry now
+emits FIRST (CI-tested; the all-defaults levitant tape is bytes
+`01 00 02` = DNA `AQAC`).
+
 ### 2.2 Quadruped
 
 Output unchanged (§1.2). Its only M2 additions are the three new clips
@@ -232,6 +253,379 @@ nothing in M2 (shadow constancy is the cheap, stable read at 32 px) —
 *pinned at unit start* against the watcher render.
 Death = altitude loss: envelope drives the core's z toward the ground
 line with tendrils going limp (lag preserved, amplitude → 0).
+
+#### 2.3.1 U3 amendment — the levitant plan (delivered)
+
+Notation: design 06 §0 — every decimal below denotes the fp raw
+`RHE(d · 65536)`; phases/lags in TURNS. Every raw in this amendment was
+machine-verified against its authored decimal before pinning (scratch
+scripts `verify_raws.py` / the adjudication `verify.py`/`verify2.py`,
+zero mismatches); derivations, not decimals, are the pins where the two
+disagree by 1 ulp (the M1 underside-line precedent).
+
+**Registry append (ids 36–46, 11 loci).** Bounds inclusive, in raws;
+every locus has exactly one pipeline consumer (no speculative loci).
+
+| id | path | kind | [lo, hi] | default | consumer |
+|----|------|------|----------|---------|----------|
+| 36 | `anim.levitant.hover_freq` | int | [1, 2] | 1 | gait base phase θ = h·φ (watcher sin(φ)); h = 2 freezes hover AND flap at K = 4 (sin of half-turn multiples ≡ 0) — recorded degeneracy, the gait_freq-2 precedent |
+| 37 | `anim.levitant.hover_amp` | fp px | [0, 131072] | 85197 (1.3) | hover bob (watcher 1.3·sin(φ)); bob_amp domain precedent |
+| 38 | `anim.levitant.flap_ratio` | int | [1, 3] | 3 | wing flap phase r·h·φ (watcher sin(3φ), S1's integer CPG ratio); r = 2 frozen at K = 4 (recorded) |
+| 39 | `anim.levitant.tendril_lag` | fp turns | [0, 8192] | 7301 (0.7 rad = 0.11140846 turns) | tendril signal sin(θ − (i+1)·λ); TURNS per the tail_lag precedent (cross-check 0.9 rad → 9387 = id 11). Narrow hi: 3·λ at wide lags puts adjacent tendrils toward anti-phase (visible chain breaks); domains cannot shrink post-ship |
+| 40 | `anim.levitant.tendril_amp` | fp px | [0, 131072] | 98304 (1.5) | tendril x-swing base (per-ordinal factors are template constants); hi 2: amp 4 × XF 1.3 would shatter the ≤ 0.9 px tendril chain |
+| 41 | `anim.levitant.anticipation` | fp | [32768, 131072] | 65536 (1.0) | attack f0 scale — the exact id-35 analog (§4.4.3 rule: f0 only) |
+| 42 | `body.core.altitude` | fp px | [753664, 851968] (11.5–13) | 786432 (12.0) | rest orb center z0 (watcher 12.0). Domain narrowed from the sketch corners: alt-lo 11 + hover 2 + deep orb + long tendrils runs the tendril tip off the canvas bottom; [11.5, 13] clears — production-fp corner-sweep worst case ≈ 0.63 px bottom / 1.03 px top margin against the true canvas edges |
+| 43 | `body.sensor[C].scale` | fp | [39322, 98304] (0.6–1.5) | 65536 | eye-stack scale — ONE gene: stack extents AND offsets scale together (S4-F18); the eye_size domain precedent verbatim. Pupil half-extents FLOOR at their default raws (below) |
+| 44 | `body.core.locomotor_size` | fp | [32768, 117965] (0.5–1.8) | 65536 | wing half-extents × size, one gene for the mirror pair; the ear_size precedent (domain AND parent-path-joined-leaf spelling) |
+| 45 | `body.core.tendril_girth` | fp px | [45875, 91750] (0.7–1.4) | 58982 (0.9) | tendril x/y halves with additive taper `girth_i = girth − i·9830`; at default reproduces the watcher raws [58982, 49152, 39322] exactly |
+| 46 | `body.core.tendril_len` | fp px | [52429, 98304] (0.8–1.5) | 85197 (1.3) | tendril z half; drop spacing derives from it (below). Hi capped at 1.5 by the canvas-bottom corner |
+
+**The big call (no orb-dimension loci):** the orb consumes the EXISTING
+`body.core.length/girth/depth` (ids 13/14/15) through delta-form anchor
+couplings — 06 §1.1 plan-scopes ONLY `anim` and makes body paths the
+raw-path-identity homology carrier (design 01 §3: wolf × levitant
+crossover aligns body genes BY PATH; the §2.5 semantic map is anim-only
+by architecture). A levitant-only `body.core.radius` would make
+body.core crossover vacuous and leave two rival dimension vocabularies
+on one path node forever. Exact at defaults because `fp_mul(σ, 0) = 0`.
+
+Template constants (NOT loci — the U2 scope line: only anticipation is
+a locus): FLAP_AMP 104858 (1.6), TENDRIL_ZBOB 32768 (0.5),
+XF[0..2] = 32768/58982/85197 (0.5/0.9/1.3), TAPER_STEP 9830 (0.15),
+every geometry offset and coupling slope below, every envelope delta.
+The watcher's flap amplitude stays a constant; a variety locus is
+U5/U6 taste territory and a later append is free. Tendril count is
+FIXED at 3 (the legs precedent): a count locus defaulting to 3 would
+collide with 06 §2's existence-defaults-absent law (tape-absence must
+mean part-nonexistence) — recorded tension; count variation waits for
+the unit that resolves it. Horn geometry = template constants
+(ornament loci are U5 tag-gating territory).
+
+**D-a sampling policy — plan is a caller parameter.**
+`sampleGenome(seed, plan = 0)`: plan consumes NO draw (06 §4.2 governs
+draw *spending*; plan is not drawn at all in U3 — plan-MIX sampling
+defers to U6, which if it samples must use the reserved
+`stream(seed, "meta.plan", "sample")`). Scope column (registry
+METADATA, not wire data): shared = {0–6, 13–15},
+quadruped = {7–12, 16–35}, levitant = {36–46}; the sampler draws
+shared + the requested plan's loci, each from its own path-keyed
+stream as before. Consequences (CI-asserted): a sampled quadruped
+draws exactly ids 3..35 — the identical set U2 drew — so its DNA is
+byte-identical to U2's (verified against strings generated from the
+committed U2 build for seeds 0/1/7/40/1132; keeps the seed-1132 v2
+golden intact without a re-pin); a sampled levitant draws
+palette + core dims + ids 36–46, and its girth/length/depth genes are
+meaningful (homology). Unconsumed loci on any genome stay wire-legal
+and inert. CLI: `fablesprite sheet --plan quadruped|levitant`
+(default quadruped; unknown → usage error) — the mini-sheet
+instrument.
+
+**Node table (11 nodes, one slab per node, budget 8–14).** Names are
+the levitant PART_NAMES; raster part tags index this order (the
+depth-first expansion of the canonical socket orders
+`body.core: [sensor, locomotors, ornaments, tendrils]`,
+`body.sensor[C]: [iris, pupil]` reproduces it). Every socket is a
+single-candidate mandatory fill ⇒ **zero draws for every levitant
+genome** (CI-asserted); `mirror_broken` false always.
+
+| id | name | path | kind | role | chain | symmetry |
+|----|------|------|------|------|-------|----------|
+| 0 | orb | body.core | core | hide | body | single |
+| 1 | sclera | body.sensor[C] | sensor | underside | body | single |
+| 2 | iris | body.sensor[C].iris | sensor | hide | body | single |
+| 3 | pupil | body.sensor[C].pupil | sensor | focal | body | single |
+| 4 | wing_l | body.locomotor[L] | locomotor | underside | wing_l | mirror:locomotors |
+| 5 | wing_r | body.locomotor[R] | locomotor | underside | wing_r | mirror:locomotors |
+| 6 | horn_l | body.ornament[L] | ornament | underside | body | mirror:ornaments |
+| 7 | horn_r | body.ornament[R] | ornament | underside | body | mirror:ornaments |
+| 8 | tendril_0 | body.tendril[T:0] | segment | hide | tendril_0 | serial:tendrils |
+| 9 | tendril_1 | body.tendril[T:1] | segment | hide | tendril_1 | serial:tendrils |
+| 10 | tendril_2 | body.tendril[T:2] | segment | hide | tendril_2 | serial:tendrils |
+
+Roles (the F5 read): concentric contrast rings — bright underside
+sclera, mid hide iris, dark focal pupil (the spike's `eye` ramp IS the
+pinned focal table, F16 merge-protected); wings/horns underside to
+separate from the hide orb at thumbnail distance. Recorded fallback if
+the mini-sheet flags it: iris↔sclera swap (one golden re-pin, before
+U3 closes, never after). Spike-order deviation (recorded): watcher()
+interleaves wing/horn per side; the engine's contiguous-mirror law
+(§1.4) emits wing_l, wing_r, horn_l, horn_r — the M1 de-interleave
+precedent. Chain names follow the quadruped convention (the chain
+holding `body.core` is named `body`); symmetry groups default to the
+socket names (locomotors/ornaments/tendrils).
+
+**Chain table** (F16: orb + eye stack + horns ride z0 rigidly — one
+hover signal, the face never scrambles; wings flap independently; each
+tendril is its own lagged chain; F14 ties-to-even parks their ±0.5 px
+oscillations):
+
+| chain | slab indices | anchor |
+|-------|--------------|--------|
+| body | 0, 1, 2, 3, 6, 7 (non-contiguous is legal) | orb |
+| wing_l / wing_r | 4 / 5 | wing_l / wing_r |
+| tendril_0/1/2 | 8 / 9 / 10 | themselves |
+
+**Rest geometry (slab builders).** G/L/D = ids 14/13/15, ALT = 42,
+s = 43, w = 44, tg = 45, tl = 46. Derived anchors (exact at defaults):
+
+```
+ORB_HX = fp_add(353894, fp_mul(90742, fp_sub(G, 255590)))   # 5.4, σ 5.4/3.9
+ORB_HY = fp_add(340787, fp_mul(44840, fp_sub(L, 498074)))   # 5.2, σ 5.2/7.6 (= |hip_y hind σ|, 06 cross-check)
+ORB_HZ = fp_add(353894, fp_mul(32768, fp_sub(D, 222822)))   # 5.4, σ 0.5 — DAMPED
+z0     = ALT
+SCL_Y  = fp_sub(ORB_HY, fp_mul(s, 85197))                   # 3.9 at defaults
+DROP_0 = fp_add(fp_sub(ORB_HZ, 32768), tl)                  # 6.2 at defaults (406323, exact)
+SPACING_STEP = fp_add(111411, fp_sub(tl, 85197))            # 1.7 at defaults
+DROP_i = DROP_0 + i·SPACING_STEP; girth_i = tg − i·9830     # plain int multiples
+```
+
+The ORB_HZ σ is 0.5, NOT the full watcher ratio 5.4/3.4 = 104087: the
+full slope blows the canvas (at depth 6 the orb hz reaches 9.53 and
+the horn/attack-rise corner tops out < 0.5 px under the frame edge
+while the tendril-2 tip falls ~4 px off the bottom). σ 0.5 bounds hz
+to [4.7, 6.7] and clears both edges by construction — measured on the
+production fp path (the §2.3.1 corner sweep against the true canvas
+edges): worst-case top margin 1.03 px (67646 raw; corner 13, walk
+φ = 0.25, left), bottom 0.63 px (41259 raw; corner 196, walk φ = 0.75,
+right). Depth still reads; homology stays honest.
+
+| node | center (x, y, z) | half-extents |
+|------|------------------|--------------|
+| orb | (0, 0, z0) | (ORB_HX, ORB_HY, ORB_HZ) |
+| sclera | (0, SCL_Y, z0) | s × (196608, 131072, 196608) |
+| iris | (0, SCL_Y + s·78643, z0) | s × (104858, 72090, 104858) |
+| pupil | (0, phase-repaired SCL_Y + s·131072 (below), z0) | max(s × P, P), P = (49152, 39322, 49152) — FLOORED (the M1 eye-floor mechanism; identity at s = 1) |
+| wing_l/r | (∓(ORB_HX + 39322), −78643, z0 + 144179) | w × (137626, 58982, 85197) |
+| horn_l/r | (∓(222822 + fp_mul(57134, G − 255590)), 65536, z0 + ORB_HZ − 26214) | (52429, 52429, 98304) constants |
+| tendril_i | (0, 0, z0 − DROP_i) | (girth_i, girth_i, tl) |
+
+Attachment-by-construction (the S4-F18 anchor lesson, all verified on
+the production fp path at all 256 geometry corners, CI): the eye stack
+embeds a scale-proportional 1.3 into the orb front (protrudes at every
+orb size); wings track the orb flank at constant 0.6 gap (overlap
+2.1w − 0.6 ≥ 0.45 px at w-lo); horn z tracks the orb top at constant
+1.1 px protrusion (rel = ORB_HZ − 0.4); horn x tracks girth at ratio
+σ 57134 = 3.4/3.9 (machine-verified — a hand-derived 57139 was wrong,
+the machine-verify law at work; a constant 3.4 would out-run the flank
+at girth 2); tendril_0 hangs at constant 0.5 px overlap with the orb
+bottom; adjacent tendrils keep z-overlap tl − 0.4 ≥ 0.4 px across the
+domain. Watcher reproduction at all defaults: every derived value
+equals the watcher decimal exactly in raw EXCEPT two pinned 1-ulp
+derivation notes: iris rest y = 255590 + 78643 = **334233**
+(RHE(5.1) = 334234); tendril-2 drop = 406323 + 2·111411 = **629145**
+(RHE(9.6) = 629146). Defaults: orb (5.4, 5.2, 5.4) at z 12; sclera
+(0, 3.9, 12)(3.0, 2.0, 3.0); iris (0, 5.1−ulp, 12)(1.6, 1.1, 1.6);
+pupil (0, 5.9, 12)(0.75, 0.6, 0.75); wings (±6.0, −1.2, 14.2)
+(2.1, 0.9, 1.3); horns (±3.4, 1.0, 17.0)(0.8, 0.8, 1.5); tendrils
+(0, 0, 5.8/4.1/2.4+ulp)(0.9/0.75/0.6 taper, tl 1.3).
+
+**The D-i pupil pixel-phase coupling (evidence-triggered repair).**
+The levitant pupil is structurally centered (cx = 0), so its down-view
+footprint always splits its sample columns across a pixel boundary;
+whether the 1.5 px focal disc wins any majority vote hinges on its
+screen-y sub-pixel phase `fp_mul(TILT, cy) mod 65536` (the chain snap
+plants the orb anchor on a whole-pixel raw). Evidence (seeds 0..1999
+levitant-forced, down view, 4 walk phases = 8000 frames): WITHOUT a
+repair, **408 frames across 102 seeds render ZERO focal pixels**
+(9 of the first 200 seeds); WITH it, **0 of 8000**. Repair (pinned):
+advance pupil rest cy FORWARD only (+y — more protrusion, never
+occlusion, the M1 EY spirit) by `2·((62259 − phase) mod 65536)` so the
+phase lands exactly on 62259 — the all-defaults watcher's own phase
+(`fp_mul(32768, 386662) mod 65536`, derived not authored). At defaults
+the delta is 0: byte-inert, the all-defaults golden untouched. This is
+the narrowest coupling that restores the watcher's proven vote
+geometry for every genome.
+
+**Gait template.** Oscillators (sin = the 06 §5.3 LUT; φ = fp turns
+raw; h·φ, r·h·φ, (i+1)·λ plain integer products, int32-safe):
+
+```
+walk:  b     = fp_mul(hover_amp, sin(h·φ))
+       flap  = fp_mul(FLAP_AMP, sin(r·h·φ))
+       sig_i = sin(h·φ − (i+1)·λ)
+       tx_i  = fp_mul(fp_mul(tendril_amp, XF[i]), sig_i)
+       dzt_i = −fp_mul(TENDRIL_ZBOB, sig_i)
+idle:  b     = fp_mul(asr(hover_amp, 1), sin(φ))    # freq ignored (quadruped idle rule)
+       flap  = 0                                     # idle rule below
+       sig_i = sin(φ − (i+1)·λ)
+       tx_i  = fp_mul(fp_mul(asr(tendril_amp, 1), XF[i]), sig_i)
+       dzt_i = −fp_mul(asr(TENDRIL_ZBOB, 1), sig_i)
+```
+
+Delta application (exact int32 adds onto rest raws): body chain
+`cz += b`; wing chains `cz += b + flap`; tendril chains `cx += tx_i`,
+`cz += b + dzt_i`. At all defaults this reproduces watcher() exactly
+(fp re-derivation; RHE quantization only — the §2.1 rule); an
+independent from-spec Python pose oracle
+(`tests/goldens/levitant_pose_oracle.v2.json`) pins the vectors for
+the all-defaults genome and one genome with every levitant locus
+EXCEPT `hover_freq` non-default (13 overridden loci; `hover_freq`
+stays 1 deliberately — its only non-default member, h = 2, is the
+recorded hover+flap freeze degeneracy, which would zero the very
+oscillators the oracle exists to pin, and h = 2 is pinned by its own
+CI tests), every clip × frame, exact raws. K = 4 aliveness: h = 1 hover {0, +1, 0, −1};
+h = 2 freezes hover and flap (tendrils stay alive via lag) — accepted,
+the gait_freq-2 precedent; r = 3 flap {0, −1, 0, +1}; r = 2 frozen
+(recorded).
+
+**The idle rule (pinned):** kinds `limb` AND `locomotor` freeze in
+idle (flap = 0); every other oscillator runs at half amplitude
+(`asr(amp, 1)`) with the frequency locus ignored. Grounds: the M1 idle
+zeroed the locomotion oscillators while halving bob and tail; design
+03 §2's idle row names what moves (breath = hover, flick = tendrils,
+locomotion absent). The wings still RIDE the half-amp hover bob, so
+the idle levitant is not static — recorded mini-sheet WATCH ITEM: if
+the owner flags dead-looking idle, revisit by amendment. This rule
+also answers D-g's wing question: one-shot clips ride the idle base
+(§4.4.2), so attack/hurt/death wings never flap.
+
+**Envelopes** (semantics = §4.4.2 verbatim: frame k = idle preset at
+φ_k + pinned per-CHAIN [dy, dz] raw translations; attack f0 scales by
+`fp_mul(anticipation, delta)` — id 41, f0 only; one-shot poses defined
+ONLY at the K uniform phases, else trap; nothing direction-aware).
+Chain classes: body (the core chain), wing (both wings), tendril
+(every tendril chain).
+
+attack (K = 4, the 1+1+2): the levitant's axis is vertical — wind-up
+rears BACK + UP where the quadruped crouches; the strike is a forward
+swoop. Tendrils carry the quadruped tail's pinned trailing-inertia
+sign (f0 dy = +0.5 while the body pulls −y); f2 = f1/3 easing:
+
+| k | body [dy, dz] | wing [dy, dz] | tendril [dy, dz] |
+|---|---|---|---|
+| 0 wind-up (× ant) | [−98304, +45875] (−1.5, +0.7) | [−98304, +65536] (−1.5, +1.0) | [+32768, 0] (+0.5, 0) |
+| 1 strike | [+147456, −49152] (+2.25, −0.75) | [+147456, −58982] (+2.25, −0.9) | [+98304, 0] (+1.5, 0) |
+| 2 recovery | [+49152, −16384] (+0.75, −0.25) | [+49152, −19661] (+0.75, −0.3) | [+32768, 0] (+0.5, 0) |
+| 3 recovered | [0, 0] | [0, 0] | [0, 0] |
+
+hurt (K = 2): f0 = [−147456, 0] (−2.25 px) on EVERY chain — the
+U2-tuned value that clears one pixel through TILT in all four views;
+f1 = zeros; `flash: true` stays metadata-only.
+
+death (K = 4; altitude loss per §2.3; no limbs ⇒ no fold path):
+stagger `cy += −49152` every chain every frame; sink
+`dz = −fp_mul(DEATH_SINK[k], max(0, restCz − restHz))` from the chain
+ANCHOR's rest slab, applied to every slab of the chain — quadruped
+formula + constants verbatim (DEATH_SINK = [9830, 29491, 55706]).
+Derived capacities at defaults (machine-verified): body 6.6 px (the
+orb bottoms **64878 raw = 0.98996 px** above ground at f2 — exact),
+wings 12.9 px (give out fastest), tendrils 4.5/2.8/1.1 px (pool under
+the settling orb, never below their own rest-bottom capacity).
+**Tendrils go limp** (§2.3 pins TENDRILS only): the idle tendril
+deltas tx_i and dzt_i each scale by TENDRIL_LIMP[k] = [32768, 16384, 0]
+(one extra fp_mul each); the phase argument sin(φ_k − (i+1)·λ) is
+untouched (lag preserved); the hover ride is untouched (the quadruped
+death rode the FULL idle base). Wings: no flap in death by the idle
+rule. **f3 = f2 WHOLESALE** (base phase + envelope + limp factor):
+poseLevitant evaluates k = 3 as k = 2, so every held pair scores
+exactly 0.0 (800/800 cells verified in the §4.4.6 sweep — 800 held
+pairs, all zero).
+
+**Shadow policy (the §2.3 pin, discharged).** Shadow x-extent from the
+FIRST chain of the grown graph (the chain holding slab 0 = the plan's
+core chain), ground-line anchored, ¼ flattening — 06 §6.3 arithmetic
+unchanged; altitude modulates NOTHING. `deriveHitbox` takes the chain's
+slab indices (`shadowSlabs`) instead of the M1 hardcoded `i < 2`:
+the quadruped resolves to slabs {0, 1} — byte-identical by construction
+(anchor tests prove it, run not assumed); the levitant to
+{0, 1, 2, 3, 6, 7} (in profile views the yawed eye stack legitimately
+widens it — derived, no special case). `snapOffsets` likewise gains an
+optional `chains` parameter (default: the quadruped CHAINS — every
+M1-era call site byte-identical); `exportCreature`/flicker pass the
+grown graph's chains, dispatched on `meta.plan` (WeakMap growth cache,
+the §4.4.8 pattern, one per plan).
+
+**Wire evidence (design 06 §3.5 amendment, machine-verified,
+CI-pinned).** All-defaults levitant tape = `01 00 02` = **`AQAC`**
+(4 chars). Size model reproduces U2's quadruped pin exactly (138 B =
+184 chars — model validated); largest sampler-reachable levitant:
+**85 B = 114 chars** (design 01 req-4 holds for every genome any
+pinned sampler can emit). Fully-adversarial hand-edited cross-plan
+tape (every locus at its costliest extreme): **179 B = 239 chars** —
+recorded honestly: exceeds req 4's ~200-char guidance for a tape no
+sampler can emit; degradation linear; U4 grows it regardless.
+Recommendation: accept.
+
+**Evidence — sensor visibility + tendril connectivity (D-i), RUN
+2026-07-15.** Corpus: seeds 0..1999 levitant-forced, down view, 4 walk
+phases (8000 frames). Zero-focal-pixel frames: **0/8000** (the §D-i
+coupling's counterfactual: 408/8000 across 102 seeds without it).
+Tendril connectivity (every rendered tendril cluster 8-connected to
+the rigid body-chain mass ∪ higher tendrils; a fully occluded cluster
+— 2608 of 24000 links, mostly tendril_0 hidden behind the orb — has
+nothing to break and is recorded, not failed): **21273/21392 links
+connected = 99.44% ≥ the 99% target**. The 119 failures (77 seeds,
+worst offenders for the mini-sheet: seeds 11, 12, 112, 134, 150 …)
+are transient 1-px body→tendril_0 gaps at single bob phases —
+independent per-chain snap rounding plus the 0.5 px z-bob against the
+0.5 px rest overlap. No repair pinned (target holds); mini-sheet
+judgment item.
+
+**Evidence — §2.3-corner worst-case table, RUN (CI-permanent).** All
+256 geometry-loci corners (ids 13–15 swept at their SHIPPED bounds,
+never narrowed; ids 42–46 at the table bounds) × worst-case anim
+(hover 2 px, anticipation 2, tendril amp 2 at max lag), every
+clip × phase × direction, on the production fp path: every slab inside
+the 32×32 frame with ≥ 0.5 px snap margin; all attachment identities
+above hold; adjacent-tendril x-gap ≤ 0.5 px at all sampled phases.
+
+**Golden provenance (the M1 ritual, RUN 2026-07-15).** All-defaults
+levitant (72 frames, 128×640, genome `AQAC`, hurt flash, mirror false):
+
+```
+sheet PNG  sha256 7fef414131a41c63b7fdd6d464b6b0e487eed42c9251c540c2bdd640658de965
+sheet RGBA sha256 be0217c318aedb0c4ffabfffa355c4f1ca12cb6a171837685221dcc8ada74ae2
+JSON       sha256 1ed5352684f8d71b490ee147c2cabace7b209724bb91e6b108f848c8f80e23ae
+```
+
+Pinned only after: PIL pixel-compare of the sheet PNG against the raw
+RGBA buffer; independent Python JSON re-canonicalization
+(byte-identical); all 72 hitboxes exact-matched by a from-spec Python
+snap + hitbox oracle; every sha256 recomputed in Python; two
+consecutive renders byte-identical. Files committed as
+`tests/goldens/levitant.sheet.png` / `levitant.json`. One sampled
+levitant (seed 0) RGBA sha256 additionally pinned in CI
+(`838fd7f7…`). [EVIDENCE-PENDING: second-platform (CI) byte-identity —
+this tree ran Windows only; the CI matrix discharges it.]
+
+**Mini-sheet review (seeds 0..24 levitant-forced, §7 delivery
+format).** [EVIDENCE-PENDING: owner verdict — watch items: idle wings
+frozen (hover-riding only); iris↔sclera role fallback; tendril tips
+dipping toward the ground line in deep low-altitude corners (on
+canvas, shadow constant per the §2.3 pin — judgment, not violation);
+hover_freq-2 / flap_ratio-2 frozen-oscillator seeds.]
+
+Scope lines (recorded): no new craft rules, palette changes, 16×16,
+plan-mix sampling (U6), amorphous (U4), tag gating (U5), clearance
+radii (levitant sockets carry 0). GENERATOR_VERSION stays 2 — U3 adds
+output for plan-1 and changes none for plan-0 (the full M1/U2 anchor
+suite stays green, run not assumed).
+
+**Suite-time accounting (the ~180 s budget, U3 close-out,
+2026-07-15).** U3's first cut landed the suite at 359 tests; recorded
+green runs measured 132.3 / 139.0 / 179.5 s wall depending on machine
+load (per-file, from the 139 s run's report: clips 138.3 s, export
+52.4 s, levitant 48.4 s) — at the budget's edge with no headroom under
+load, and the export 20-seed double-render sweep's 120 s per-file cap
+was judged load-fragile (review-lens observation; no failing run was
+preserved). Repairs, per the M1 scaled-corpus precedent (CI gets
+scaled corpora; the full sweeps above stay the recorded unit
+evidence): levitant flicker CI corpus defaults + seeds 0..9
+(histograms: the 200-seed §4.4.6 addendum); sensor-visibility CI seeds
+0..49 (unit: 0/8000 over seeds 0..1999); levitant craft idempotence
+defaults + seeds 0..4; U2's one-shot render property sweep seeds
+0..199 → 0..49 (the suite's longest file bounded its wall time);
+export re-render hash-stability half seeds 0..4 with the cap raised to
+240 s (all 20 seeds still render + structurally verify once).
+Post-trim, this tree, Windows dev machine: **recorded full runs green
+at 69.0 / 73.8 / 74.4 s wall, plus a 68.8 s fix-round re-run** (359
+tests; worker-aggregate test time 192.8–216.3 s across those runs;
+longest file clips.test.ts 68.4 s in the 69.0 s run's report) — under
+budget with ≥ 2.4× load headroom at the slowest recorded run. Every gate value, golden, and anchor is
+unchanged by the trims; only corpus sizes moved. *(Evidence-hygiene
+correction, U3 fix round 2026-07-15: an earlier draft quoted four run
+times, a 243 s upper bound, and a CI-flake failure without saved run
+output; this paragraph is restated to the runs whose reports exist.)*
 
 ### 2.4 Amorphous
 
@@ -255,6 +649,23 @@ correspondences for `anim.*` only (e.g. `quadruped.gait_freq ↔
 levitant.hover_freq ↔ amorphous.pulse_freq`; amplitude↔amplitude rows
 likewise). M2 tests referential integrity (every entry names real
 registry paths) and nothing else; crossover consumes it at M5.
+
+**U3 pin — the quadruped ↔ levitant table** (`ANIM_SEMANTIC_MAP`,
+frozen data beside REGISTRY in genome.ts; canonical path strings; no
+crossover code until M5):
+
+| quadruped | levitant |
+|-----------|----------|
+| anim.quadruped.gait_freq | anim.levitant.hover_freq |
+| anim.quadruped.bob_amp | anim.levitant.hover_amp |
+| anim.quadruped.tail_lag | anim.levitant.tendril_lag |
+| anim.quadruped.tail_amp | anim.levitant.tendril_amp |
+| anim.quadruped.anticipation | anim.levitant.anticipation |
+
+Unmapped, recorded (design 01 §3's "present in one parent only" case):
+quadruped `leg_swing_amp` + `leg_lift_amp`; levitant `flap_ratio`.
+CI: referential integrity via locusByPath, all paths `anim.*`, no
+duplicate endpoints — nothing else.
 
 ## 3. The renderer fork (metaball field path)
 
@@ -310,11 +721,28 @@ Looping clips (walk, idle) keep the wrap pair (last, first). One-shot
 clips (attack, hurt, death) measure **consecutive pairs only — no
 wrap** (a death's final pose legitimately differs from its first
 frame; wrapping would gate on a transition that never plays). Metric,
-zero-motion convention, and INF-fail are unchanged. The walk gate stays
-32.0; per-clip gates for the new clips are set by the M1 recalibration
-method (production histogram over ≥800 cells, gate above observed max
-with margin, evidence recorded in the unit amendment) — **pinned at U2
-(§4.4.6): attack 19.0, hurt 14.0, death 25.0**.
+zero-motion convention, and INF-fail are unchanged — this section is
+gate POLICY only.
+
+Gates are **per-(plan, clip) tables** (U3 amendment, 2026-07-15). Each
+plan's row is set by the M1 recalibration method against that plan's
+OWN production histogram (per clip, seeds 0..199 × 4 directions = 800
+cells; gate = the tightest integer with ≥ 1.25× margin over the plan's
+observed max; evidence recorded in the unit amendment). A plan's gate
+never prices in the other plan's histogram: a shared global gate wide
+enough for the levitant's structurally loud attack cells would let a
+quadruped attack regression 4.6× past its own calibrated ceiling pass
+silently. A cell asserts the gate row of its genome's `meta.plan`.
+
+| plan | walk | idle | attack | hurt | death |
+|------|------|------|--------|------|-------|
+| quadruped | 32.0 | ungated | 19.0 | 14.0 | 25.0 |
+| levitant | 22.0 | ungated | 87.0 | 22.0 | 19.0 |
+
+The quadruped row is **the U2 pins RESTATED, not recalibrated**
+(§4.4.6 — its histograms have not moved; walk is the M1 gate). The
+levitant row is pinned at U3 from the §4.4.6 addendum sweep. Idle
+stays measurable but ungated in every plan (M1 policy).
 
 ### 4.3 Versioning and the M1 anchors
 
@@ -474,6 +902,53 @@ Integer-bucket histograms (floor(score): count): attack {0: 100,
 2: 248, 3: 280, 4: 208, 5: 206, 6: 172, 7: 133, 8: 95, 9: 60, 10: 45,
 11: 25, 12: 24, 13: 16, 14: 9, 15: 9, 16: 3, 17: 1, 18: 3, 19: 1}.
 
+**§4.4.6 U3 addendum — levitant gate evidence + the per-(plan, clip)
+gate tables (sweep RUN 2026-07-15).** Same method on the levitant
+corpus: seeds 0..199 levitant-forced × 4 directions = 800 cells per
+clip, no INF anywhere; death's 800 held f2→f3 pairs (one per cell; 2400
+total death pairs measured) all score exactly 0.0. The levitant's one-chain body mass (orb + eye stack + horns snap
+as one assembly dominating the 11-slab silhouette) yields many changed
+pixels per unit motion energy on low-motion one-shot easing frames —
+the a-priori hot spot the unit spec recorded, plus the same
+gait_freq-2-family low-amp walk cells the M1 recalibration priced in.
+The levitant attack max (68.93) sits 3.6× past the quadruped attack
+gate (4.7× the quadruped's own observed attack max of 14.67): rather
+than raise the shared gates to cross-plan maxima (which
+would let a quadruped attack regression 4.6× past its own calibrated
+ceiling pass silently), gates become **per-(plan, clip) tables**
+(§4.2): each plan calibrated on its own histogram, the U2 global
+values restated verbatim as the quadruped row. The levitant row, from
+this sweep's maxima (tightest integers with ≥ 1.25× margin, machine-
+verified):
+
+| clip | pairs | mean | p50 | p95 | p99 | max | gate | margin |
+|------|-------|------|-----|-----|-----|-----|------|--------|
+| walk | 3200 | 3.75 | 3.16 | 10.01 | 14.12 | 17.2966 | **22.0** | 1.272× |
+| attack | 2400 | 6.95 | 6.19 | 14.84 | 25.38 | 68.9279 | **87.0** | 1.262× |
+| hurt | 800 | 7.69 | 6.78 | 12.69 | 14.86 | 17.2825 | **22.0** | 1.273× |
+| death | 2400 | 3.46 | 3.82 | 8.15 | 10.46 | 14.9359 | **19.0** | 1.272× |
+
+Every U2 quadruped verdict is untouched (its row is a restatement,
+CI-asserted by the unchanged quadruped flicker suite); every levitant
+sweep cell sits under its row by construction. Integer-bucket histograms
+(floor(score): count): walk {0: 827, 1: 452, 2: 267, 3: 327, 4: 273,
+5: 265, 6: 205, 7: 185, 8: 135, 9: 103, 10: 65, 11: 29, 12: 22,
+13: 11, 14: 14, 15: 16, 16: 3, 17: 1}; attack {0: 229, 1: 145, 2: 37,
+3: 138, 4: 280, 5: 312, 6: 267, 7: 219, 8: 188, 9: 141, 10: 108,
+11: 89, 12: 59, 13: 42, 14: 28, 15: 18, 16: 17, 17: 13, 18: 11,
+19: 10, 20: 4, 21: 10, 22: 3, 23: 4, 24: 1, 25: 5, 26: 2, 27: 1,
+29: 1, 30: 2, 31: 1, 34: 2, 35: 1, 37: 3, 38: 1, 40: 2, 46: 3, 48: 1,
+53: 1, 68: 1}; hurt {3: 4, 4: 104, 5: 152, 6: 171, 7: 73, 8: 61,
+9: 58, 10: 64, 11: 43, 12: 40, 13: 18, 14: 5, 15: 5, 16: 1, 17: 1};
+death {0: 804, 1: 8, 2: 151, 3: 292, 4: 386, 5: 311, 6: 189, 7: 122,
+8: 72, 9: 31, 10: 15, 11: 6, 12: 7, 13: 1, 14: 5}. The attack maximum
+(68.93, seed 187 down f2→f3) is the easing-frame family: a sub-pixel
+continuous body motion that snaps to a whole-pixel chain jump moves
+the entire orb silhouette boundary at near-zero energy. CI gates the
+scaled levitant corpus (defaults + seeds 0..9, all clips, all
+directions — see the §2.3.1 suite-time accounting) beside the
+quadruped suite.
+
 **§4.4.7 Anchor evidence (the §4.3 law, discharged for U2).** Baseline:
 from the pristine committed v1 build (HEAD 510e0df), for the
 all-defaults genome + sampled seeds 0..1999 (2001 entries), sha256 of
@@ -584,7 +1059,7 @@ at unit* sections in the same change.
 |------|----------|------|
 | U1 | Grammar core: PartGraph, budgeted expansion, symmetry groups, exclusion machinery, canonical socket order; quadruped grammar; hardcoded template deleted. LICENSE lands here once the owner picks the text | §1.2 fidelity sweep: seeds 0..1999 byte-identical vs the M1 path (kept in-tree until the sweep passes, then deleted in the same commit); suite green |
 | U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
-| U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
+| U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **DELIVERED (§2.3.1, 2026-07-15)**: goldens ritual-pinned, sweeps run (visibility 0/8000, connectivity 99.44%, flicker §4.4.6 addendum, corner table CI-permanent), anchors green, map integrity CI-tested; mini-sheet owner verdict [EVIDENCE-PENDING] | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
 | U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
 | U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |

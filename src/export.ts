@@ -44,7 +44,7 @@ import type { Genome } from "./genome.js";
 import { encodeGenome, getScalar } from "./genome.js";
 import { GENERATOR_VERSION } from "./index.js";
 import type { ClipName, Slab } from "./pose.js";
-import { CLIP_KS, clipPhases, poseQuadruped } from "./pose.js";
+import { CLIP_KS, clipPhases, growCreature, poseCreature } from "./pose.js";
 import type { Direction, SlabOffset } from "./raster.js";
 import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./raster.js";
 import type { Palette } from "./palette.js";
@@ -276,12 +276,18 @@ function ceilPx(raw: number): number {
  * is NOT clamped to the 32×32 frame: the hitbox is geometry-derived and
  * may legally overhang the canvas.
  *
- * The shadow ellipse comes from the body chain (§1.5 chain table: slabs
- * 0–1, core + underside) x-extent on the ground line:
+ * The shadow ellipse comes from `shadowSlabs` — the slab indices of the
+ * grown graph's FIRST chain (the chain holding slab 0 = the plan's core
+ * chain; design 07 §3.2): the quadruped resolves to slabs {0, 1} (core +
+ * underside — byte-identical to the M1 hardcoded `i < 2` by
+ * construction), the levitant to {0, 1, 2, 3, 6, 7} (orb + sensor stack
+ * + horns; in profile views the yawed eye stack legitimately widens it —
+ * derived, no special case). Ground-line anchored; altitude modulates
+ * NOTHING (design 07 §2.3):
  *
  * ```
- * bMinX = min over slabs {0, 1} of fp_sub(sxc, hx)
- * bMaxX = max over slabs {0, 1} of fp_add(sxc, hx)
+ * bMinX = min over shadowSlabs of fp_sub(sxc, hx)
+ * bMaxX = max over shadowSlabs of fp_add(sxc, hx)
  * cx_fp = fp_add(OX, asr(fp_add(bMinX, bMaxX), 1))
  * cy_fp = OY (the ground line, 26.5 → 1736704)
  * rx_fp = asr(fp_sub(bMaxX, bMinX), 1)
@@ -292,6 +298,7 @@ export function deriveHitbox(
   slabs: readonly Slab[],
   direction: Direction,
   offsets: readonly SlabOffset[],
+  shadowSlabs: readonly number[],
 ): FrameHitbox {
   const turns = DIRECTION_TURNS[direction];
   if (offsets.length !== slabs.length) {
@@ -299,12 +306,17 @@ export function deriveHitbox(
       `export: offsets length ${offsets.length} must match slab count ${slabs.length}`,
     );
   }
+  if (shadowSlabs.length === 0) {
+    throw new RangeError("export: shadowSlabs must name at least one slab (the core chain)");
+  }
+  const shadowSet = new Set(shadowSlabs);
   let minX = 0;
   let maxX = 0;
   let minY = 0;
   let maxY = 0;
   let bMinX = 0;
   let bMaxX = 0;
+  let shadowSeen = false;
   for (let i = 0; i < slabs.length; i++) {
     const yawed = yawSlab(slabs[i]!, turns);
     const cx = fp_add(yawed.cx, offsets[i]!.dx);
@@ -328,11 +340,12 @@ export function deriveHitbox(
       if (y0 < minY) minY = y0;
       if (y1 > maxY) maxY = y1;
     }
-    if (i < 2) {
-      // Body chain (§1.5 chain table: slabs 0, 1) drives the shadow.
-      if (i === 0) {
+    if (shadowSet.has(i)) {
+      // The plan's core chain (design 07 §3.2) drives the shadow.
+      if (!shadowSeen) {
         bMinX = x0;
         bMaxX = x1;
+        shadowSeen = true;
       } else {
         if (x0 < bMinX) bMinX = x0;
         if (x1 > bMaxX) bMaxX = x1;
@@ -404,13 +417,17 @@ export function sha256Hex(bytes: Uint8Array | string): string {
  * sheet, the canonical JSON, and every golden hash. Deterministic — two
  * calls on one genome are byte-identical, property-tested in CI.
  *
- * Pipeline per clip × direction cell (pinned): poseQuadruped per phase →
- * snapOffsets(slabLists, direction) → rasterize(slabs, direction, 32,
- * ramp_len, offsets) → craftClip → applyPalette with the creature's one
- * derivePalette(genome) palette.
+ * Pipeline per clip × direction cell (pinned): the plan's pose function
+ * per phase (poseQuadruped | poseLevitant, dispatched on `meta.plan` —
+ * design 07 §2.3.1) → snapOffsets(slabLists, direction, graph.chains) →
+ * rasterize(slabs, direction, 32, ramp_len, offsets) → craftClip →
+ * applyPalette with the creature's one derivePalette(genome) palette.
+ * Hitbox shadows derive from the grown graph's first chain (§3.2).
  */
 export function exportCreature(genome: Genome): CreatureExport {
   const dna = encodeGenome(genome); // also validates the genome's version
+  const graph = growCreature(genome); // plan dispatch + growth cache (§2.3.1)
+  const shadowSlabs = graph.chains[0]!.slabs; // the core chain (§3.2)
   const palette: Palette = derivePalette(genome);
   const rampLenRaw = getScalar(genome, "palette.ramp_len");
   if (rampLenRaw !== 3 && rampLenRaw !== 4 && rampLenRaw !== 5) {
@@ -432,9 +449,9 @@ export function exportCreature(genome: Genome): CreatureExport {
     // Slab lists are direction-independent (poses live in model space —
     // design 03 §2 "direction handling is free"); snapping is per
     // direction.
-    const slabLists = phases.map((phi) => poseQuadruped(genome, clip, phi));
+    const slabLists = phases.map((phi) => poseCreature(genome, clip, phi));
     for (const direction of DIRECTIONS) {
-      const offsets = snapOffsets(slabLists, direction);
+      const offsets = snapOffsets(slabLists, direction, graph.chains);
       const rawGrids = slabLists.map((slabs, f) =>
         rasterize(slabs, direction, FRAME_SIZE, rampLen, offsets[f]!),
       );
@@ -453,7 +470,7 @@ export function exportCreature(genome: Genome): CreatureExport {
             png: encodePng(rgba, FRAME_SIZE, FRAME_SIZE),
           }),
         );
-        hitboxes.push(deriveHitbox(slabLists[k]!, direction, offsets[k]!));
+        hitboxes.push(deriveHitbox(slabLists[k]!, direction, offsets[k]!, shadowSlabs));
       }
       // The design 07 §4.1 clip entry: hurt cells additionally carry
       // flash: true (an additive metadata key — the engine-side palette

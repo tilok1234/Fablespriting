@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 
 import type { JsonValue } from "./export.js";
 import { SHEET_HEIGHT, SHEET_WIDTH, canonicalJson, exportCreature } from "./export.js";
-import { encodeGenome, sampleGenome } from "./genome.js";
+import { PLAN_NAMES, encodeGenome, sampleGenome } from "./genome.js";
 import { GENERATOR_VERSION } from "./index.js";
 import { encodePng } from "./png.js";
 
@@ -68,12 +68,18 @@ export interface ContactSheet {
  * Build the contact sheet for the inclusive seed range [from, to]:
  * renders each seed's sampled genome through the FULL pinned pipeline
  * (exportCreature) and composes the 128×640 export sheets row-major
- * into the gutter grid. Deterministic; a few seconds per genome
- * (renders 72 frames each — a QA tool, not a hot path).
+ * into the gutter grid. `plan` forces every sampled genome onto that
+ * plan (design 07 §2.3.1 D-a: plan is a sampler parameter, default
+ * quadruped — the U3 mini-sheet instrument). Deterministic; a few
+ * seconds per genome (renders 72 frames each — a QA tool, not a hot
+ * path).
  */
-export function buildContactSheet(from: number, to: number): ContactSheet {
+export function buildContactSheet(from: number, to: number, plan = 0): ContactSheet {
   if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 0 || to < from) {
     throw new RangeError(`cli: bad seed range ${from}..${to} (need 0 ≤ from ≤ to, safe integers)`);
+  }
+  if (!Number.isInteger(plan) || plan < 0 || plan >= PLAN_NAMES.length) {
+    throw new RangeError(`cli: bad plan ${plan} (0..${PLAN_NAMES.length - 1})`);
   }
   const n = to - from + 1;
   const cols = Math.min(Math.ceil(Math.sqrt(n)), MAX_SHEET_COLS);
@@ -87,7 +93,7 @@ export function buildContactSheet(from: number, to: number): ContactSheet {
     const seed = from + i;
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const genome = sampleGenome(BigInt(seed));
+    const genome = sampleGenome(BigInt(seed), plan);
     const creature = exportCreature(genome);
     const x0 = col * (SHEET_WIDTH + SHEET_GUTTER);
     const y0 = row * (SHEET_HEIGHT + SHEET_GUTTER);
@@ -99,11 +105,16 @@ export function buildContactSheet(from: number, to: number): ContactSheet {
     entries.push(Object.freeze({ seed, dna: encodeGenome(genome), row, col }));
   }
 
+  // The manifest gains a `plan` key ONLY for a non-default plan (the
+  // defaults-absent house rule, design 06 §3.2's spirit): the committed
+  // qa/sheet_0_49.json stays byte-intact without a re-pin (design 07
+  // §2.3.1 D-a consequence), while forced mini-sheets self-identify.
   const manifest = canonicalJson({
     cell: { gutter: SHEET_GUTTER, h: SHEET_HEIGHT, w: SHEET_WIDTH },
     cols,
     entries: entries.map((e): JsonValue => ({ col: e.col, dna: e.dna, row: e.row, seed: e.seed })),
     generator_version: GENERATOR_VERSION,
+    ...(plan === 0 ? {} : { plan: PLAN_NAMES[plan]! }),
     rows,
     seed_range: { from, to },
   });
@@ -120,10 +131,11 @@ export function buildContactSheet(from: number, to: number): ContactSheet {
   });
 }
 
-const USAGE = `usage: fablesprite sheet --seed-range A..B [--out DIR]
+const USAGE = `usage: fablesprite sheet --seed-range A..B [--plan quadruped|levitant] [--out DIR]
   Renders sampled genomes for every seed in the inclusive range A..B and
   composes their 128x640 export sheets into one contact-sheet PNG plus a
-  JSON manifest (grid position -> seed/dna). Writes sheet_<A>_<B>.png and
+  JSON manifest (grid position -> seed/dna). --plan forces every sampled
+  genome onto that plan (default quadruped). Writes sheet_<A>_<B>.png and
   sheet_<A>_<B>.json into DIR (default ./out). A few seconds per genome.`;
 
 /** Parse `--flag value` / `--flag=value` pairs after the subcommand. */
@@ -162,7 +174,7 @@ export function main(argv: readonly string[]): number {
     return 2;
   }
   for (const key of flags.keys()) {
-    if (key !== "--seed-range" && key !== "--out") {
+    if (key !== "--seed-range" && key !== "--out" && key !== "--plan") {
       process.stderr.write(`unknown flag ${key}\n${USAGE}\n`);
       return 2;
     }
@@ -173,10 +185,16 @@ export function main(argv: readonly string[]): number {
     process.stderr.write(`bad --seed-range ${range}: need integers A ≤ B\n`);
     return 2;
   }
+  const planName = flags.get("--plan") ?? "quadruped";
+  const plan = (PLAN_NAMES as readonly string[]).indexOf(planName);
+  if (plan < 0) {
+    process.stderr.write(`bad --plan ${planName}: known plans are ${PLAN_NAMES.join(", ")}\n${USAGE}\n`);
+    return 2;
+  }
   const outDir = resolve(flags.get("--out") ?? "./out");
 
   const t0 = Date.now();
-  const sheet = buildContactSheet(from, to);
+  const sheet = buildContactSheet(from, to, plan);
   const renderMs = Date.now() - t0;
 
   mkdirSync(outDir, { recursive: true });

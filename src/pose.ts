@@ -29,11 +29,11 @@
  * §4.3 anchor law).
  */
 
-import { asr, fp_add, fp_mul, sin_fp } from "./fixed.js";
+import { asr, fp_add, fp_mul, fp_sub, sin_fp } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { getScalar } from "./genome.js";
 import type { MaterialRole, PartGraph } from "./grammar.js";
-import { growQuadruped } from "./grammar.js";
+import { growLevitant, growQuadruped } from "./grammar.js";
 
 /**
  * The M2 clip roster (design 03 §2 as pinned by design 07 §4.1):
@@ -139,6 +139,44 @@ function cachedQuadrupedGraph(genome: Genome): PartGraph {
     GRAPH_CACHE.set(genome, graph);
   }
   return graph;
+}
+
+/** Levitant growth cache — same §4.4.8 pattern, separate map (a genome
+ * only ever poses under its own meta.plan, but the caches stay disjoint
+ * so a mixed-use genome object cannot cross-contaminate). */
+const LEVITANT_GRAPH_CACHE = new WeakMap<Genome, PartGraph>();
+
+function cachedLevitantGraph(genome: Genome): PartGraph {
+  let graph = LEVITANT_GRAPH_CACHE.get(genome);
+  if (graph === undefined) {
+    graph = growLevitant(genome);
+    LEVITANT_GRAPH_CACHE.set(genome, graph);
+  }
+  return graph;
+}
+
+/**
+ * Grow (cached) the part graph a genome's `meta.plan` selects — the
+ * design 07 §2.3.1 plan seam. Plan 0 → quadruped, 1 → levitant.
+ */
+export function growCreature(genome: Genome): PartGraph {
+  return getScalar(genome, "meta.plan") === 1
+    ? cachedLevitantGraph(genome)
+    : cachedQuadrupedGraph(genome);
+}
+
+/**
+ * Pose a genome under its own `meta.plan` — the design 07 §2.3.1 plan
+ * dispatch: plan 0 → {@link poseQuadruped}, plan 1 → {@link poseLevitant}.
+ */
+export function poseCreature(
+  genome: Genome,
+  clip: ClipName,
+  phaseTurnsRaw: number,
+): readonly Slab[] {
+  return getScalar(genome, "meta.plan") === 1
+    ? poseLevitant(genome, clip, phaseTurnsRaw)
+    : poseQuadruped(genome, clip, phaseTurnsRaw);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +417,226 @@ export function poseQuadruped(
         cy = fp_add(cy, DEATH_DY);
         cz = fp_add(cz, deathSinkByChain!.get(node.animChain)!);
       }
+    }
+    return Object.freeze({ cx, cy, cz, hx, hy, hz, role: node.materialRole });
+  });
+
+  return Object.freeze(slabs);
+}
+
+// ---------------------------------------------------------------------------
+// The levitant gait template + envelopes (design 07 §2.3.1, U3)
+// ---------------------------------------------------------------------------
+
+/** Wing flap amplitude (walk) — template constant, 1.6 px (watcher). */
+const FLAP_AMP = 104858;
+/** Tendril z counter-bob amplitude — template constant, 0.5 px. */
+const TENDRIL_ZBOB = 32768;
+/** Per-ordinal tendril x-swing factors — 0.5, 0.9, 1.3 (watcher 0.5 + 0.4·i). */
+const TENDRIL_XF: readonly number[] = Object.freeze([32768, 58982, 85197]);
+/**
+ * Death limp factors on the tendril oscillator deltas (design 07 §2.3:
+ * tendrils go limp — lag preserved, amplitude → 0): 0.5, 0.25, 0; f3 = f2.
+ */
+const TENDRIL_LIMP: readonly number[] = Object.freeze([32768, 16384, 0]);
+
+/** Per-chain-class translation deltas of one levitant envelope frame. */
+interface LevitantEnvelopeFrame {
+  /** True iff this frame's deltas scale by anim.levitant.anticipation. */
+  readonly scaled: boolean;
+  /** [dy, dz] for the body chain (orb + sensor stack + horns). */
+  readonly body: readonly [number, number];
+  /** [dy, dz] for both wing chains. */
+  readonly wing: readonly [number, number];
+  /** [dy, dz] for every tendril chain. */
+  readonly tendril: readonly [number, number];
+}
+
+const LENV = (
+  scaled: boolean,
+  body: readonly [number, number],
+  wing: readonly [number, number],
+  tendril: readonly [number, number],
+): LevitantEnvelopeFrame => Object.freeze({ scaled, body, wing, tendril });
+
+/**
+ * Levitant ATTACK envelope (design 07 §2.3.1, K = 4, design 03 §2's
+ * 1+1+2): the levitant's axis is vertical — the wind-up rears BACK + UP
+ * where the quadruped crouches; the strike is a forward swoop (dips).
+ * Tendrils carry the quadruped tail's pinned trailing-inertia sign
+ * (f0 dy = +0.5 while the body pulls −y); f2 = f1/3 easing. f0 scales by
+ * `fp_mul(anticipation, delta)` (id 41), f1–f3 never.
+ */
+const LEVITANT_ATTACK: readonly LevitantEnvelopeFrame[] = Object.freeze([
+  LENV(true, [-98304, 45875], [-98304, 65536], [32768, 0]), // f0 wind-up: −1.5/+0.7, −1.5/+1.0, +0.5/0
+  LENV(false, [147456, -49152], [147456, -58982], [98304, 0]), // f1 strike: +2.25/−0.75, +2.25/−0.9, +1.5/0
+  LENV(false, [49152, -16384], [49152, -19661], [32768, 0]), // f2 recovery: +0.75/−0.25, +0.75/−0.3, +0.5/0
+  LENV(false, [0, 0], [0, 0], [0, 0]), // f3 recovered
+]);
+
+/**
+ * Levitant HURT envelope (K = 2): f0 = −2.25 px recoil on EVERY chain —
+ * the U2-tuned value that clears one pixel through TILT in all four
+ * views; f1 = zeros. `flash: true` stays metadata-only.
+ */
+const LEVITANT_HURT: readonly LevitantEnvelopeFrame[] = Object.freeze([
+  LENV(false, [-147456, 0], [-147456, 0], [-147456, 0]), // f0 recoil
+  LENV(false, [0, 0], [0, 0], [0, 0]), // f1 return
+]);
+
+/**
+ * Pose the levitant: genome → the 11 model-space slabs of the design 07
+ * §2.3.1 node table, in the graph's pinned slab order, for one clip
+ * sample at `phaseTurnsRaw` fp turns. Rest geometry comes from
+ * {@link growLevitant} (cached); this function adds the per-frame deltas.
+ *
+ * Oscillators (§2.3.1; sin = the 06 §5.3 LUT; h = hover_freq,
+ * r = flap_ratio, λ = tendril_lag in fp turns; h·φ, r·h·φ, (i+1)·λ are
+ * plain integer products):
+ *
+ * ```
+ * walk:  b     = fp_mul(hover_amp, sin(h·φ))
+ *        flap  = fp_mul(FLAP_AMP, sin(r·h·φ))
+ *        sig_i = sin(h·φ − (i+1)·λ)
+ *        tx_i  = fp_mul(fp_mul(tendril_amp, XF[i]), sig_i)
+ *        dzt_i = −fp_mul(TENDRIL_ZBOB, sig_i)
+ * idle:  b     = fp_mul(asr(hover_amp, 1), sin(φ))   — freq ignored
+ *        flap  = 0                                    — locomotors freeze
+ *        sig_i = sin(φ − (i+1)·λ)
+ *        tx_i  = fp_mul(fp_mul(asr(tendril_amp, 1), XF[i]), sig_i)
+ *        dzt_i = −fp_mul(asr(TENDRIL_ZBOB, 1), sig_i)
+ * ```
+ *
+ * Delta application (exact int32 adds onto rest raws): body chain
+ * `cz += b`; wing chains `cz += b + flap`; tendril chains `cx += tx_i`,
+ * `cz += b + dzt_i`. The idle rule (design 07 §2.3.1, the M1 precedent +
+ * design 03 §2's idle row): kinds limb AND locomotor freeze in idle
+ * (flap = 0 — the wings still RIDE the half-amp hover bob), every other
+ * oscillator at half amplitude with the frequency locus ignored. One-shot
+ * clips ride the idle base at their uniform phase φ_k (design 07 §4.4.2),
+ * so attack/hurt/death wings never flap.
+ *
+ * Envelopes (design 07 §2.3.1, semantics = §4.4.2 verbatim): attack per
+ * {@link LEVITANT_ATTACK} (f0 × anticipation, id 41); hurt per
+ * {@link LEVITANT_HURT}; death = altitude loss — every chain, every
+ * frame, `cy += DEATH_DY`; every chain sinks
+ * `dz = −fp_mul(DEATH_SINK[k], max(0, restCz − restHz))` from its
+ * ANCHOR's rest slab (no limbs ⇒ no fold path; wings never flap by the
+ * idle rule); tendrils go limp — their idle oscillator deltas tx_i and
+ * dzt_i each scale by TENDRIL_LIMP[k] (one extra fp_mul each), the phase
+ * argument untouched (lag preserved), the hover ride untouched. Death's
+ * k = 3 evaluates as k = 2 WHOLESALE (base phase + envelope + limp), so
+ * the held pair is identical by construction.
+ */
+export function poseLevitant(
+  genome: Genome,
+  clip: ClipName,
+  phaseTurnsRaw: number,
+): readonly Slab[] {
+  const kFrames = CLIP_KS[clip];
+  if (kFrames === undefined) {
+    throw new RangeError(
+      `pose: unknown clip ${JSON.stringify(clip)} (clips are walk | idle | attack | hurt | death)`,
+    );
+  }
+  if (!Number.isInteger(phaseTurnsRaw)) {
+    throw new RangeError(`pose: phase must be an integer fp-turns raw, got ${phaseTurnsRaw}`);
+  }
+
+  const oneShot = ONE_SHOT_CLIPS.has(clip);
+  let phi = phaseTurnsRaw;
+  let frame = 0;
+  if (oneShot) {
+    const step = FULL_TURN / kFrames;
+    if (phaseTurnsRaw < 0 || phaseTurnsRaw >= FULL_TURN || phaseTurnsRaw % step !== 0) {
+      throw new RangeError(
+        `pose: one-shot clip ${clip} is defined only at its ${kFrames} uniform phases (multiples of ${step} in [0, 65536)), got ${phaseTurnsRaw}`,
+      );
+    }
+    frame = phaseTurnsRaw / step;
+    if (clip === "death" && frame === 3) frame = 2; // held final frame — f3 IS f2 wholesale
+    phi = frame * step;
+  }
+  const walking = clip === "walk";
+
+  const graph = cachedLevitantGraph(genome);
+
+  const h = getScalar(genome, "anim.levitant.hover_freq"); // int {1, 2}
+  const hoverAmp = getScalar(genome, "anim.levitant.hover_amp");
+  const r = getScalar(genome, "anim.levitant.flap_ratio"); // int [1, 3]
+  const lag = getScalar(genome, "anim.levitant.tendril_lag"); // fp turns
+  const tendrilAmp = getScalar(genome, "anim.levitant.tendril_amp");
+
+  // Oscillators. h·φ and r·h·φ are plain integer products (int32-safe:
+  // |r·h·φ| ≤ 6·65536); sin_fp wraps mod 1 turn. One-shot clips ride the
+  // IDLE base (walking = false throughout).
+  const theta = walking ? h * phi : phi; // idle/one-shot: frequency locus ignored
+  const b = walking
+    ? fp_mul(hoverAmp, sin_fp(theta))
+    : fp_mul(asr(hoverAmp, 1), sin_fp(theta));
+  const flap = walking ? fp_mul(FLAP_AMP, sin_fp(r * h * phi)) : 0; // idle rule: locomotors freeze
+  const txBase = walking ? tendrilAmp : asr(tendrilAmp, 1);
+  const zbobBase = walking ? TENDRIL_ZBOB : asr(TENDRIL_ZBOB, 1);
+
+  // Envelope preparation (design 07 §2.3.1).
+  let envFrame: LevitantEnvelopeFrame | undefined;
+  let antScale = 65536;
+  if (clip === "attack") {
+    envFrame = LEVITANT_ATTACK[frame]!;
+    antScale = getScalar(genome, "anim.levitant.anticipation");
+  } else if (clip === "hurt") {
+    envFrame = LEVITANT_HURT[frame]!;
+  }
+  const isDeath = clip === "death";
+  const limp = isDeath ? TENDRIL_LIMP[frame]! : 65536;
+  // Death per-chain sink deltas from the chains' anchor REST slabs —
+  // EVERY chain (no limbs, no fold); iterates graph.chains, never a
+  // fixed list.
+  let deathSinkByChain: ReadonlyMap<string, number> | undefined;
+  if (isDeath) {
+    const sinkK = DEATH_SINK[frame]!;
+    const sinks = new Map<string, number>();
+    for (const chain of graph.chains) {
+      const anchor = graph.parts[chain.slabs[0]!]!;
+      const drop = Math.max(0, anchor.slab.center[2] - anchor.slab.half[2]);
+      sinks.set(chain.name, -fp_mul(sinkK, drop));
+    }
+    deathSinkByChain = sinks;
+  }
+
+  const slabs = graph.parts.map((node) => {
+    const [hx, hy, hz] = node.slab.half;
+    let [cx, cy, cz] = node.slab.center;
+    const chain = node.animChain;
+    let cls: "body" | "wing" | "tendril" = "body";
+    if (chain.startsWith("wing_")) cls = "wing";
+    else if (chain.startsWith("tendril_")) cls = "tendril";
+
+    if (cls === "wing") {
+      cz = fp_add(cz, fp_add(b, flap));
+    } else if (cls === "tendril") {
+      const i = node.animChain.charCodeAt(8) - 48; // "tendril_<i>" ordinal
+      const sig = sin_fp(theta - (i + 1) * lag); // (i+1)·λ: plain integer product
+      let tx = fp_mul(fp_mul(txBase, TENDRIL_XF[i]!), sig);
+      let dzt = fp_sub(0, fp_mul(zbobBase, sig));
+      if (isDeath) {
+        tx = fp_mul(limp, tx); // limp: one extra fp_mul each, lag preserved
+        dzt = fp_mul(limp, dzt);
+      }
+      cx = fp_add(cx, tx);
+      cz = fp_add(cz, fp_add(b, dzt));
+    } else {
+      cz = fp_add(cz, b);
+    }
+
+    if (envFrame !== undefined) {
+      const [edy, edz] = envFrame[cls];
+      cy = fp_add(cy, envFrame.scaled ? fp_mul(antScale, edy) : edy);
+      cz = fp_add(cz, envFrame.scaled ? fp_mul(antScale, edz) : edz);
+    }
+    if (isDeath) {
+      cy = fp_add(cy, DEATH_DY);
+      cz = fp_add(cz, deathSinkByChain!.get(chain)!);
     }
     return Object.freeze({ cx, cy, cz, hx, hy, hz, role: node.materialRole });
   });

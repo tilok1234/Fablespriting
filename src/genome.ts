@@ -29,10 +29,13 @@ export const GENOME_VERSION = 1;
 const TWO64 = 1n << 64n;
 
 /**
- * Enum member names of locus 0 `meta.plan` (design 06 §1.1):
- * { quadruped = 0 }.
+ * Enum member names of locus 0 `meta.plan` (design 06 §1.1 as extended by
+ * design 07 §2.1 at U3): { quadruped = 0, levitant = 1 }. `amorphous = 2`
+ * is deliberately NOT here — it appends with U4 (a decodable-but-
+ * ungrowable enum member would be a landmine); old builds decoding
+ * plan = 1 raise UpgradeRequired, the correct 06 §3.3 behavior.
  */
-export const PLAN_NAMES = Object.freeze(["quadruped"] as const);
+export const PLAN_NAMES = Object.freeze(["quadruped", "levitant"] as const);
 
 /**
  * Enum member names of locus 2 `meta.trait_tags` (design 06 §1.1):
@@ -105,7 +108,8 @@ function s(
 
 /**
  * The canonical version-1 locus registry of design 06 §1.1 as extended by
- * design 07 §4 (U2 appends id 35), transcribed exactly: ids 0–35,
+ * design 07 §4 (U2 appends id 35) and design 07 §2.3.1 (U3 appends the
+ * levitant loci, ids 36–46), transcribed exactly: ids 0–46,
  * append-only per version-table, never renumbered, never reused.
  * `REGISTRY[i].id === i` for every entry. All fp bounds and defaults are
  * the spec's pinned raws (`RHE(d · 2^16)` of the authored decimals); the
@@ -114,7 +118,7 @@ function s(
  * (06 §3 wire law), so every issued v1 DNA string decodes unchanged.
  */
 export const REGISTRY: readonly Locus[] = Object.freeze([
-  s(0, "meta.plan", "enum", 0, 0, 0),
+  s(0, "meta.plan", "enum", 0, 1, 0), // {quadruped = 0, levitant = 1} — U3 (design 07 §2.1)
   Object.freeze({ id: 1, path: "meta.seed", kind: "u64" } as const),
   Object.freeze({
     id: 2,
@@ -156,6 +160,64 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
   s(33, "body.tail.length", "fp", 98304, 393216, 209715), // 3.2 px of [1.5, 6]
   s(34, "body.tail.girth", "fp", 39322, 131072, 72090), // 1.1 px of [0.6, 2]
   s(35, "anim.quadruped.anticipation", "fp", 32768, 131072, 65536), // 1.0 of [0.5, 2] — U2 (design 07 §4)
+  // U3 appends (design 07 §2.3.1): the levitant plan, defaults from S1's
+  // watcher (spike01 watcher()) — every decimal is RHE(d·2^16), every
+  // raw machine-verified before pinning. Lags/phases in TURNS (the
+  // tail_lag precedent: 0.7 rad = 0.11140846 turns → 7301).
+  s(36, "anim.levitant.hover_freq", "int", 1, 2, 1), // gait base phase θ = h·φ; h = 2 freezes hover+flap at K=4 (recorded degeneracy, gait_freq-2 precedent)
+  s(37, "anim.levitant.hover_amp", "fp", 0, 131072, 85197), // 1.3 px of [0, 2] — watcher 1.3·sin(φ)
+  s(38, "anim.levitant.flap_ratio", "int", 1, 3, 3), // wing flap phase r·h·φ — watcher sin(3φ); r = 2 frozen at K=4 (recorded)
+  s(39, "anim.levitant.tendril_lag", "fp", 0, 8192, 7301), // 0.7 rad = 0.11140846 turns of [0, 0.125]
+  s(40, "anim.levitant.tendril_amp", "fp", 0, 131072, 98304), // 1.5 px of [0, 2] — tendril x-swing base
+  s(41, "anim.levitant.anticipation", "fp", 32768, 131072, 65536), // 1.0 of [0.5, 2] — attack f0 scale (id-35 analog)
+  s(42, "body.core.altitude", "fp", 753664, 851968, 786432), // 12.0 px of [11.5, 13] — rest orb center z0
+  s(43, "body.sensor[C].scale", "fp", 39322, 98304, 65536), // 1.0 of [0.6, 1.5] — eye-stack scale (eye_size precedent)
+  s(44, "body.core.locomotor_size", "fp", 32768, 117965, 65536), // 1.0 of [0.5, 1.8] — wing size (ear_size precedent)
+  s(45, "body.core.tendril_girth", "fp", 45875, 91750, 58982), // 0.9 px of [0.7, 1.4] — tendril x/y halves, taper −i·9830
+  s(46, "body.core.tendril_len", "fp", 52429, 98304, 85197), // 1.3 px of [0.8, 1.5] — tendril z half; spacing derives
+]);
+
+/**
+ * Plan-scope column of the registry (design 07 §2.3.1, U3) — registry
+ * METADATA, not wire data: which loci each plan's pinned sampler draws.
+ * `shared` loci (meta, palette, and the body.core dims — the design 01 §3
+ * cross-plan homology carriers) are drawn for every plan; each plan adds
+ * its own set. Every registry id belongs to exactly one scope
+ * (CI-asserted). Unconsumed loci on any genome stay wire-legal and inert.
+ */
+export const LOCUS_SCOPES: Readonly<Record<"shared" | "quadruped" | "levitant", ReadonlySet<number>>> =
+  Object.freeze({
+    shared: Object.freeze(new Set([0, 1, 2, 3, 4, 5, 6, 13, 14, 15])),
+    quadruped: Object.freeze(
+      new Set([7, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]),
+    ),
+    levitant: Object.freeze(new Set([36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46])),
+  });
+
+/**
+ * One cross-plan `anim` leaf correspondence (design 06 §1.1's pinned
+ * mechanism, shipped at U3 per design 07 §2.5). Paths are canonical
+ * registry spellings; referential integrity is CI-tested. No crossover
+ * code consumes this table until M5.
+ */
+export interface AnimSemanticEntry {
+  readonly quadruped: string;
+  readonly levitant: string;
+}
+
+/**
+ * The anim semantic map (design 07 §2.5, U3): quadruped ↔ levitant leaf
+ * correspondences for `anim.*` only — body paths align by raw path
+ * identity (design 01 §3) and need no map. Unmapped, recorded (the
+ * design 01 §3 "present in one parent only" case): quadruped
+ * leg_swing_amp + leg_lift_amp; levitant flap_ratio.
+ */
+export const ANIM_SEMANTIC_MAP: readonly AnimSemanticEntry[] = Object.freeze([
+  Object.freeze({ quadruped: "anim.quadruped.gait_freq", levitant: "anim.levitant.hover_freq" }),
+  Object.freeze({ quadruped: "anim.quadruped.bob_amp", levitant: "anim.levitant.hover_amp" }),
+  Object.freeze({ quadruped: "anim.quadruped.tail_lag", levitant: "anim.levitant.tendril_lag" }),
+  Object.freeze({ quadruped: "anim.quadruped.tail_amp", levitant: "anim.levitant.tendril_amp" }),
+  Object.freeze({ quadruped: "anim.quadruped.anticipation", levitant: "anim.levitant.anticipation" }),
 ]);
 
 const BY_PATH: ReadonlyMap<string, Locus> = new Map(
@@ -519,6 +581,16 @@ export function encodeGenome(genome: Genome): string {
 
   const out: number[] = [];
   pushUvarint(out, BigInt(GENOME_VERSION));
+  // Strictly-ascending id order (§3.2): a non-default meta.plan (id 0)
+  // must emit BEFORE the seed and tag entries. U2's emitter assumed id 0
+  // could never be non-default (a single-member enum); U3's plan append
+  // made that comment false — the id-0-first fix is design 07 §2.3.1's
+  // pinned codec repair, CI-tested.
+  const plan = g.values.get(0);
+  if (plan !== undefined) {
+    pushUvarint(out, 0n);
+    pushUvarint(out, zigzag(BigInt(plan) - BigInt((REGISTRY[0] as ScalarLocus).defaultRaw)));
+  }
   if (g.seed !== 0n) {
     pushUvarint(out, 1n);
     pushUvarint(out, g.seed);
@@ -529,9 +601,9 @@ export function encodeGenome(genome: Genome): string {
     for (const tag of g.traitTags) pushUvarint(out, BigInt(tag));
   }
   // g.values iterates in ascending id order (makeGenome invariant); every
-  // scalar id here is ≥ 3 (id 0's single-member enum can never be
-  // non-default), so the whole tape is strictly ascending.
+  // remaining scalar id is ≥ 3, so the whole tape is strictly ascending.
   for (const [id, value] of g.values) {
+    if (id === 0) continue; // already emitted first
     const locus = REGISTRY[id] as ScalarLocus;
     pushUvarint(out, BigInt(id));
     pushUvarint(out, zigzag(BigInt(value) - BigInt(locus.defaultRaw)));
@@ -658,11 +730,15 @@ export function decodeGenome(text: string): Genome {
 // ---------------------------------------------------------------------------
 
 /**
- * The pinned M1 sampler (design 06 §4.2): given a sheet seed s, the
- * sampled genome has `meta.seed = s` and `meta.plan = 0` (the sole enum
- * member — a draw could only ever return 0, so none is spent), and every
- * other locus is drawn from its own stream
- * `stream(s, path, "sample")` (the §0 default draw name):
+ * The pinned M1 sampler (design 06 §4.2), plan-scoped since U3
+ * (design 07 §2.3.1, resolving D-a): given a sheet seed s and a caller-
+ * chosen plan (default quadruped — plan is a PARAMETER, it consumes NO
+ * draw; 06 §4.2 governs draw *spending* and plan is not drawn at all in
+ * U3 — plan-MIX sampling defers to U6, which if it samples must use the
+ * reserved `stream(seed, "meta.plan", "sample")`), the sampled genome has
+ * `meta.seed = s`, `meta.plan = plan`, and draws exactly the SHARED loci
+ * plus the requested plan's scope ({@link LOCUS_SCOPES}), each from its
+ * own stream `stream(s, path, "sample")` (the §0 default draw name):
  *
  * - fp/int scalars: `nextFp(lo, hi)` over the inclusive raw domain;
  * - enums: `nextRange(cardinality)`;
@@ -672,18 +748,32 @@ export function decodeGenome(text: string): Genome {
  *   duplicates and redrawing immediately, always over the full 5-tag
  *   enum. The set serializes ascending regardless of draw order.
  *
- * Deterministic: the same seed yields a byte-identical genome, in any
- * conforming implementation.
+ * A sampled quadruped genome draws exactly ids 3..35 — the identical set
+ * U2 drew — so its DNA string is byte-identical to U2's (what keeps the
+ * seed-1132 v2 golden intact; CI-asserted against strings generated from
+ * the committed U2 build). The committed M1-era qa/sheet_0_49.* artifacts
+ * stay untouched pinned history (their DNA strings predate the U2 id-35
+ * append).
+ * Deterministic: the same (seed, plan) yields a byte-identical genome,
+ * in any conforming implementation.
  */
-export function sampleGenome(seed: bigint): Genome {
+export function sampleGenome(seed: bigint, plan = 0): Genome {
   if (typeof seed !== "bigint" || seed < 0n || seed >= TWO64) {
     throw new RangeError(`genome: sampler seed ${seed} outside u64 [0, 2^64)`);
   }
+  if (plan !== 0 && plan !== 1) {
+    throw new RangeError(
+      `genome: sampler plan ${plan} outside the version-${GENOME_VERSION} enum {0, 1}`,
+    );
+  }
+  const planScope = LOCUS_SCOPES[PLAN_NAMES[plan] as "quadruped" | "levitant"];
 
   const values: Array<readonly [number, number]> = [];
+  if (plan !== 0) values.push([0, plan]);
   for (const locus of REGISTRY) {
     if (locus.kind === "u64" || locus.kind === "tagset") continue;
-    if (locus.id === 0) continue; // meta.plan pinned = 0 (§4.2)
+    if (locus.id === 0) continue; // meta.plan is the caller parameter — never drawn (D-a)
+    if (!LOCUS_SCOPES.shared.has(locus.id) && !planScope.has(locus.id)) continue;
     const stream = createStream(seed, locus.path);
     const value =
       locus.kind === "enum"
