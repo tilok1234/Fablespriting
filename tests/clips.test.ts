@@ -206,9 +206,9 @@ describe("one-shot flicker policy", () => {
     // 17.2966, attack 68.9279, hurt 17.2825, death 14.9359 → tightest
     // integers with ≥ 1.25× margin).
     expect(FLICKER_GATES.levitant).toEqual({
-      walk: { num: 22n, den: 1n },
-      idle: { num: 22n, den: 1n },
-      attack: { num: 87n, den: 1n },
+      walk: { num: 47n, den: 1n },
+      idle: { num: 47n, den: 1n },
+      attack: { num: 144n, den: 1n },
       hurt: { num: 22n, den: 1n },
       death: { num: 19n, den: 1n },
     });

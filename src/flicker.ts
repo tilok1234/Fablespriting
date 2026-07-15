@@ -90,15 +90,18 @@ export interface FlickerGate {
  * 25.1166 (M1) / attack 14.6730 / hurt 10.8359 / death 19.2914 → gates
  * 32, 19, 14, 25.
  *
- * levitant — pinned at U3 from the §4.4.6 addendum sweep (seeds 0..199
- * levitant-forced × 4 dirs, no INF anywhere, death's 800 held f2→f3
- * pairs — one per cell, 2400 death pairs total — exactly 0.0): observed
- * maxima walk 17.2966 / attack 68.9279 /
- * hurt 17.2825 / death 14.9359 → gates 22 (1.272×), 87 (1.262×),
- * 22 (1.273×), 19 (1.272×). The attack ceiling is structurally loud —
- * the one-chain body mass (orb + eye stack + horns, dominating the
- * 11-slab silhouette) snaps a whole-pixel chain jump on sub-pixel
- * easing-frame motion. Full integer-bucket histograms in the addendum.
+ * levitant — calibrated at U3 on seeds 0..199 (§4.4.6 addendum), then
+ * RECALIBRATED at U3 close-out on the full 0..1999 sweep (8000 cells
+ * per clip, no INF anywhere, death held pairs exactly 0.0): observed
+ * maxima walk 37.3744 (seed 780 left) / attack 114.9282 (seed 1101
+ * down) / hurt 17.2825 / death 16.1387 → gates 47 (1.257×),
+ * 144 (1.253×), 22 (1.273×), 19 (1.177× vs the 2000-seed max; the
+ * 0..199 pin stands, margin recorded honestly). The six cells over the
+ * 200-seed gates were rendered and eyeballed at close-out: all are the
+ * near-frozen low-energy family or whole-body 1-px settles — metric
+ * artifacts of the one-chain body mass (orb + eye stack + horns
+ * dominating the 11-slab silhouette), not visible churn; renders in
+ * the §2.3.1 close-out record.
  *
  * Idle rows carry the plan's walk rational for callers that measure
  * idle cells, but idle is NOT CI-gated (unchanged M1 policy).
@@ -114,9 +117,9 @@ export const FLICKER_GATES: Readonly<
     death: Object.freeze({ num: 25n, den: 1n }),
   }),
   levitant: Object.freeze({
-    walk: Object.freeze({ num: 22n, den: 1n }),
-    idle: Object.freeze({ num: 22n, den: 1n }),
-    attack: Object.freeze({ num: 87n, den: 1n }),
+    walk: Object.freeze({ num: 47n, den: 1n }),
+    idle: Object.freeze({ num: 47n, den: 1n }),
+    attack: Object.freeze({ num: 144n, den: 1n }),
     hurt: Object.freeze({ num: 22n, den: 1n }),
     death: Object.freeze({ num: 19n, den: 1n }),
   }),

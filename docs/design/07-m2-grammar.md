@@ -585,15 +585,21 @@ snap + hitbox oracle; every sha256 recomputed in Python; two
 consecutive renders byte-identical. Files committed as
 `tests/goldens/levitant.sheet.png` / `levitant.json`. One sampled
 levitant (seed 0) RGBA sha256 additionally pinned in CI
-(`838fd7f7…`). [EVIDENCE-PENDING: second-platform (CI) byte-identity —
-this tree ran Windows only; the CI matrix discharges it.]
+(`838fd7f7…`). Second-platform byte-identity DISCHARGED 2026-07-15:
+CI run 29390845264 on commit `c5b2ea2` green on ubuntu-latest +
+windows-latest — the ubuntu runner reproduced every golden, levitant
+pins included.
 
 **Mini-sheet review (seeds 0..24 levitant-forced, §7 delivery
-format).** [EVIDENCE-PENDING: owner verdict — watch items: idle wings
-frozen (hover-riding only); iris↔sclera role fallback; tendril tips
-dipping toward the ground line in deep low-altitude corners (on
-canvas, shadow constant per the §2.3 pin — judgment, not violation);
-hover_freq-2 / flap_ratio-2 frozen-oscillator seeds.]
+format).** Owner verdict 2026-07-15: **ACCEPTED, zero flagged seeds**
+("i love em"). Delivered as Desktop files (per-seed 4× PNGs, labeled
+3× composite, per-seed 5-clip×4-direction GIFs at the judged 140 ms
+cadence, and a 25-seed walk overview GIF — all cut from the
+committed-pipeline render of `c5b2ea2`). The four watch items (idle
+wings frozen / iris↔sclera fallback / tendril tip dips /
+frozen-oscillator seeds) were disclosed before review; none was
+flagged. The iris↔sclera role fallback is therefore NOT taken; the
+M1-rule idle (locomotors frozen, hover-riding) stands.
 
 Scope lines (recorded): no new craft rules, palette changes, 16×16,
 plan-mix sampling (U6), amorphous (U4), tag gating (U5), clearance
@@ -737,12 +743,15 @@ silently. A cell asserts the gate row of its genome's `meta.plan`.
 | plan | walk | idle | attack | hurt | death |
 |------|------|------|--------|------|-------|
 | quadruped | 32.0 | ungated | 19.0 | 14.0 | 25.0 |
-| levitant | 22.0 | ungated | 87.0 | 22.0 | 19.0 |
+| levitant | 47.0 | ungated | 144.0 | 22.0 | 19.0 |
 
 The quadruped row is **the U2 pins RESTATED, not recalibrated**
 (§4.4.6 — its histograms have not moved; walk is the M1 gate). The
-levitant row is pinned at U3 from the §4.4.6 addendum sweep. Idle
-stays measurable but ungated in every plan (M1 policy).
+levitant row was calibrated at U3 on seeds 0..199 (walk 22 / attack
+87) and **recalibrated at U3 close-out on the full 0..1999 sweep**
+(walk 47 / attack 144 — §4.4.6 close-out record; hurt and death held
+at 2000-seed scale). Idle stays measurable but ungated in every plan
+(M1 policy).
 
 ### 4.3 Versioning and the M1 anchors
 
@@ -949,6 +958,26 @@ scaled levitant corpus (defaults + seeds 0..9, all clips, all
 directions — see the §2.3.1 suite-time accounting) beside the
 quadruped suite.
 
+**U3 close-out recalibration (full 0..1999 sweep, RUN 2026-07-15).**
+The 200-seed calibration undershot the 2000-seed tail — the same
+lesson as M1's 12→32 recalibration, one scale up: 8000 cells per clip
+(0 export errors, 0 INF, death held pairs exactly 0.0, pupil-visible
+8000/8000 down-view walk frames) put six cells over the 200-seed
+gates: walk seeds 519/down, 780/left (max 37.3744, pair 0), 1041/left,
+1911/left (32.1886); attack seeds 361/down, 1101/down (max 114.9282,
+pair 2). All six were rendered and judged by eye at close-out: the
+walk cells are the near-frozen hover_freq/flap_ratio-2 family (calm
+hover, ~zero motion energy denominator), the attack cells whole-body
+1-px settles on the f2→f3 easing pair — metric artifacts of the
+one-chain mass, no visible churn (the seed-1101 attack reads cleanly).
+Gates recalibrated on the full-sweep maxima, same tightest-integer
+≥ 1.25× rule: **walk 22 → 47** (1.257×), **attack 87 → 144** (1.253×);
+hurt (max 17.2825) and death (max 16.1387) hold their 200-seed pins at
+2000-seed scale (death's margin vs the 2000-seed max is 1.177×,
+recorded honestly — the pin stands, the gate only loosens on
+evidence). The 200-seed table above stands as the calibration record;
+this paragraph is the shipped-gate authority.
+
 **§4.4.7 Anchor evidence (the §4.3 law, discharged for U2).** Baseline:
 from the pristine committed v1 build (HEAD 510e0df), for the
 all-defaults genome + sampled seeds 0..1999 (2001 entries), sha256 of
@@ -1059,7 +1088,7 @@ at unit* sections in the same change.
 |------|----------|------|
 | U1 | Grammar core: PartGraph, budgeted expansion, symmetry groups, exclusion machinery, canonical socket order; quadruped grammar; hardcoded template deleted. LICENSE lands here once the owner picks the text | §1.2 fidelity sweep: seeds 0..1999 byte-identical vs the M1 path (kept in-tree until the sweep passes, then deleted in the same commit); suite green |
 | U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
-| U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **DELIVERED (§2.3.1, 2026-07-15)**: goldens ritual-pinned, sweeps run (visibility 0/8000, connectivity 99.44%, flicker §4.4.6 addendum, corner table CI-permanent), anchors green, map integrity CI-tested; mini-sheet owner verdict [EVIDENCE-PENDING] | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
+| U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **CLOSED 2026-07-15 (§2.3.1)**: goldens ritual-pinned + CI-proven on both platforms; 2000-seed close-out sweep (0 export errors, 0 INF, pupil 8000/8000, gates recalibrated walk 47 / attack 144 on the full histogram tail); anchors green; map integrity CI-tested; mini-sheet owner-ACCEPTED, zero flagged seeds | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
 | U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
 | U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |

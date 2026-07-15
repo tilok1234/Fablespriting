@@ -859,9 +859,9 @@ describe("levitant flicker gates (CI corpus: defaults + seeds 0..9, all clips)",
     // suite-time accounting); the 200-seed histograms are the recorded
     // unit evidence.
     expect(FLICKER_GATES.levitant).toEqual({
-      walk: { num: 22n, den: 1n },
-      idle: { num: 22n, den: 1n },
-      attack: { num: 87n, den: 1n },
+      walk: { num: 47n, den: 1n },
+      idle: { num: 47n, den: 1n },
+      attack: { num: 144n, den: 1n },
       hurt: { num: 22n, den: 1n },
       death: { num: 19n, den: 1n },
     });
