@@ -1213,18 +1213,23 @@ pixel-compare above (3706 opaque pixels, 0 diffs). Files committed as
 `tests/goldens/amorphous.sheet.png` / `amorphous.json`. One sampled
 amorphous (seed 0) RGBA sha256 additionally CI-pinned (`c3172d3d…`).
 The fork raster golden (`785694ab…`) is offset-free and survived the
-chain merge unchanged. Second-platform byte-identity:
-**[EVIDENCE-PENDING: CI run on both platforms after this commit
-lands.]**
+chain merge unchanged. Second-platform byte-identity DISCHARGED
+2026-07-16: CI run 29470425156 on commit `705c83e` green on
+ubuntu-latest + windows-latest — the ubuntu runner reproduced every
+golden, the fork raster golden and all amorphous pins included.
 
 **Mini-sheet review (seeds 0..24 amorphous-forced, §7 delivery
-format).** **[EVIDENCE-PENDING: owner verdict.]** Watch items to
-disclose: ball-boundary selout seams (fallback: collapse part tags to
-node 0); full-amplitude idle crest/drip (the spike-verbatim idle
-rule); pulse_freq-2 frozen hop/squash seeds; drip transient pinches
-(corner genomes, walk mid-hop); death f0 face-still-proud read; the
-face breathing shimmer under the one-chain snap (spike-faithful, gated
-by the calibrated flicker row).
+format).** Owner verdict 2026-07-16: **ACCEPTED, zero flagged seeds.**
+Delivered to the owner's Downloads folder
+(`SabelFrite_U4_amorphous_review`, per the standing format: per-seed 4×
+PNGs, labeled 3× composite, per-seed 5-clip×4-direction GIFs at 140 ms,
+25-seed walk overview GIF — all cut from the committed-pipeline render
+of `705c83e`). The six watch items (ball-boundary selout seams;
+full-amplitude idle crest/drip; pulse_freq-2 frozen seeds; drip
+transient pinches; death f0 face-still-proud read; face breathing
+shimmer under the one-chain snap) were disclosed before review; none
+was flagged. The selout collapse-to-node-0 fallback is therefore NOT
+taken; the spike-verbatim idle rule stands.
 
 Scope lines (recorded): no new craft rules, palette changes, 16×16,
 plan-mix sampling (U6), tag gating (U5); clearance radii 0 throughout;
@@ -1732,7 +1737,7 @@ at unit* sections in the same change.
 | U1 | Grammar core: PartGraph, budgeted expansion, symmetry groups, exclusion machinery, canonical socket order; quadruped grammar; hardcoded template deleted. LICENSE lands here once the owner picks the text | §1.2 fidelity sweep: seeds 0..1999 byte-identical vs the M1 path (kept in-tree until the sweep passes, then deleted in the same commit); suite green |
 | U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
 | U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **CLOSED 2026-07-15 (§2.3.1)**: goldens ritual-pinned + CI-proven on both platforms; 2000-seed close-out sweep (0 export errors, 0 INF, pupil 8000/8000, gates recalibrated walk 47 / attack 144 on the full histogram tail); anchors green; map integrity CI-tested; mini-sheet owner-ACCEPTED, zero flagged seeds | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
-| U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
+| U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus — **CLOSED 2026-07-16 (§2.4.1)**: fork error bound 307.2 raw machine-verified; two-layer oracle (pose + field march) exact-matched from docs alone; gates one-step calibrated on the full 0..1999 run-2 sweep (walk 143 / attack 63 / hurt 28 / death 29); S3 craft debt discharged incl. idempotence; goldens CI-proven both platforms; mini-sheet owner-ACCEPTED, zero flagged seeds | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
 | U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
 | U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
 
