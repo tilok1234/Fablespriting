@@ -4,8 +4,8 @@ import { describe, expect, test } from "vitest";
 
 import { INT32_MAX, INT32_MIN } from "../src/fixed.js";
 import { makeGenome, sampleGenome } from "../src/genome.js";
-import { PART_NAMES } from "../src/grammar.js";
 import type { MaterialRole } from "../src/grammar.js";
+import { PART_NAMES } from "../src/wires.js";
 import { poseQuadruped } from "../src/pose.js";
 import type { Slab } from "../src/pose.js";
 import {

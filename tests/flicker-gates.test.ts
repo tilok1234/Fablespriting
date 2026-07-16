@@ -10,8 +10,13 @@
  * production histogram; gate = tightest integer ≥ 1.25× the observed
  * max; full histograms in design 07):
  *
- * - quadruped: the U2 §4.4.6 pins restated (walk 25.1166 / attack
- *   14.6730 / hurt 10.8359 / death 19.2914 → 32/19/14/25).
+ * - quadruped: the U2 §4.4.6 pins restated for attack/hurt/death
+ *   (14.6730 / 10.8359 / 19.2914 → 19/14/25); the WALK row one-step
+ *   recalibrated at U5 (design 07 §6.1) on the union of the default
+ *   histogram (max 25.1166) and the U5 mode corpora (8 modes × seeds
+ *   0..99 × 4 directions; max 37.2990 at tag:fleshy seed 27 down —
+ *   the temperament remap reaches low-motion bob/tail corners the
+ *   default joint distribution made rare) → 47 (margin 1.260×).
  * - levitant: U3 close-out full 0..1999 sweep (walk 37.3744 / attack
  *   114.9282 / hurt 17.2825 / death 16.1387 → 47/144/22/19).
  * - amorphous: U4 one-step full 0..1999 amorphous-forced sweep on the
@@ -35,8 +40,8 @@ describe("the flicker gate table (single-source pin, all plans)", () => {
   test("FLICKER_GATES is exactly the pinned per-(plan, clip) table", () => {
     expect(FLICKER_GATES).toEqual({
       quadruped: {
-        walk: { num: 32n, den: 1n },
-        idle: { num: 32n, den: 1n },
+        walk: { num: 47n, den: 1n },
+        idle: { num: 47n, den: 1n },
         attack: { num: 19n, den: 1n },
         hurt: { num: 14n, den: 1n },
         death: { num: 25n, den: 1n },

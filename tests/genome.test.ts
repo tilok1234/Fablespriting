@@ -40,8 +40,8 @@ function genomesEqual(a: Genome, b: Genome): boolean {
 }
 
 describe("design 06 §1.1 registry", () => {
-  test("51 loci, ids 0–50 (U3 appends 36–46, U4 appends 47–50), REGISTRY[i].id === i", () => {
-    expect(REGISTRY.length).toBe(51);
+  test("56 loci, ids 0–55 (U3 appends 36–46, U4 appends 47–50, U5 appends 51–55), REGISTRY[i].id === i", () => {
+    expect(REGISTRY.length).toBe(56);
     for (let i = 0; i < REGISTRY.length; i++) expect(REGISTRY[i]!.id).toBe(i);
   });
 
@@ -50,7 +50,7 @@ describe("design 06 §1.1 registry", () => {
       expect(locusById(locus.id)).toBe(locus);
       expect(locusByPath(locus.path)).toBe(locus);
     }
-    expect(locusById(51)).toBeUndefined();
+    expect(locusById(56)).toBeUndefined();
     expect(locusById(-1)).toBeUndefined();
     expect(locusByPath("body.leg[fl].length")).toBeUndefined(); // no normalization (§2)
   });
@@ -180,7 +180,7 @@ describe("design 06 §3.3 reject rules (each fires with the right error class)",
     ["unknown version prefix 2", "02"],
     ["unknown version prefix 0", "00"],
     ["unknown version prefix 2^32", "80808080107b"],
-    ["locus id 51 beyond the version-1 registry (U4 extended it to 50)", "013302"],
+    ["locus id 56 beyond the version-1 registry (U5 extended it to 55)", "013802"],
     ["locus id 300 beyond the version-1 registry", "01ac0202"],
     ["trait tag 5 beyond the version-1 registry", "01020105"],
     ["phase_group enum member 2 beyond the registry", "011704"],

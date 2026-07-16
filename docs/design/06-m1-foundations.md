@@ -1140,6 +1140,20 @@ hand-edited cross-plan tape grows by the predicted 14 B to **193 B =
 recorded and accepted. All bounds machine-verified, CI-pinned in
 `tests/genome.test.ts` and `tests/amorphous.test.ts`.*
 
+*Amended with U5 (2026-07-16): the registry gains ids 51–55 (07 §6.1;
+all in the `gated` sampler scope). Worst-case entry bytes: id 51 → 2 B,
+id 52 → 4 B, ids 53/54/55 → 2 B each. The DEFAULT-sampler per-plan
+worsts are UNCHANGED (scope sets untouched): quadruped **138 B**,
+levitant **85 B**, amorphous **60 B** — the U2/U3/U4 CI pins stand.
+The NEW mode-reachable worsts (a tag/preset-mode sample can add the
+plan's gated ids at their costliest extremes: 51 + 52 + the plan's
+ornament marker = +8 B) are quadruped **146 B = 195 chars**, levitant
+**93 B = 124 chars**, amorphous **68 B = 91 chars** — all inside the
+≤ ~200-char guidance. The fully adversarial hand-edited cross-plan tape
+grows by 12 B to **205 B = 274 chars** (no sampler emits it;
+degradation linear; the U3/U4 acceptance restated). All bounds
+machine-verified, CI-pinned in `tests/u5.test.ts`.*
+
 ## 4. Stream keying: hash(seed, path, draw) → PCG32
 
 Design 01 §2's stability rule, made executable. Every random draw in the
@@ -1237,6 +1251,23 @@ D-a). The existing scope sets do not move — sampled quadruped AND
 levitant DNA stay byte-identical to the U3-close build's strings,
 CI-asserted against committed-build vectors in
 `tests/amorphous.test.ts`.*
+
+*Amended with U5 (2026-07-16): the scope table gains a fifth,
+plan-less scope **`gated` = {51–55}** (07 §6.1) — loci in NO plan's
+default draw set. The default sampler's drawn set stays exactly
+`shared ∪ scope(plan)`, so gated ids are skipped automatically and no
+pinned sampled seed re-rolls (the anchor-razor H3 pin, CI-asserted).
+`sampleGenome` also gains an optional third argument
+`opts = { tags?, preset? }` — the tag/preset sampler MODES (07 §6.1):
+forced trait tags (a parameter, not drawn — the tag stream is NOT
+created), gait-temperament domain sub-range remaps (same stream, same
+draw name, narrowed inclusive raw bounds — per-path streams make this
+incapable of perturbing any other locus), FFF preset remaps, the
+gated-locus draws from the loci's own `stream(seed, path, "sample")`
+(paths the default path never draws), and the bounded sampler-time
+readability self-check re-roll (draw names `selfcheck:0..1`, 07
+§5.1). **With `opts` absent the call is byte-identical to the pre-U5
+sampler** — the committed-build DNA vectors re-assert this every run.*
 
 ### 4.3 Test vectors (normative)
 

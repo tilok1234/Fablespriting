@@ -28,7 +28,8 @@ import { fileURLToPath } from "node:url";
 
 import type { JsonValue } from "./export.js";
 import { SHEET_HEIGHT, SHEET_WIDTH, canonicalJson, exportCreature } from "./export.js";
-import { PLAN_NAMES, encodeGenome, sampleGenome } from "./genome.js";
+import type { SampleGenomeOpts } from "./genome.js";
+import { PLAN_NAMES, TRAIT_TAG_NAMES, encodeGenome, sampleGenome } from "./genome.js";
 import { GENERATOR_VERSION } from "./index.js";
 import { encodePng } from "./png.js";
 
@@ -74,7 +75,12 @@ export interface ContactSheet {
  * seconds per genome (renders 72 frames each — a QA tool, not a hot
  * path).
  */
-export function buildContactSheet(from: number, to: number, plan = 0): ContactSheet {
+export function buildContactSheet(
+  from: number,
+  to: number,
+  plan = 0,
+  opts?: SampleGenomeOpts,
+): ContactSheet {
   if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 0 || to < from) {
     throw new RangeError(`cli: bad seed range ${from}..${to} (need 0 ≤ from ≤ to, safe integers)`);
   }
@@ -93,7 +99,7 @@ export function buildContactSheet(from: number, to: number, plan = 0): ContactSh
     const seed = from + i;
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const genome = sampleGenome(BigInt(seed), plan);
+    const genome = sampleGenome(BigInt(seed), plan, opts);
     const creature = exportCreature(genome);
     const x0 = col * (SHEET_WIDTH + SHEET_GUTTER);
     const y0 = row * (SHEET_HEIGHT + SHEET_GUTTER);
@@ -105,18 +111,21 @@ export function buildContactSheet(from: number, to: number, plan = 0): ContactSh
     entries.push(Object.freeze({ seed, dna: encodeGenome(genome), row, col }));
   }
 
-  // The manifest gains a `plan` key ONLY for a non-default plan (the
-  // defaults-absent house rule, design 06 §3.2's spirit): the committed
-  // qa/sheet_0_49.json stays byte-intact without a re-pin (design 07
-  // §2.3.1 D-a consequence), while forced mini-sheets self-identify.
+  // The manifest gains `plan`/`tags`/`preset` keys ONLY when supplied
+  // (the defaults-absent house rule, design 06 §3.2's spirit): the
+  // committed qa/sheet_0_49.json stays byte-intact without a re-pin
+  // (design 07 §2.3.1 D-a consequence; the U5 mode keys follow the same
+  // law — design 07 §6.1), while forced mini-sheets self-identify.
   const manifest = canonicalJson({
     cell: { gutter: SHEET_GUTTER, h: SHEET_HEIGHT, w: SHEET_WIDTH },
     cols,
     entries: entries.map((e): JsonValue => ({ col: e.col, dna: e.dna, row: e.row, seed: e.seed })),
     generator_version: GENERATOR_VERSION,
     ...(plan === 0 ? {} : { plan: PLAN_NAMES[plan]! }),
+    ...(opts?.preset === undefined ? {} : { preset: opts.preset }),
     rows,
     seed_range: { from, to },
+    ...(opts?.tags === undefined ? {} : { tags: opts.tags.map((t) => TRAIT_TAG_NAMES[t]!) }),
   });
 
   return Object.freeze({
@@ -131,11 +140,15 @@ export function buildContactSheet(from: number, to: number, plan = 0): ContactSh
   });
 }
 
-const USAGE = `usage: fablesprite sheet --seed-range A..B [--plan quadruped|levitant|amorphous] [--out DIR]
+const USAGE = `usage: fablesprite sheet --seed-range A..B [--plan quadruped|levitant|amorphous]
+                        [--tags T1[,T2]] [--preset speed|armor|ranged] [--out DIR]
   Renders sampled genomes for every seed in the inclusive range A..B and
   composes their 128x640 export sheets into one contact-sheet PNG plus a
   JSON manifest (grid position -> seed/dna). --plan forces every sampled
-  genome onto that plan (default quadruped). Writes sheet_<A>_<B>.png and
+  genome onto that plan (default quadruped). --tags forces the trait-tag
+  set (at most 2 distinct names of chitin, fleshy, spectral, mechanical,
+  verdant) and --preset applies an FFF prior preset - both open the U5
+  sampler modes (design 07 s6.1). Writes sheet_<A>_<B>.png and
   sheet_<A>_<B>.json into DIR (default ./out). A few seconds per genome.`;
 
 /** Parse `--flag value` / `--flag=value` pairs after the subcommand. */
@@ -174,7 +187,13 @@ export function main(argv: readonly string[]): number {
     return 2;
   }
   for (const key of flags.keys()) {
-    if (key !== "--seed-range" && key !== "--out" && key !== "--plan") {
+    if (
+      key !== "--seed-range" &&
+      key !== "--out" &&
+      key !== "--plan" &&
+      key !== "--tags" &&
+      key !== "--preset"
+    ) {
       process.stderr.write(`unknown flag ${key}\n${USAGE}\n`);
       return 2;
     }
@@ -191,10 +210,47 @@ export function main(argv: readonly string[]): number {
     process.stderr.write(`bad --plan ${planName}: known plans are ${PLAN_NAMES.join(", ")}\n${USAGE}\n`);
     return 2;
   }
+  // U5 sampler-mode flags (design 07 §6.1): tags by name, comma-
+  // separated, at most 2, distinct; unknown names are usage errors.
+  let opts: SampleGenomeOpts | undefined;
+  const tagsFlag = flags.get("--tags");
+  let tags: number[] | undefined;
+  if (tagsFlag !== undefined) {
+    tags = [];
+    for (const name of tagsFlag.split(",")) {
+      const tag = (TRAIT_TAG_NAMES as readonly string[]).indexOf(name);
+      if (tag < 0) {
+        process.stderr.write(
+          `bad --tags ${tagsFlag}: known tags are ${TRAIT_TAG_NAMES.join(", ")}\n${USAGE}\n`,
+        );
+        return 2;
+      }
+      if (tags.includes(tag)) {
+        process.stderr.write(`bad --tags ${tagsFlag}: duplicate tag ${name}\n${USAGE}\n`);
+        return 2;
+      }
+      tags.push(tag);
+    }
+    if (tags.length > 2) {
+      process.stderr.write(`bad --tags ${tagsFlag}: at most 2 tags\n${USAGE}\n`);
+      return 2;
+    }
+  }
+  const presetFlag = flags.get("--preset");
+  if (presetFlag !== undefined && presetFlag !== "speed" && presetFlag !== "armor" && presetFlag !== "ranged") {
+    process.stderr.write(`bad --preset ${presetFlag}: known presets are speed, armor, ranged\n${USAGE}\n`);
+    return 2;
+  }
+  if (tags !== undefined || presetFlag !== undefined) {
+    opts = {
+      ...(tags === undefined ? {} : { tags }),
+      ...(presetFlag === undefined ? {} : { preset: presetFlag }),
+    };
+  }
   const outDir = resolve(flags.get("--out") ?? "./out");
 
   const t0 = Date.now();
-  const sheet = buildContactSheet(from, to, plan);
+  const sheet = buildContactSheet(from, to, plan, opts);
   const renderMs = Date.now() - t0;
 
   mkdirSync(outDir, { recursive: true });

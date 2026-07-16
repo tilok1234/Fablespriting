@@ -4,14 +4,12 @@ import { FP_ONE } from "../src/fixed.js";
 import { locusByPath, makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
 import {
-  CHAINS,
-  PART_NAMES,
-  PART_ROLES,
   QUADRUPED_PLAN,
   growPlan,
   growQuadruped,
   symmetryMemberCount,
 } from "../src/grammar.js";
+import { CHAINS, PART_NAMES, PART_ROLES } from "../src/wires.js";
 import type { PartChoice, PartKind, PlanSpec, SocketSpec } from "../src/grammar.js";
 import { poseQuadruped } from "../src/pose.js";
 
@@ -422,7 +420,7 @@ describe("quadruped grammar — the design 07 §1.4 part-node table", () => {
     expect(locusByPath("body.tail.girth")).toBeDefined();
   });
 
-  test("the quadruped plan's canonical socket order is the pinned §1.4 order", () => {
+  test("the quadruped plan's canonical socket order is the pinned §1.4 order (U5 appends emitter, dorsal — emitter BEFORE ornament)", () => {
     const core = QUADRUPED_PLAN.core.make(DEFAULTS, 0, 1);
     expect(core.sockets!.map((s) => s.name)).toEqual([
       "underside",
@@ -430,6 +428,8 @@ describe("quadruped grammar — the design 07 §1.4 part-node table", () => {
       "leg_fore",
       "leg_hind",
       "tail",
+      "emitter",
+      "dorsal",
     ]);
     const head = core.sockets![1]!.candidates[0]!.make(DEFAULTS, 0, 1);
     expect(head.sockets!.map((s) => s.name)).toEqual(["snout", "ears", "eyes"]);

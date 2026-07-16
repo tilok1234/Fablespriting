@@ -54,9 +54,6 @@ import {
 } from "../src/genome.js";
 import type { Genome, ScalarLocus } from "../src/genome.js";
 import {
-  AMORPHOUS_CHAINS,
-  AMORPHOUS_PART_NAMES,
-  AMORPHOUS_PART_ROLES,
   AMORPHOUS_PLAN,
   AMORPHOUS_WEIGHTS,
   BALL_FROM_VIS,
@@ -64,6 +61,11 @@ import {
   deriveAmorphousAnchors,
   growAmorphous,
 } from "../src/grammar.js";
+import {
+  AMORPHOUS_CHAINS,
+  AMORPHOUS_PART_NAMES,
+  AMORPHOUS_PART_ROLES,
+} from "../src/wires.js";
 import {
   CLIP_KS,
   clipPhases,
@@ -117,8 +119,11 @@ describe("U4 registry append — ids 47–50, plan enum, scopes", () => {
     expect(PLAN_NAMES).toEqual(["quadruped", "levitant", "amorphous"]);
   });
 
-  test("scope sets: quadruped/levitant FROZEN, amorphous = {47–50}, every id in exactly one scope", () => {
+  test("scope sets: quadruped/levitant FROZEN, amorphous = {47–50}, gated = {51–55} (U5 H3), every id in exactly one scope", () => {
     expect([...LOCUS_SCOPES.amorphous].sort((a, b) => a - b)).toEqual([47, 48, 49, 50]);
+    // U5 (design 07 §6.1): the gated scope is in NO plan's default draw
+    // set — the H3 anchor-razor pin (no sampled seed re-rolls).
+    expect([...LOCUS_SCOPES.gated].sort((a, b) => a - b)).toEqual([51, 52, 53, 54, 55]);
     // The existing scopes DO NOT MOVE (design 07 §2.4.1 D-a).
     expect([...LOCUS_SCOPES.shared].sort((a, b) => a - b)).toEqual([
       0, 1, 2, 3, 4, 5, 6, 13, 14, 15,
@@ -286,9 +291,15 @@ describe("amorphous grammar — the design 07 §2.4.1 node table", () => {
     ]);
   });
 
-  test("canonical socket order: body.blob [balls, eyes, highlight]", () => {
+  test("canonical socket order: body.blob [balls, eyes, highlight, emitter, rim] (U5 appends — emitter BEFORE ornament)", () => {
     const blob = AMORPHOUS_PLAN.core.make(AMO_DEFAULTS, 0, 1);
-    expect(blob.sockets!.map((s) => s.name)).toEqual(["balls", "eyes", "highlight"]);
+    expect(blob.sockets!.map((s) => s.name)).toEqual([
+      "balls",
+      "eyes",
+      "highlight",
+      "emitter",
+      "rim",
+    ]);
   });
 
   test("all-defaults rest slabs are the adjudicated §2.4.1 raws (machine-verified table; VISIBLE half-extents)", () => {

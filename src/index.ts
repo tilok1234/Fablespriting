@@ -18,6 +18,8 @@ export * from "./fixed.js";
 export * from "./prng.js";
 export * from "./genome.js";
 export * from "./grammar.js";
+export * from "./wires.js";
+export * from "./selfcheck.js";
 export * from "./pose.js";
 export * from "./raster.js";
 export * from "./craft.js";

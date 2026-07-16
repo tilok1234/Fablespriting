@@ -38,7 +38,6 @@ import { fp_mul, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { PLAN_NAMES, getScalar } from "./genome.js";
 import { applyPalette, derivePalette } from "./palette.js";
-import { AMORPHOUS_PART_NAMES, LEVITANT_PART_NAMES, PART_NAMES } from "./grammar.js";
 import type { ClipName, Slab } from "./pose.js";
 import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, growCreature, poseCreature } from "./pose.js";
 import type { Direction } from "./raster.js";
@@ -85,10 +84,17 @@ export interface FlickerGate {
  * a regression past a plan's own calibrated ceiling fails even where
  * the other plan's cells are legitimately louder.
  *
- * quadruped — the U2 pins RESTATED, not recalibrated (design 07 §4.4.6,
- * 2026-07-11; its histograms have not moved): observed maxima walk
- * 25.1166 (M1) / attack 14.6730 / hurt 10.8359 / death 19.2914 → gates
- * 32, 19, 14, 25.
+ * quadruped — the U2 pins for attack/hurt/death RESTATED (design 07
+ * §4.4.6, 2026-07-11): observed maxima attack 14.6730 / hurt 10.8359 /
+ * death 19.2914 → gates 19, 14, 25. The WALK row was one-step
+ * RECALIBRATED at U5 (design 07 §6.1, the U4 lesson) on the union
+ * histogram of the default corpus (max 25.1166, M1) and the U5 mode
+ * corpora (8 modes × seeds 0..99 × 4 directions; max 37.2990 at
+ * tag:fleshy seed 27 down — a fleshy-tagged low-bob corner: the
+ * temperament remap reaches bob/tail combinations the default sampler's
+ * joint distribution made rare, the same low-motion metric artifact
+ * family as the M1 recalibration): gate = tightest integer ≥ 1.25 ×
+ * 37.2990 = **47** (margin 1.260×).
  *
  * levitant — calibrated at U3 on seeds 0..199 (§4.4.6 addendum), then
  * RECALIBRATED at U3 close-out on the full 0..1999 sweep (8000 cells
@@ -125,8 +131,8 @@ export const FLICKER_GATES: Readonly<
   Record<(typeof PLAN_NAMES)[number], Readonly<Record<ClipName, FlickerGate>>>
 > = Object.freeze({
   quadruped: Object.freeze({
-    walk: Object.freeze({ num: 32n, den: 1n }),
-    idle: Object.freeze({ num: 32n, den: 1n }),
+    walk: Object.freeze({ num: 47n, den: 1n }), // U5 one-step recalibration (union histogram — see above)
+    idle: Object.freeze({ num: 47n, den: 1n }), // carries the walk rational (ungated — M1 policy)
     attack: Object.freeze({ num: 19n, den: 1n }),
     hurt: Object.freeze({ num: 14n, den: 1n }),
     death: Object.freeze({ num: 25n, den: 1n }),
@@ -336,15 +342,14 @@ export function evaluateCell(
     );
   }
   for (const slabs of slabLists) {
-    // A plan's normative slab list: 13 (quadruped, 06 §1.2), 11
-    // (levitant, design 07 §2.3.1), or 7 (amorphous, design 07 §2.4.1).
-    if (
-      slabs.length !== PART_NAMES.length &&
-      slabs.length !== LEVITANT_PART_NAMES.length &&
-      slabs.length !== AMORPHOUS_PART_NAMES.length
-    ) {
+    // A plan's slab list: since U5 (design 07 §6.1 — tagged/preset
+    // graphs are genome-dependent, 13–14 / 11–13 / 7–9 nodes) the guard
+    // accepts any CONSISTENT slab count ≥ 7 (the smallest mandatory
+    // census); the metric arithmetic is untouched — this is a
+    // diagnostic-only relaxation of the old fixed {13, 11, 7} list.
+    if (slabs.length < 7 || slabs.length !== slabLists[0]!.length) {
       throw new RangeError(
-        `flicker: expected a plan slab list (${PART_NAMES.length}, ${LEVITANT_PART_NAMES.length}, or ${AMORPHOUS_PART_NAMES.length} slabs), got ${slabs.length}`,
+        `flicker: expected consistent plan slab lists of ≥ 7 slabs, got ${slabs.length} vs ${slabLists[0]!.length}`,
       );
     }
   }

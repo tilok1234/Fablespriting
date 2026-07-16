@@ -16,6 +16,7 @@
  */
 
 import { createStream } from "./prng.js";
+import { selfCheck } from "./selfcheck.js";
 
 /**
  * The tape's version prefix for this build's registry table
@@ -185,6 +186,19 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
   s(48, "anim.amorphous.squash_amp", "fp", 0, 13107, 9830), // 0.15 ratio of [0, 0.2] — walk squash = 1 − a·sin(θ); hi sweep-narrowed from a 0.25 sketch (eye burial, drip detach at 0.25)
   s(49, "anim.amorphous.ball_phase_delta", "fp", 0, 16384, 13559), // 1.3 rad = 0.20690143 turns of [0, 0.25] — soft-body lag λ; drip lag = λ + DRIP_EXTRA (6259, the adjudicated difference pin)
   s(50, "anim.amorphous.anticipation", "fp", 32768, 131072, 65536), // 1.0 of [0.5, 2] — attack f0 scale (id-35/41 analog)
+  // U5 appends (design 07 §5.1/§6.1): existence markers + emitter size
+  // for the new GATED optional parts — every default is ABSENT (06 §2
+  // law: all-defaults and issued DNA grow identically), every raw
+  // machine-verified before pinning. All five live in the `gated`
+  // sampler scope (§ LOCUS_SCOPES): NO plan's default sampler draws
+  // them, so every pinned sampled seed keeps its bytes (the U5 anchor
+  // razor, H3). They are reachable by explicit DNA and by the tag/preset
+  // sampler modes, whose draws use these paths' own streams.
+  s(51, "body.emitter[C].exists", "enum", 0, 1, 0), // {absent = 0, present = 1} — ONE path, three plan consumers (the body.core.girth precedent; rangedness is a cross-plan homology carrier)
+  s(52, "body.emitter[C].size", "fp", 39322, 98304, 65536), // 1.0 of [0.6, 1.5] — emitter half-extents × size, FLOORED at the EMIT_HALF raws (ids 19/43 domain precedent); consumed only when id 51 = 1
+  s(53, "body.ornament[D].exists", "enum", 0, 1, 0), // quadruped dorsal socket existence
+  s(54, "body.ornament[K].exists", "enum", 0, 1, 0), // levitant crown socket existence
+  s(55, "body.ornament[M].exists", "enum", 0, 1, 0), // amorphous rim socket existence (M = riM — [R] is the levitant right horn, 06 §2 path identity)
 ]);
 
 /**
@@ -194,9 +208,17 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
  * cross-plan homology carriers) are drawn for every plan; each plan adds
  * its own set. Every registry id belongs to exactly one scope
  * (CI-asserted). Unconsumed loci on any genome stay wire-legal and inert.
+ *
+ * `gated` (U5, design 07 §6.1 — the H3 anchor-razor resolution): loci in
+ * NO plan's default draw set — the default sampler draws
+ * `shared ∪ scope(plan)` exactly as before, so gated ids are skipped
+ * automatically and no pinned sampled seed re-rolls. Gated loci are
+ * reachable by (a) explicit DNA (the codec is registry-generic) and
+ * (b) the tag/preset sampler modes (`sampleGenome` opts), whose gated
+ * draws use the loci's own path-keyed streams.
  */
 export const LOCUS_SCOPES: Readonly<
-  Record<"shared" | "quadruped" | "levitant" | "amorphous", ReadonlySet<number>>
+  Record<"shared" | "quadruped" | "levitant" | "amorphous" | "gated", ReadonlySet<number>>
 > = Object.freeze({
   shared: Object.freeze(new Set([0, 1, 2, 3, 4, 5, 6, 13, 14, 15])),
   quadruped: Object.freeze(
@@ -204,6 +226,7 @@ export const LOCUS_SCOPES: Readonly<
   ),
   levitant: Object.freeze(new Set([36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46])),
   amorphous: Object.freeze(new Set([47, 48, 49, 50])),
+  gated: Object.freeze(new Set([51, 52, 53, 54, 55])),
 });
 
 /**
@@ -761,6 +784,227 @@ export function decodeGenome(text: string): Genome {
 }
 
 // ---------------------------------------------------------------------------
+// U5 sampler modes (design 07 §6.1): tag forcing, temperament priors, FFF
+// presets, gated-locus draws, and the sampler-time self-check re-roll
+// ---------------------------------------------------------------------------
+
+/** Caller opts of the U5 sampler modes (design 07 §6.1). */
+export interface SampleGenomeOpts {
+  /**
+   * 0–2 distinct tag ids — `meta.trait_tags` FORCED (a parameter, not
+   * drawn; the tag stream is not created — the D-a plan-parameter
+   * precedent). An empty array forces the empty (neutral) tag set.
+   */
+  readonly tags?: readonly number[];
+  /** FFF preset (design 02 §5 / CONCEPT §2.4): locus-prior biases. */
+  readonly preset?: "speed" | "armor" | "ranged";
+}
+
+/**
+ * One locus bias: a domain sub-range remap `[lo, hi]` (drawn as
+ * `nextFp(lo, hi)` on the locus's own default sample stream) or a forced
+ * value (no draw). The frozen-family law (design 07 §6.1) keeps every
+ * forced integer-frequency value at the registry DEFAULT member.
+ */
+export type LocusBias =
+  | { readonly lo: number; readonly hi: number }
+  | { readonly forced: number };
+
+type BiasRow = Readonly<Record<string, LocusBias>>;
+
+const R = (lo: number, hi: number): LocusBias => Object.freeze({ lo, hi });
+const F = (forced: number): LocusBias => Object.freeze({ forced });
+
+/**
+ * Gait temperament priors (design 07 §6.1, pinned taste constants):
+ * per plan, indexed by tag id (chitin 0 … verdant 4) — each row maps
+ * locus paths to biases. Active only in tag mode (opts.tags non-empty);
+ * when two forced tags bias one locus the LOWEST tag id wins; presets
+ * apply last and win per locus. All sub-ranges machine-verified inside
+ * their registry domains.
+ */
+export const TEMPERAMENT: Readonly<
+  Record<"quadruped" | "levitant" | "amorphous", readonly BiasRow[]>
+> = Object.freeze({
+  quadruped: Object.freeze([
+    Object.freeze({
+      "anim.quadruped.leg_swing_amp": R(78643, 144179), // 1.2–2.2
+      "anim.quadruped.bob_amp": R(0, 32768), // 0–0.5
+      "anim.quadruped.tail_amp": R(26214, 78643), // 0.4–1.2
+    }),
+    Object.freeze({
+      "anim.quadruped.bob_amp": R(52429, 131072), // 0.8–2
+      "anim.quadruped.tail_amp": R(131072, 262144), // 2–4
+    }),
+    Object.freeze({
+      "anim.quadruped.bob_amp": R(13107, 52429), // 0.2–0.8
+      "anim.quadruped.tail_lag": R(19661, 32768), // 0.3–0.5 t
+    }),
+    Object.freeze({
+      "anim.quadruped.bob_amp": R(0, 19661), // 0–0.3
+      "anim.quadruped.leg_lift_amp": R(32768, 98304), // 0.5–1.5
+    }),
+    Object.freeze({
+      "anim.quadruped.tail_lag": R(13107, 26214), // 0.2–0.4 t
+      "anim.quadruped.leg_swing_amp": R(65536, 163840), // 1–2.5
+    }),
+  ]),
+  levitant: Object.freeze([
+    Object.freeze({
+      "anim.levitant.hover_amp": R(19661, 52429), // 0.3–0.8
+      "anim.levitant.tendril_amp": R(32768, 78643), // 0.5–1.2
+    }),
+    Object.freeze({
+      "anim.levitant.hover_amp": R(78643, 131072), // 1.2–2
+      "anim.levitant.tendril_lag": R(3277, 8192), // 0.05–0.125 t
+    }),
+    Object.freeze({
+      "anim.levitant.hover_freq": F(1), // frozen-family law: the DEFAULT member
+      "anim.levitant.hover_amp": R(65536, 131072), // 1–2
+      "anim.levitant.tendril_lag": R(5243, 8192), // 0.08–0.125 t
+    }),
+    Object.freeze({
+      "anim.levitant.flap_ratio": F(3), // the DEFAULT member
+      "anim.levitant.hover_amp": R(26214, 65536), // 0.4–1
+    }),
+    Object.freeze({
+      "anim.levitant.tendril_amp": R(78643, 131072), // 1.2–2
+      "anim.levitant.tendril_lag": R(3932, 7209), // 0.06–0.11 t
+    }),
+  ]),
+  amorphous: Object.freeze([
+    Object.freeze({ "anim.amorphous.squash_amp": R(1966, 5898) }), // 0.03–0.09
+    Object.freeze({ "anim.amorphous.squash_amp": R(7864, 13107) }), // 0.12–0.2
+    Object.freeze({ "anim.amorphous.ball_phase_delta": R(9830, 16384) }), // 0.15–0.25 t
+    Object.freeze({
+      "anim.amorphous.squash_amp": R(0, 3932), // 0–0.06
+      "anim.amorphous.pulse_freq": F(1), // the DEFAULT member
+    }),
+    Object.freeze({ "anim.amorphous.ball_phase_delta": R(6554, 13107) }), // 0.1–0.2 t
+  ]),
+});
+
+/**
+ * FFF preset tables (design 07 §6.1 / CONCEPT §2.4 / design 02 §5;
+ * pinned taste constants; the same sub-range remap mechanism). speed
+ * deliberately does NOT bias gait_freq: the recorded gait_freq-2 K = 4
+ * freeze makes "higher gait frequency" a frozen-legged enemy — the
+ * amplitude sub-ranges carry the speed read instead (recorded
+ * deviation). Structural guarantees (armor → ornament exists FORCED 1,
+ * ranged → emitter exists FORCED 1 + size 1.1–1.5) live in the gated
+ * draw rules of {@link sampleGenome}, not in these per-locus rows.
+ */
+export const FFF_PRESETS: Readonly<
+  Record<
+    "speed" | "armor" | "ranged",
+    Readonly<Record<"quadruped" | "levitant" | "amorphous", BiasRow>>
+  >
+> = Object.freeze({
+  speed: Object.freeze({
+    quadruped: Object.freeze({
+      "body.leg[FL].length": R(262144, 327680), // 4–5
+      "body.leg[FR].length": R(262144, 327680),
+      "body.leg[BL].length": R(262144, 327680),
+      "body.leg[BR].length": R(262144, 327680),
+      "anim.quadruped.leg_swing_amp": R(163840, 262144), // 2.5–4
+      "anim.quadruped.bob_amp": R(0, 39322), // 0–0.6
+    }),
+    levitant: Object.freeze({
+      "anim.levitant.hover_amp": R(26214, 65536), // 0.4–1
+      "anim.levitant.flap_ratio": F(3),
+      "anim.levitant.tendril_lag": R(1311, 3932), // 0.02–0.06 t
+    }),
+    amorphous: Object.freeze({
+      "anim.amorphous.squash_amp": R(9830, 13107), // 0.15–0.2
+      "anim.amorphous.ball_phase_delta": R(3277, 7864), // 0.05–0.12 t
+    }),
+  }),
+  armor: Object.freeze({
+    quadruped: Object.freeze({
+      "body.core.girth": R(314573, 393216), // 4.8–6
+      "body.core.depth": R(131072, 183501), // 2–2.8 — the LOW half: wide low silhouette
+      "anim.quadruped.bob_amp": R(0, 19661), // 0–0.3
+      "body.leg[FL].girth": R(98304, 131072), // 1.5–2
+      "body.leg[FR].girth": R(98304, 131072),
+      "body.leg[BL].girth": R(98304, 131072),
+      "body.leg[BR].girth": R(98304, 131072),
+    }),
+    levitant: Object.freeze({
+      "body.core.girth": R(314573, 393216),
+      "body.core.tendril_girth": R(72090, 91750), // 1.1–1.4
+      "anim.levitant.hover_amp": R(0, 39322), // 0–0.6
+    }),
+    amorphous: Object.freeze({
+      "body.core.girth": R(314573, 393216),
+      "anim.amorphous.squash_amp": R(0, 3277), // 0–0.05
+    }),
+  }),
+  ranged: Object.freeze({
+    quadruped: Object.freeze({ "body.head.eye_size": R(65536, 98304) }), // 1–1.5
+    levitant: Object.freeze({ "body.sensor[C].scale": R(65536, 98304) }), // 1–1.5
+    amorphous: Object.freeze({}),
+  }),
+});
+
+/** The plan's ornament existence locus id (design 07 §6.1 gated rules). */
+const ORNAMENT_EXISTS_BY_PLAN: readonly number[] = Object.freeze([53, 54, 55]);
+
+/**
+ * Self-check re-roll sets (design 07 §5.1: the "ornament/limb loci" of
+ * design 05 §1 / 07 §5, per plan; id 52 joins when the mode draws drew
+ * it). Draws come from `stream(seed, path, "selfcheck:i")`, full domain.
+ */
+export const SELF_CHECK_REROLL: Readonly<
+  Record<"quadruped" | "levitant" | "amorphous", readonly number[]>
+> = Object.freeze({
+  quadruped: Object.freeze([21, 22, 24, 25, 27, 28, 30, 31, 53]),
+  levitant: Object.freeze([44, 45, 46, 54]),
+  amorphous: Object.freeze([55]),
+});
+
+// ---------------------------------------------------------------------------
+/**
+ * The sampler-time self-check re-roll protocol (design 07 §5.1),
+ * extracted pure so its determinism-sensitive machinery carries real
+ * execution evidence (the U5 round-0 laws finding): the degeneracy
+ * check is INJECTED, so unit vectors can drive every branch — the
+ * skip of a preset-forced locus, the enum and fp full-domain redraws
+ * from `stream(seed, path, "selfcheck:i")`, the break on the first
+ * in-band genome, and the R_SC = 2 accept-after-cap — without needing
+ * a reachable degenerate (the production bands envelope the mode
+ * corpora; the swept trigger rate is 0). Production passes the real
+ * {@link selfCheck}; behavior is byte-identical to the pre-extraction
+ * inline loop (the mode-corpus fingerprints pin it).
+ */
+export function applySelfCheckReroll(
+  seed: bigint,
+  tags: readonly number[],
+  initialValues: ReadonlyArray<readonly [number, number]>,
+  rerollIds: readonly number[],
+  skipId: number | undefined,
+  isDegenerate: (g: Genome) => boolean,
+): Genome {
+  let genome = makeGenome({ seed, traitTags: tags, values: initialValues });
+  if (!isDegenerate(genome)) return genome;
+  const byId = new Map<number, number>(initialValues);
+  for (let i = 0; i < 2; i++) {
+    for (const id of rerollIds) {
+      if (id === skipId) continue; // preset-forced — never re-rolls
+      const locus = REGISTRY[id] as ScalarLocus;
+      const stream = createStream(seed, locus.path, `selfcheck:${i}`);
+      const value =
+        locus.kind === "enum"
+          ? stream.nextRange(locus.hi - locus.lo + 1)
+          : stream.nextFp(locus.lo, locus.hi); // FULL domain — escape the biased corner
+      byId.set(id, value);
+    }
+    genome = makeGenome({ seed, traitTags: tags, values: byId });
+    if (!isDegenerate(genome)) break; // first in-band genome wins
+  }
+  return genome;
+}
+
+// ---------------------------------------------------------------------------
 // §4.2: the pinned random-genome sampler
 // ---------------------------------------------------------------------------
 
@@ -792,8 +1036,16 @@ export function decodeGenome(text: string): Genome {
  * append).
  * Deterministic: the same (seed, plan) yields a byte-identical genome,
  * in any conforming implementation.
+ *
+ * U5 (design 07 §6.1): an optional third argument `opts` opens the tag/
+ * preset sampler modes — forced trait tags, temperament sub-range
+ * remaps, FFF presets, the gated-locus draws (ids 51–55), and the
+ * bounded sampler-time self-check re-roll. **With `opts` absent the
+ * call is byte-identical to the pre-U5 sampler** (H2, CI-asserted);
+ * same (seed, plan, opts) always yields the same genome, and issued DNA
+ * is self-contained (all forced/drawn values encode explicitly).
  */
-export function sampleGenome(seed: bigint, plan = 0): Genome {
+export function sampleGenome(seed: bigint, plan = 0, opts?: SampleGenomeOpts): Genome {
   if (typeof seed !== "bigint" || seed < 0n || seed >= TWO64) {
     throw new RangeError(`genome: sampler seed ${seed} outside u64 [0, 2^64)`);
   }
@@ -802,7 +1054,56 @@ export function sampleGenome(seed: bigint, plan = 0): Genome {
       `genome: sampler plan ${plan} outside the version-${GENOME_VERSION} enum {0, 1, 2}`,
     );
   }
-  const planScope = LOCUS_SCOPES[PLAN_NAMES[plan] as "quadruped" | "levitant" | "amorphous"];
+  const planName = PLAN_NAMES[plan] as "quadruped" | "levitant" | "amorphous";
+  const planScope = LOCUS_SCOPES[planName];
+
+  // Mode resolution (design 07 §6.1, U5): with no opts (or an empty opts
+  // object) the sampler below runs EXACTLY the pre-U5 draw sequence —
+  // same streams, same draws, same values, same DNA (the H2 anchor-razor
+  // resolution; CI re-asserts the committed-build DNA strings). All new
+  // behavior is opt-in through `opts` (the D-a plan-as-parameter
+  // precedent, third application).
+  const forcedTags = opts?.tags;
+  const preset = opts?.preset;
+  const modeActive = forcedTags !== undefined || preset !== undefined;
+  if (preset !== undefined && preset !== "speed" && preset !== "armor" && preset !== "ranged") {
+    throw new RangeError(
+      `genome: unknown preset ${JSON.stringify(preset)} (presets are speed | armor | ranged)`,
+    );
+  }
+  if (forcedTags !== undefined) {
+    const tagLocus = REGISTRY[2] as TagSetLocus;
+    if (forcedTags.length > tagLocus.maxTags) {
+      throw new RangeError(
+        `genome: opts.tags holds ${forcedTags.length} tags, domain allows at most ${tagLocus.maxTags}`,
+      );
+    }
+    const seen = new Set<number>();
+    for (const tag of forcedTags) {
+      if (!Number.isInteger(tag) || tag < 0 || tag >= tagLocus.tagCard) {
+        throw new RangeError(`genome: unknown trait tag ${tag} in opts.tags (tags are 0..4)`);
+      }
+      if (seen.has(tag)) throw new RangeError(`genome: duplicate trait tag ${tag} in opts.tags`);
+      seen.add(tag);
+    }
+  }
+  // Per-locus bias resolution (only consulted when a mode is active):
+  // preset > tag > default; among tags the LOWEST active tag id wins.
+  const tagMode = forcedTags !== undefined && forcedTags.length > 0;
+  const activeTags = tagMode ? [...forcedTags!].sort((a, b) => a - b) : [];
+  const presetBiases = preset !== undefined ? FFF_PRESETS[preset][planName] : undefined;
+  const tagBiasRows = tagMode
+    ? activeTags.map((t) => TEMPERAMENT[planName][t]!)
+    : [];
+  const biasFor = (path: string): LocusBias | undefined => {
+    const p = presetBiases?.[path];
+    if (p !== undefined) return p;
+    for (const row of tagBiasRows) {
+      const b = row[path];
+      if (b !== undefined) return b; // lowest tag id wins (rows are in ascending tag order)
+    }
+    return undefined;
+  };
 
   const values: Array<readonly [number, number]> = [];
   if (plan !== 0) values.push([0, plan]);
@@ -810,20 +1111,107 @@ export function sampleGenome(seed: bigint, plan = 0): Genome {
     if (locus.kind === "u64" || locus.kind === "tagset") continue;
     if (locus.id === 0) continue; // meta.plan is the caller parameter — never drawn (D-a)
     if (!LOCUS_SCOPES.shared.has(locus.id) && !planScope.has(locus.id)) continue;
+    const bias = modeActive ? biasFor(locus.path) : undefined;
+    if (bias !== undefined && "forced" in bias) {
+      // A forced value consumes NO draw (the meta.plan precedent). The
+      // frozen-family law keeps every forced value at the registry
+      // default, so this never pushes a non-default entry.
+      values.push([locus.id, bias.forced]);
+      continue;
+    }
     const stream = createStream(seed, locus.path);
-    const value =
-      locus.kind === "enum"
-        ? stream.nextRange(locus.hi - locus.lo + 1)
-        : stream.nextFp(locus.lo, locus.hi);
+    let value: number;
+    if (bias !== undefined) {
+      // Domain sub-range remap (design 07 §6.1): same stream, same draw
+      // name, narrowed inclusive raw bounds — per-path streams make this
+      // incapable of perturbing any other locus.
+      value = stream.nextFp(bias.lo, bias.hi);
+    } else {
+      value =
+        locus.kind === "enum"
+          ? stream.nextRange(locus.hi - locus.lo + 1)
+          : stream.nextFp(locus.lo, locus.hi);
+    }
     values.push([locus.id, value]);
   }
 
-  const tagStream = createStream(seed, "meta.trait_tags");
-  const n = tagStream.nextRange(2) + 1;
-  const tags = new Set<number>();
-  while (tags.size < n) {
-    tags.add(tagStream.nextRange(5)); // re-adding an existing tag = the pinned discard-and-redraw
+  let tags: readonly number[];
+  if (forcedTags !== undefined) {
+    // meta.trait_tags FORCED — a parameter, not drawn; the tag stream is
+    // NOT created (design 07 §6.1).
+    tags = activeTags;
+  } else {
+    const tagStream = createStream(seed, "meta.trait_tags");
+    const n = tagStream.nextRange(2) + 1;
+    const drawn = new Set<number>();
+    while (drawn.size < n) {
+      drawn.add(tagStream.nextRange(5)); // re-adding an existing tag = the pinned discard-and-redraw
+    }
+    tags = [...drawn];
   }
 
-  return makeGenome({ seed, traitTags: [...tags], values });
+  if (!modeActive) {
+    return makeGenome({ seed, traitTags: tags, values });
+  }
+
+  // -------------------------------------------------------------------
+  // Gated-locus draws (design 07 §6.1 — only in the tag/preset modes;
+  // streams are the loci's own `stream(seed, path, "sample")`, paths the
+  // default path never draws, so no stream is reused).
+  // -------------------------------------------------------------------
+  const ornamentExistsId = ORNAMENT_EXISTS_BY_PLAN[plan]!;
+  const ornamentForced = preset === "armor";
+  let ornamentExists: number;
+  if (ornamentForced) {
+    ornamentExists = 1; // FORCED — no draw (the armor shell-ornament guarantee)
+  } else if (tagMode) {
+    const stream = createStream(seed, (REGISTRY[ornamentExistsId] as ScalarLocus).path);
+    ornamentExists = stream.nextRange(4) >= 1 ? 1 : 0; // P = 3/4
+  } else {
+    ornamentExists = 0; // preset-only speed/ranged — stays absent, no draw
+  }
+  if (ornamentExists === 1) values.push([ornamentExistsId, 1]);
+
+  const emitterForced = preset === "ranged";
+  let emitterExists: number;
+  if (emitterForced) {
+    emitterExists = 1; // FORCED — no draw (the §6 ranged guarantee)
+  } else if (tagMode) {
+    const stream = createStream(seed, "body.emitter[C].exists");
+    emitterExists =
+      activeTags.includes(2) || activeTags.includes(3)
+        ? stream.nextRange(2) === 1
+          ? 1
+          : 0 // any tag ∈ {spectral, mechanical}: P = 1/2
+        : stream.nextRange(8) === 0
+          ? 1
+          : 0; // otherwise P = 1/8
+  } else {
+    emitterExists = 0;
+  }
+  let sizeDrawn = false;
+  if (emitterExists === 1) {
+    values.push([51, 1]);
+    const stream = createStream(seed, "body.emitter[C].size");
+    const value = emitterForced ? stream.nextFp(72090, 98304) : stream.nextFp(39322, 98304);
+    values.push([52, value]);
+    sizeDrawn = true;
+  }
+
+  // Sampler-time readability self-check (design 07 §5.1/§6.1): the
+  // bounded re-roll protocol (R_SC = 2, draw names `selfcheck:0..1`,
+  // then ACCEPT — never a silent loop, design 05 §1) lives in the
+  // exported pure helper {@link applySelfCheckReroll} so it carries
+  // unit-vector execution evidence. Preset-FORCED loci never re-roll;
+  // a drawn emitter size (id 52) does, over its FULL domain.
+  const rerollIds = [...SELF_CHECK_REROLL[planName]];
+  if (sizeDrawn) rerollIds.push(52);
+  return applySelfCheckReroll(
+    seed,
+    tags,
+    values,
+    rerollIds,
+    ornamentForced ? ornamentExistsId : undefined,
+    selfCheck,
+  );
 }

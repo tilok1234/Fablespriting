@@ -287,6 +287,24 @@ const DEATH_DY = -49152; // −0.75 px stagger, all chains, all frames
 const DEATH_SINK: readonly number[] = Object.freeze([9830, 29491, 55706]); // 0.15, 0.45, 0.85
 const DEATH_FOLD: readonly number[] = Object.freeze([58982, 42598, 22938]); // 0.9, 0.65, 0.35
 
+/**
+ * The §4.4.4 emitter orientation transform (design 07 §6.1, U5 — the
+ * inert emitter rule ACTIVATES): during ATTACK, nodes of kind `emitter`
+ * stretch along model +y (the facing axis) by
+ * `ORIENT_STRETCH[frame]` — a rear-face-invariant multiplicative
+ * stretch: `hy′ = fp_mul(S, hy); cy += hy′ − hy; hy = hy′`, applied
+ * AFTER the chain-class envelope delta. The rear face `cy − hy` is
+ * invariant by algebraic identity (the emitter stays socketed while
+ * only the muzzle advances 2·(hy′ − hy)); the four projections turn the
+ * model-+y advance into per-direction pointing for free — no envelope
+ * constant is direction-aware (§4.4.2's law stays literally intact).
+ * f0/f3 are exact identity (`fp_mul(65536, x) = x`); f2's delta =
+ * rheDiv(f1 delta, 3) — the §4.4.2 house recovery shape under RHE.
+ * Inert for every genome without an emitter node (every shipped
+ * genome), and for walk/idle/hurt/death.
+ */
+export const ORIENT_STRETCH: readonly number[] = Object.freeze([65536, 98304, 76459, 65536]);
+
 // ---------------------------------------------------------------------------
 // poseQuadruped — §1.2 oscillators + §4.4 envelopes on the grown graph
 // ---------------------------------------------------------------------------
@@ -450,6 +468,13 @@ export function poseQuadruped(
               : envFrame.body;
         cy = fp_add(cy, envFrame.scaled ? fp_mul(antScale, edy) : edy);
         cz = fp_add(cz, envFrame.scaled ? fp_mul(antScale, edz) : edz);
+      }
+      if (clip === "attack" && node.kind === "emitter") {
+        // §4.4.4 activation (design 07 §6.1): rear-face-invariant
+        // stretch along facing, AFTER the chain-class envelope delta.
+        const hyS = fp_mul(ORIENT_STRETCH[frame]!, hy);
+        cy = fp_add(cy, fp_sub(hyS, hy));
+        hy = hyS;
       }
       if (isDeath) {
         cy = fp_add(cy, DEATH_DY);
@@ -643,7 +668,8 @@ export function poseLevitant(
   }
 
   const slabs = graph.parts.map((node) => {
-    const [hx, hy, hz] = node.slab.half;
+    const [hx, hz] = [node.slab.half[0], node.slab.half[2]];
+    let hy = node.slab.half[1];
     let [cx, cy, cz] = node.slab.center;
     const chain = node.animChain;
     let cls: "body" | "wing" | "tendril" = "body";
@@ -671,6 +697,13 @@ export function poseLevitant(
       const [edy, edz] = envFrame[cls];
       cy = fp_add(cy, envFrame.scaled ? fp_mul(antScale, edy) : edy);
       cz = fp_add(cz, envFrame.scaled ? fp_mul(antScale, edz) : edz);
+    }
+    if (clip === "attack" && node.kind === "emitter") {
+      // §4.4.4 activation (design 07 §6.1): rear-face-invariant stretch
+      // along facing, AFTER the chain-class envelope delta.
+      const hyS = fp_mul(ORIENT_STRETCH[frame]!, hy);
+      cy = fp_add(cy, fp_sub(hyS, hy));
+      hy = hyS;
     }
     if (isDeath) {
       cy = fp_add(cy, DEATH_DY);
@@ -900,6 +933,19 @@ export function poseAmorphous(
       case "highlight":
         cz = fp_add(cz, fp_add(dz0, fp_mul(a.hiZRel, stretchM1)));
         break;
+      case "rim_plate":
+      case "rim_wisp":
+      case "rim_sprout":
+        // U5 rim (design 07 §6.1): rides the stretch like crest/
+        // highlight — rimZRel is its rest z rel to the blob center.
+        cz = fp_add(cz, fp_add(dz0, fp_mul(fp_sub(node.slab.center[2], a.z0), stretchM1)));
+        break;
+      case "orifice":
+        // U5 orifice (design 07 §6.1): the eye branch verbatim — the
+        // front tracks squash.
+        cy = fp_add(cy, fp_mul(node.slab.center[1], squashM1));
+        cz = fp_add(cz, dz0);
+        break;
       default: // eye_l / eye_r — fy = restCy·squash, the spike's 4.6·squash line
         cy = fp_add(cy, fp_mul(node.slab.center[1], squashM1));
         cz = fp_add(cz, dz0);
@@ -920,6 +966,13 @@ export function poseAmorphous(
       const [edy, edz] = envDelta;
       cy = fp_add(cy, envScaled ? fp_mul(antScale, edy) : edy);
       cz = fp_add(cz, envScaled ? fp_mul(antScale, edz) : edz);
+    }
+    if (clip === "attack" && node.kind === "emitter") {
+      // §4.4.4 activation (design 07 §6.1): rear-face-invariant stretch
+      // along facing, AFTER the envelope delta.
+      const hyS = fp_mul(ORIENT_STRETCH[frame]!, hy);
+      cy = fp_add(cy, fp_sub(hyS, hy));
+      hy = hyS;
     }
     if (isDeath) {
       // Death deltas per PART CLASS inside the one blob chain — the

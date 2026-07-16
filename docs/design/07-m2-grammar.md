@@ -224,6 +224,49 @@ diverged here before this pin):
   from the grown graph (the §1.2 promise, discharged); pose.ts keeps
   only clip phases and the gait template.
 
+*Amended with U5 (2026-07-16) — engine-pin extensions (the adjudicated
+U5 spec; every existing pin above stands):*
+
+- **Pre-draw pruning order extends** to five stages, pinned:
+  budget → allowed kinds → exclusion groups → **existence**
+  (a candidate whose `existsLocus` reads 0 is pruned — the 06 §2
+  existence markers made operative) → **tag-weights** (effective
+  weight 0 prunes pre-draw, like exclusion groups). Then: 0 survivors →
+  socket closes, no draw; 1 survivor → deterministic fill, no draw
+  (the standing single-candidate precedent); ≥ 2 survivors → exactly
+  ONE weighted draw (§6.1 arithmetic). All-1 weights are
+  arithmetic-identical to the U1 uniform draw.
+- **`placeSlots` engine pin**: a socket WITH `placeSlots = n` draws a
+  placement slot per attempt from `stream(seed, drawPath, "place:a")`,
+  a = 0..R−1, R = PLACE_RETRY_CAP = 3, and tests the built member
+  against every previously placed node EXCEPT the socket's parent (the
+  host); collision ⇔ min-axis interpenetration > `clearance_fp` (plain
+  int compares). After R colliding attempts the part is DROPPED — the
+  socket closes, no node, no budget, the spent draws stay counted. A
+  socket WITHOUT `placeSlots` never runs the check (§5.1's
+  shipped-socket ruling).
+- **Budgets UNCHANGED — the guarantee-order ruling**: quadruped [8, 14]
+  (the draft's [8, 16] bump was REJECTED in adjudication — design 02
+  §3's "ornaments compete for scarce slots" is explicit design text);
+  the §6 ranged→emitter guarantee is made budget-proof by CANONICAL
+  ORDER instead: the emitter socket fills BEFORE the ornament socket on
+  every plan. Consequence, recorded: a quadruped can never grow BOTH
+  dorsal + emitter (13 + 2 > 14) — a ranged quadruped forfeits its
+  dorsal ornament (slot scarcity working as intended); levitant
+  (11 + 2 = 13) and amorphous (7 + 2 = 9) fit both. Census law
+  (CI-asserted): quadruped ∈ {13, 14}, levitant ∈ {11, 12, 13},
+  amorphous ∈ {7, 8, 9}. Part-tag ids index the genome's OWN grown
+  graph (already the law; the first genome-dependent structure).
+- **Module seam (U5)**: the structural wires `PART_NAMES` / `CHAINS` /
+  `PART_ROLES` (+ per-plan variants) moved from grammar.ts to
+  **wires.ts** — a module-layout change only, every exported value
+  byte-identical. Reason: the sampler-time self-check gives genome.ts a
+  runtime import path into pose/grammar (genome → selfcheck → pose →
+  grammar → genome), and ES-module cycle evaluation requires that no
+  module body in the cycle call across a partially-evaluated module;
+  grammar.ts's only such top-level calls were the three all-defaults
+  structural growths, so they live in the leaf module wires.ts now.
+
 ## 2. The plan trio
 
 ### 2.1 Wire compatibility
@@ -1501,7 +1544,10 @@ work, not a v1-compat concern.
 until a plan grows emitter parts** (v1 quadrupeds have none; the first
 candidate is U5's FFF `ranged` preset). No code path implements it in
 U2; it is recorded here so the rule has a pinned home when emitters
-arrive.
+arrive. *ACTIVATED at U5 (2026-07-16) — exact math in §6.1 (the
+rear-face-invariant ORIENT_STRETCH transform); the inert clause holds
+for every emitter-less genome, which is every genome shipped before
+U5.*
 
 **§4.4.5 The craft cycle-breaker (seed 1132 verdict: FIXED, proven
 inert).** Diagnosis: sampled seed 1132's walk/down cell reaches, at
@@ -1689,6 +1735,175 @@ once instead of once per pose sample.
 - **Property law (CI):** on the pinned corpus, zero exported creatures
   carry the degenerate flag, and the U5 sweep asserts it.
 
+### 5.1 U5 amendment — defenses delivered
+
+*Amended with U5 (2026-07-16), per this doc's header rule. Everything
+below is as-built and machine-verified; the adjudicated U5 spec
+(2 independent derivations reconciled item-by-item, every raw
+machine-re-verified) is the source of every pin.*
+
+**Clearance machinery (grammar.ts `growPlan`).** `SocketSpec` gains
+`placeSlots?: n`: such a socket draws a placement slot per attempt from
+`stream(seed, drawPath, "place:a")`, a = 0..R−1 with
+**R = PLACE_RETRY_CAP = 3** (the FIRST attempt is `place:0`), builds the
+member slab, and tests it against every previously placed node EXCEPT
+the socket's parent (the host — embedding into the host IS the
+attachment mechanism): **collision ⇔ min over axes of
+(hA + hB − |cA − cB|) > clearance_fp** (plain int compares; positive
+only when the boxes interpenetrate on all three axes — the OVERLAP
+semantics of §5 above and design 02 §4, adjudicated over a containment
+reading; the thing that re-draws is the PLACEMENT). After R colliding
+attempts the part is DROPPED: socket closes, no node placed, no budget
+consumed, the spent draws stay counted in `drawsConsumed` — never a
+silent loop (design 05 §1). Stream isolation: each socket's attempts
+spend from its OWN drawPath stream (06 §4) — CI-proven on a synthetic
+two-socket plan (a retry in one socket never perturbs the other's
+placement), plus place:1-rescue and full-drop vectors.
+
+**Shipped-socket ruling (recorded):** every mandatory socket of all
+three plans keeps `clearance_fp 0` AND stays outside the mechanism (no
+`placeSlots`) — their geometry is locus-derived and
+domain-table-verified (06 §1.2; §2.3.1/§2.4.1 corner tables); clearance
+would be a second, weaker proof of a thing already proven exactly. U5's
+only drawn-placement socket is the quadruped dorsal (`placeSlots 3`,
+`clearance_fp 13107` = 0.2 px allowed interpenetration). At defaults
+all 9 (candidate × slot) pairs are collision-free with ≥ 1.9 px margin
+(machine-verified at spec time) — retries never fire at defaults; the
+retry surface is corner genomes.
+
+**Never-fires evidence:** (a) structural — default-path growth consumes
+ZERO draws (no fill, no placement) for every sampled genome, CI-asserted
+over seeds 0..29 × 3 plans and sweep-asserted over 0..1999; (b) the
+mode render sweeps counted placement retries and drops: the quadruped
+dorsal (the only drawn-placement socket) fired **58 retries and 8 drops
+(2 unique seeds, 59 + 92) over 800 quadruped mode cells, 336 of them
+ornamented** — a fired retry is the mechanism working; the drop rate is
+8/336 ≈ 2.4% of ornamented genomes, exceeding the 1% taste-flag line,
+and is flagged for the gate (§6.1 render record). Gate ruling
+(2026-07-16): ACCEPTED — a clearance drop is the escalation policy
+working (bounded, deterministic, the creature falls back to its
+un-ornamented look; no degenerate output), and whether 2.4%
+ornament-loss reads as a taste problem is exactly what the U6
+100-sheet owner review judges holistically;
+(c) CI unit tests exercise `place:0`,
+`place:1` rescue, the full drop, and host exemption on synthetic plans
+(the U1 synthetic-plan pattern).
+
+**Readability self-check (selfcheck.ts).** `selfCheck(genome)` is a
+PURE function of the genome — same DNA, same flag, forever:
+
+```
+slabs = poseCreature(genome, "walk", 0)                  # the raster-golden pose
+grid  = rasterize(slabs, "down", 32, ramp_len(genome))   # OFFSET-FREE (§1.4 golden form)
+N     = opaque pixels;  bbox over opaque;  w, h
+fill_fp   = rheDiv(N · 65536, w · h)     aspect_fp = rheDiv(w · 65536, h)
+degenerate ⇔ N = 0 ∨ fill_fp ∉ [FILL_LO, FILL_HI] ∨ aspect_fp ∉ [ASP_LO, ASP_HI]
+```
+
+One 32×32 raster per check — negligible against a 72-frame export. An
+exact .5 tie is unreachable in-domain (numerators are N·2^16 with
+divisors ≤ 1024 — 2-adic valuation argument, recorded); the RHE mode is
+pinned by rheDiv's own tie vectors.
+
+**Band table (MEASURED on the shipped corpora — run 2026-07-16 on the
+pristine cffb2a0 build, `sampleGenome(seed, plan)` seeds 0..1999 per
+plan; margin rule M = max(3277, floor(range/8)); band =
+[obsMin − M, obsMax + M] ⇒ zero violators on every already-reachable
+genome BY CONSTRUCTION — the H4 anchor-razor resolution). Adjudication
+cross-proof: an independent second measurement of the same corpora
+recomputed EXACTLY to all 30 fp statistics (the two drafts' apparent
+percentile disagreement was number-system only).**
+
+| plan | metric | obs min | p50 | obs max | M | **band [lo, hi]** | defaults |
+|------|--------|---------|-----|---------|---|-------------------|----------|
+| quadruped | fill_fp | 31949 (seed 1141) | 46203 | 62415 (seed 108) | 3808 | **[28141, 66223]** | 48242 ✓ |
+| quadruped | aspect_fp | 15124 (seed 1627) | 30840 | 60495 (seed 889) | 5671 | **[9453, 66166]** | 29127 ✓ |
+| levitant | fill_fp | 26214 (seed 1825) | 33619 | 45966 (seed 882) | 3277 | **[22937, 49243]** | 31804 ✓ |
+| levitant | aspect_fp | 29127 (seed 882) | 65536 | 112347 (seed 527) | 10402 | **[18725, 122749]** | 61681 ✓ |
+| amorphous | fill_fp | 38726 (seed 1697) | 52303 | 62415 (seed 285) | 3277 | **[35449, 65692]** | 46811 ✓ |
+| amorphous | aspect_fp | 20696 (seed 1168) | 52429 | 107241 (seed 142) | 10818 | **[9878, 118059]** | 56174 ✓ |
+
+**Widen-only rule:** if a mode-corpus sweep lands genomes outside a
+bound, that bound re-pins to the union envelope + the same margin rule;
+bands may only widen post-measurement, never narrow (the
+domains-cannot-shrink spirit). **The U5 mode-corpus sweeps required NO
+widening: 0 of 9 600 mode genomes landed outside any band.** Honest-teeth note (recorded): by H4's own
+construction these bands envelope the shipped morphospace and cannot
+flag anything the default sampler already emits — they guard the
+newly-reachable space (tag/preset modes, hand-edited DNA, future
+grammar drift). Probe evidence: a hand-built "stick" degenerate scores
+INSIDE the corpus envelope (the down view occludes legs under the
+body — sensitivity limit recorded); the metric's real edge cases are
+bbox-stretching ornament/emitter additions — exactly the new space. A
+pinned true violator exists and is CI-held: the hand-edited levitant
+tape `AQACAQkNs-YcDrTmEA_LmQsry5kDLJqzBi3lzAEu__8DNgI` (min length +
+max girth + min depth + min sensor + max locomotor + min tendrils +
+crown, seed 9 — the neutral kind fill resolves crown_PLATE, whose
+≥ 0.5-px halves are immune to the §6.1 thin-ornament pixel-phase
+repair; the adjudication probe's original sprout-crown tape was moved
+in-band by that repair and re-pinned as-built) scores aspect_fp
+131072 > 122749.
+
+**Where it runs (the one coherent story):** (1) SAMPLER-TIME, tag/
+preset modes only — the re-roll protocol: on degenerate, re-roll the
+plan's REROLL set, each locus from
+`stream(seed, locus_path, "selfcheck:i")`, i = 0..R_SC−1 with
+**R_SC = 2** (zero-based names, the place:0 convention), re-checking
+after each round, first in-band genome wins, after 2 rounds ACCEPT the
+final values. Re-rolls draw the FULL domain (escape the biased corner),
+existence loci via `nextRange(2)`; **preset-FORCED loci never re-roll**
+(the ranged and armor guarantees survive; a DRAWN emitter size id 52
+does re-roll). REROLL sets (pinned): quadruped
+{21, 22, 24, 25, 27, 28, 30, 31, 53} (+ 52 if drawn); levitant
+{44, 45, 46, 54} (+ 52 if drawn); amorphous {55} (+ 52 if drawn) —
+amorphous squash_amp (48) is OUT: an anim locus, not ornament/limb
+(adjudication delta). (2) EXPORT-TIME, always, every genome:
+`exportCreature` runs `selfCheck`; a degenerate genome's canonical JSON
+gains top-level **`"degenerate": true`, ABSENT when false** (the
+defaults-absent house rule + the `flash: true` additive-key precedent) —
+every non-degenerate export's JSON is byte-identical to pre-U5,
+CI-byte-tested both ways. The default sampler NEVER re-rolls (H1–H3:
+bands envelope its genomes by construction).
+
+**Zero-degenerate gate sweep (§8 row 5, run 2026-07-16):** default-path
+`sampleGenome(seed, plan)` seeds 0..1999 × 3 plans re-checked on the
+BUILT U5 implementation: **0 degenerate of 6000** (REQUIRED: 0 ✓).
+Mode corpora (per plan, 5 single-tag-forced × seeds 0..399 + 3
+presets × seeds 0..399 = 9 600 mode genomes): **0 degenerate, 0
+re-rolls fired** — every tag/preset-mode sample lands inside the pinned
+bands without the re-roll protocol ever engaging. The protocol's
+machinery is unit-vector-proven through the exported pure helper
+`applySelfCheckReroll` (genome.ts) — the degeneracy check is INJECTED,
+so CI executes every branch without needing a reachable degenerate:
+the preset-forced skip, the enum and fp full-domain redraws from
+`stream(seed, path, "selfcheck:i")`, the first-in-band break, and the
+R_SC = 2 accept-after-cap (tests/u5-modes.test.ts, hand-computed
+stream expectations). Its production trigger surface is future drift
+of bands versus corpora; hand-edited DNA never passes through the
+sampler, so it surfaces only as the export-time degenerate flag, never
+a re-roll. The sweep's pre-re-roll
+reconstruction (an independent mirror of the mode assembly from the
+exported bias tables) matched the sampler byte-for-byte on all 9 600
+genomes (0 mismatches).
+
+**Anchor-razor baseline (the unit's spine, §1.5 of the U5 spec):**
+captured from the PRISTINE committed cffb2a0 build before any U5
+change — per plan, the all-defaults genome + sampled seeds 0..1999
+(6003 entries, full `exportCreature`, sheet-RGBA + canonical-JSON
+sha256 each). The 603-entry spec-time subset authenticated against five
+independent committed pins (the §4.4.7/§2.3.1/§2.4.1 golden hashes and
+CI seed pins), fingerprint
+`7e1aea368c58ea8680f779742fbdd84c0b47443c982a324e5067079fd064f811`.
+POST-implementation the same corpus re-exported on the FINAL U5 build
+(incl. the pixel-phase repair and the gate recalibration):
+**6003/6003 entries equal on BOTH hashes — zero diffs** (baseline
+corpus fingerprint
+`630ae858332af5ced799281435d584574f16341f17b39e98f2f6ab890b0f91c4`,
+post capture identical). Every byte of already-shipped output stands.
+The permanent CI anchor is the committed
+33-entry slice (plans × (defaults + seeds 0..9), both hashes,
+`tests/goldens/u5_anchor_33.txt`) asserted every run.
+
 ## 6. Trait tags and form-follows-function priors
 
 Tags (`meta.trait_tags`, carried since v1, gating nothing until now)
@@ -1709,6 +1924,371 @@ FFF v1 = three named prior presets (`speed`, `armor`, `ranged`)
 applied as locus-prior biases in sampling; `ranged` guarantees one
 `emitter` part (F5's focal machinery already handles its contrast).
 Mapping tables live beside the tag tables; same pin point.
+
+### 6.1 U5 amendment — tags + FFF delivered
+
+*Amended with U5 (2026-07-16). As-built; every raw machine-verified
+before pinning (the adjudicated U5 spec).*
+
+**Registry append (ids 51–55, 06 §2 existence-default-absent law; all
+in the new plan-less `gated` sampler scope — 06 §4.2 amendment):**
+
+| id | path | kind | [lo, hi] | default | consumer |
+|----|------|------|----------|---------|----------|
+| 51 | `body.emitter[C].exists` | enum {absent 0, present 1} | [0, 1] | **0** | emitter socket existence — ALL THREE plans (one path, three consumers: the `body.core.girth` precedent; design 01 §3 upside recorded — rangedness is a cross-plan homology carrier by raw path identity). `[C]` per the `body.sensor[C]` single-central precedent (distinct socket name — no collision with `body.ornament[C]`) |
+| 52 | `body.emitter[C].size` | fp | [39322, 98304] (0.6–1.5) | 65536 | emitter half-extents × size, FLOORED at the EMIT_HALF raws (the M1 eye-floor mechanism; identity at 1.0); consumed only when 51 = 1, otherwise wire-legal and inert. Domain = the ids-19/43 precedent |
+| 53 | `body.ornament[D].exists` | enum {0, 1} | **0** | quadruped dorsal socket |
+| 54 | `body.ornament[K].exists` | enum {0, 1} | **0** | levitant crown socket |
+| 55 | `body.ornament[M].exists` | enum {0, 1} | **0** | amorphous rim socket (M = riM — `[R]` already spells the levitant right horn; 06 §2 path identity forbids overloading, adjudicated) |
+
+Ornament letters are distinct from every existing `body.ornament`
+socket tag ACROSS ALL PLANS (taken: L, R, C — paths are global). The
+ornament KIND is a growth-time weighted fill draw, NOT a locus — 06
+§2's `.kind`-enum sketch is superseded for these sockets by the binding
+weighted-fill mechanism (recorded). Deliberate scope lines: no ornament
+size/count loci, no per-candidate loci, no emitter orientation locus
+(template constants — the U3 FLAP_AMP ruling: later appends are free);
+no default-mix change (U6); no new anim loci (temperament biases
+EXISTING loci) — the semantic map is UNCHANGED; no craft/palette
+changes.
+
+**New parts (shared template constants: ORN_EMBED = EMIT_EMBED = 19661;
+EMIT_HALF = (45875, 58982, 45875), halves = max(fp_mul(size, EMIT_HALF),
+EMIT_HALF)). All ornament candidates: kind `ornament`, role
+`underside` (the horns/highlight bright-ramp contrast precedent); all
+emitters: kind `emitter`, role `focal` (F5; F16 merge-protection
+inherited — craft can never erase an emitter). Every new part rides an
+EXISTING chain — no new chains, so snapping, flicker energy, and the
+shadow seam are structurally untouched. Canonical socket order appends
+EMITTER BEFORE ORNAMENT on every plan (§1.4 guarantee-order ruling):**
+
+- **Quadruped** — `body.core: [.., tail, emitter, dorsal]`. Maw emitter
+  (chain `head`): cy = snoutFront + hy_e − 0.3 on the snout line
+  (snoutFront = HY + scale·3.3 + snout_len; cz = HZ − scale·1.2) —
+  proud of the snout by 2·hy_e − 0.3 ≥ 1.5 px at every size. Dorsal
+  ornament (chain `body`, the unit's only drawn placement — placeSlots
+  3, slots cy = {+0.25, 0, −0.25}·length, clearance 13107): cz = CZ +
+  depth + (hz_c − 0.3) — rides the core top at every dim (delta-form
+  inherited from the CZ anchor, no new σ). Candidate halves: plate
+  (0.5, 1.1, 0.9), wisp (0.4, 0.7, 1.3), sprout (0.35, 0.5, 1.5).
+  Part-tag ids: emitter 13 when present; dorsal ALWAYS 13 when grown
+  (the two never coexist on this plan).
+- **Levitant** — `body.core: [.., tendrils, emitter, crown]`. Lens
+  emitter (chain `body`): cy = orbHy + hy_e − 0.3, cz = z0 − 2.0
+  (under the eye stack) — proud of the orb front by ≥ 1.5 px and of the
+  sclera front at every sensor scale. Crown ornament (chain `body`,
+  fixed central placement — no placement draw): cz = z0 + orbHz +
+  (hz_c − 0.3); halves plate (1.3, 0.6, 0.5) flat cap, wisp
+  (0.4, 0.4, 1.6) flame, sprout (0.35, 0.35, 1.8). Crown hx ≤ 1.3
+  clears both horns at every girth (horn x tracks girth OUTWARD).
+  Part-tag ids: emitter 11 when present; crown 11 or 12.
+- **Amorphous** — `body.blob: [.., highlight, emitter, rim]`. Both are
+  CLASSIC slabs (no fieldWeight) on the one blob chain — they
+  depth-sort against the field surface like the eyes/highlight; the
+  fork is untouched. Orifice emitter: cy = blobVy + hy_e − 0.3,
+  cz = z0 — strictly in front of the visible field surface by ≥ 1.5 px
+  (protrudes by construction, no eye floor needed). Rim ornament:
+  cy = −0.5·blobVy (rear-top — clear of the eyes, over the crest;
+  interpenetration with the crest ball is legal and invisible),
+  cz = z0 + blobVz + (hz_c − 0.3); halves plate (1.2, 0.9, 0.5), wisp
+  (0.4, 0.4, 1.4), sprout (0.35, 0.35, 1.6). Pose (poseAmorphous, two
+  pinned name branches): rim `cz += dz0 + rimZRel·(stretch − 1)` (rides
+  the stretch like crest/highlight; rimZRel = its rest z rel); orifice
+  = the eye branch verbatim (`cy += restCy·(squash − 1); cz += dz0`).
+  Death: both are non-ball kinds → the existing face-class deltas
+  apply automatically; deflate weights untouched; f3 = f2 inherited.
+  Part-tag ids: emitter 7 when present; rim 7 or 8.
+
+**The thin-ornament pixel-phase repair (implementation-evidence
+amendment — the U3 pupil pixel-phase lesson in x/y).** The mode render
+sweep found wisp/sprout ornaments (x/y halves 0.35–0.4 px) rendering
+ZERO pixels in EVERY view: a part whose half-extent along a
+screen-mapping axis is below the 0.42-px coverage threshold and whose
+center sits on a pixel boundary splits its ≤ 16 supersamples across two
+columns and can never win a majority vote — and the 06 §1.5 chain snap
+PLANTS centered parts (cx = 0; the crown/rim cy) exactly on boundaries,
+structurally, for every genome and frame (the same mechanism that
+buried the U3 pupil in y). Repair (grammar.ts `ornamentPhaseCenter`,
+mirrored in the from-spec oracle): for x and y independently, when the
+candidate's half-extent < 27525 raw (0.42 px), the rest center advances
+FORWARD by the smallest non-negative delta landing its pixel phase at
+the pixel CENTER (32768 raw) — at most one pixel, deterministic,
+locus-free. Exactly, per affected axis c ∈ {x, y} (z never adjusts,
+and NO projection term enters — the repair is plain model-space,
+applied at GROWTH inside the candidate's `make`, so the grown graph
+carries repaired centers):
+
+```
+phase = ((c mod 65536) + 65536) mod 65536
+c     ← fp_add(c, (32768 − phase + 65536) mod 65536)
+```
+
+The executed exemplar is in the growth dump: the amorphous rim_wisp at
+seed 7 {spectral, verdant} carries the repaired center
+(32768, −229376) where the unrepaired couplings give (0, −235133) —
+both raws derivable from the formula. Byte-inert for every shipped
+genome (none grows these parts); plate candidates (halves ≥ 0.5 px)
+are untouched, so the tagged golden's dorsal plate keeps its bytes
+(verified). Post-repair the oracle was regenerated and
+re-cross-matched (7632 fields exact) and the mode render sweeps
+re-run.
+
+**Weighted fills (grammar.ts).** `PartChoice` gains `existsLocus?`
+(prunes at 0 — stage 4 of the §1.4 prune order), `tagWeights?`
+(length-5 integer vector indexed by tag id), `neutralWeight?`
+(default 1). Effective weight = neutralWeight when the vector is absent
+or the tag set empty, else the plain int SUM over the genome's tags;
+weight 0 prunes pre-draw (stage 5). ≥ 2 survivors → exactly ONE
+weighted draw from `stream(seed, drawPath, "fill")`:
+`T = Σ w(cᵢ)` in candidate-array order (max T = 14, reached by three
+tag pairs: {chitin, spectral}, {spectral, verdant}, and
+{chitin, verdant}); `r = nextRange(T)`
+(unbiased rejection, 06 §4.2); the first candidate whose cumulative
+weight exceeds r wins. **H1 engine law: `tagWeights` is legal ONLY on
+candidates that also carry `existsLocus`** (RangeError at growth +
+CI assertion over the three shipped PlanSpecs) — a mandatory socket can
+never be weight-closed.
+
+**The tag→weight table (taste constants, pinned; ONE table, all plans —
+the families carry the read):** candidates [plate, wisp, sprout]:
+
+| tag | plate | wisp | sprout | rationale |
+|-----|-------|------|--------|-----------|
+| chitin (0) | 6 | **0** | 1 | chitin never grows a ghost-wisp |
+| fleshy (1) | 2 | **0** | 4 | flesh grows lumps and stalks, not flames |
+| spectral (2) | **0** | 6 | 1 | a ghost wears no armor plate |
+| mechanical (3) | 5 | 1 | **0** | machines don't sprout |
+| verdant (4) | **0** | 1 | 6 | plants don't plate |
+| neutral (no tags) | 1 | 1 | 1 | reachable only by hand-edited DNA |
+
+Machine-verified: no 1- or 2-tag set zeroes all three (min total 6).
+Worked CI vector: tags {chitin} → wisp pruned; survivors plate(6),
+sprout(1); T = 7; r ∈ 0..5 → plate, r = 6 → sprout. Emitter sockets are
+single-candidate (existence-gated, never weighted) — "spectral →
+emitters up-weighted" is realized in the tag-mode EXISTENCE draw below.
+
+**Sampler modes (genome.ts).** `sampleGenome(seed, plan = 0, opts?)`,
+`opts = { tags?, preset? }` — the D-a plan-as-parameter precedent,
+third application; no opts ⇒ byte-identical to cffb2a0 (H2,
+CI-asserted via the committed-build DNA vectors). Forced tags are a
+parameter (the tag stream is NOT created); an empty forced set is the
+neutral genome. Gated-locus draws (only when opts present; streams =
+the loci's own `stream(seed, path, "sample")`, never used by the
+default path): ornament exists — armor → FORCED 1 (no draw); else tag
+mode → present iff `nextRange(4) ≥ 1` (P = 3/4); else 0 (no draw).
+Emitter exists — ranged → FORCED 1 (the §6 guarantee); else tag mode:
+any tag ∈ {spectral, mechanical} → present iff `nextRange(2) = 1`,
+otherwise iff `nextRange(8) = 0`; else 0. Emitter size — drawn iff
+exists resolved 1: ranged → `nextFp(72090, 98304)`, else the full
+domain. Forced values consume NO draw (the meta.plan precedent).
+Combined modes compose freely; on the quadruped, growth's budget prune
+is the arbiter when both existence loci are 1 (emitter-first order —
+the ranged guarantee is unconditional, the ornament is a bias that
+yields).
+
+**Temperament priors (tag mode) + FFF presets: domain sub-range remap,
+pinned.** For each locus named by an active row the sampler draw
+becomes `nextFp(lo′, hi′)` (or a forced value = no draw) on the SAME
+stream and draw name — per-path streams make this incapable of
+perturbing any other locus. Conflict rules: two tags on one locus → the
+LOWEST tag id wins; **preset > tag > default** (presets apply last).
+**Frozen-family law:** no table biases an integer frequency locus
+toward its frozen member — forced freq values are only ever the
+DEFAULT member (hover_freq 1, flap_ratio 3, pulse_freq 1). The full
+tables follow IN FULL (normative — the U5 round-2 oracle finding: a
+second implementer must derive every mode genome from this document
+alone; raws are the authority, decimals informative; F = forced value,
+no draw). Every sub-range machine-verified inside its domain;
+spot-pinned in CI as the constants `TEMPERAMENT` / `FFF_PRESETS`.
+
+TEMPERAMENT — rows indexed by tag id (chitin 0, fleshy 1, spectral 2,
+mechanical 3, verdant 4):
+
+| plan | tag | locus: [lo′, hi′] raw (decimal) |
+|------|-----|----------------------------------|
+| quadruped | chitin | leg_swing_amp [78643, 144179] (1.2–2.2); bob_amp [0, 32768] (0–0.5); tail_amp [26214, 78643] (0.4–1.2) |
+| quadruped | fleshy | bob_amp [52429, 131072] (0.8–2); tail_amp [131072, 262144] (2–4) |
+| quadruped | spectral | bob_amp [13107, 52429] (0.2–0.8); tail_lag [19661, 32768] (0.3–0.5 t) |
+| quadruped | mechanical | bob_amp [0, 19661] (0–0.3); leg_lift_amp [32768, 98304] (0.5–1.5) |
+| quadruped | verdant | tail_lag [13107, 26214] (0.2–0.4 t); leg_swing_amp [65536, 163840] (1–2.5) |
+| levitant | chitin | hover_amp [19661, 52429] (0.3–0.8); tendril_amp [32768, 78643] (0.5–1.2) |
+| levitant | fleshy | hover_amp [78643, 131072] (1.2–2); tendril_lag [3277, 8192] (0.05–0.125 t) |
+| levitant | spectral | hover_freq F(1); hover_amp [65536, 131072] (1–2); tendril_lag [5243, 8192] (0.08–0.125 t) |
+| levitant | mechanical | flap_ratio F(3); hover_amp [26214, 65536] (0.4–1) |
+| levitant | verdant | tendril_amp [78643, 131072] (1.2–2); tendril_lag [3932, 7209] (0.06–0.11 t) |
+| amorphous | chitin | squash_amp [1966, 5898] (0.03–0.09) |
+| amorphous | fleshy | squash_amp [7864, 13107] (0.12–0.2) |
+| amorphous | spectral | ball_phase_delta [9830, 16384] (0.15–0.25 t) |
+| amorphous | mechanical | squash_amp [0, 3932] (0–0.06); pulse_freq F(1) |
+| amorphous | verdant | ball_phase_delta [6554, 13107] (0.1–0.2 t) |
+
+FFF_PRESETS (structural guarantees — armor → ornament exists F(1),
+ranged → emitter exists F(1) + size drawn [72090, 98304] (1.1–1.5) —
+live in the gated draw rules above, not these rows):
+
+| preset | plan | locus: [lo′, hi′] raw (decimal) |
+|--------|------|----------------------------------|
+| speed | quadruped | leg[FL/FR/BL/BR].length each [262144, 327680] (4–5); leg_swing_amp [163840, 262144] (2.5–4); bob_amp [0, 39322] (0–0.6) |
+| speed | levitant | hover_amp [26214, 65536] (0.4–1); flap_ratio F(3); tendril_lag [1311, 3932] (0.02–0.06 t) |
+| speed | amorphous | squash_amp [9830, 13107] (0.15–0.2); ball_phase_delta [3277, 7864] (0.05–0.12 t) |
+| armor | quadruped | core.girth [314573, 393216] (4.8–6); core.depth [131072, 183501] (2–2.8, the LOW half — wide low silhouette); bob_amp [0, 19661] (0–0.3); leg[FL/FR/BL/BR].girth each [98304, 131072] (1.5–2) |
+| armor | levitant | core.girth [314573, 393216]; core.tendril_girth [72090, 91750] (1.1–1.4); hover_amp [0, 39322] (0–0.6) |
+| armor | amorphous | core.girth [314573, 393216]; squash_amp [0, 3277] (0–0.05) |
+| ranged | quadruped | head.eye_size [65536, 98304] (1–1.5) |
+| ranged | levitant | sensor[C].scale [65536, 98304] (1–1.5) |
+| ranged | amorphous | (no per-locus rows — structural guarantee only) |
+
+speed deliberately does NOT bias gait_freq (the gait_freq-2 K = 4
+freeze makes "higher gait frequency" a frozen-legged enemy; recorded
+deviation, amplitude carries the read).
+
+**§4.4.4 activation — the emitter orientation transform (pose.ts).**
+Pinned reading: model-space +y IS the facing axis; the four projections
+realize the orientation per direction — no envelope constant is
+direction-aware (§4.4.2's law stays literally intact). During ATTACK
+only, on nodes of kind `emitter` only, AFTER the chain-class envelope
+delta: **rear-face-invariant multiplicative stretch**
+`hy′ = fp_mul(ORIENT_STRETCH[k], hy); cy += hy′ − hy; hy = hy′` with
+**ORIENT_STRETCH = [65536, 98304, 76459, 65536]** (adjudicated over an
+additive push, which detached the emitter ~1 px from its socket at
+strike; the stretch keeps the rear face invariant by algebraic
+identity — the muzzle advances 2·(hy′ − hy) = 0.9–1.35 px at f1 while
+the mount holds). f0/f3 are exact identity (`fp_mul(65536, x) = x`);
+f2's delta = rheDiv(f1 delta, 3) = 10923 — the §4.4.2 house recovery
+shape under RHE. Inert for every genome without an emitter node (every
+shipped genome) — by construction AND by the anchor-razor baseline
+proof. Canvas note (recorded): the default quadruped attack-f1 profile
+hitbox already overhangs the frame ±1 px (shipped, legal); the maw's
+f1 muzzle advance is in-family with the shipped +3.0 head lunge; the
+corner sweep found: **down-view attack-f1 visibility 8/8 corners** (the
+primary-read view, 0 misses over scale-lo/hi × length-lo/hi ×
+size-lo/hi); up-view misses are the face turned away (the eye
+precedent); profile misses occur only at core-length-hi corners where
+the max-length head already carries the muzzle past the canvas edge
+(hitboxes legally overhang — in-family with the shipped ±1 px default
+overhang; craft never erased a rendered maw). The pinned two-way
+fallback (drop f1 to 81920 / raise to 131072) was NOT needed.
+
+**Oracle + goldens.** tests/goldens/u5_pose_oracle.v2.json: an
+independent from-spec Python oracle (fixed kernel, LUT from its
+defining formula, PCG32 from its published check vector for the
+independent kind/place draws, all three plans' geometry + U5 tables
+from spec text) — per plan one ranged genome (id 51 = 1, id 52
+non-default) + one ornamented genome (exists = 1, kind resolved by the
+oracle's OWN weighted draw; quadruped placement by the oracle's OWN
+place:a retry loop), every clip × frame: 7632 fields exact-matched.
+Goldens (both ritual-pinned 2026-07-16 — PIL pixel-compare, independent
+JSON re-canonicalization, from-spec snap+hitbox oracle exact on all 72
+frames each via an INDEPENDENTLY-DECODED DNA tape, sha256 recomputed in
+Python, two consecutive renders byte-identical):
+`tests/goldens/tagged_chitin_q7.*` (quadruped seed 7, tags {chitin} —
+grows the dorsal, 14 slabs) and `tests/goldens/ranged_lev7.*`
+(levitant seed 7, preset ranged — grows the lens, 12 slabs). Existing
+goldens NOT re-pinned (nothing moves — the razor).
+
+**Mode-corpus render sweeps (run 2026-07-16, per plan × {5 tags, 3
+presets} × seeds 0..99 = 2400 full exports + per-clip flicker, POST the
+pixel-phase repair):** quadruped + levitant (1600 exports): **0 export
+errors, 0 degenerate manifests, 0 craft errors; emitter visibility
+508/508** (every emitter genome ≥ 1 focal emitter pixel, down-view
+attack f1); ornament visibility levitant **450/450**, quadruped
+**150/336 in the down-view-f0 criterion** — the misses are the
+head-occlusion geometry (the dorsal rides the core top BEHIND the tall
+head in the front-facing down view; the same genomes read the dorsal at
+3–4 px in the PROFILE views — probe-verified), not thinness; recorded
+as the criterion under-measuring parts that read in other views, and
+disclosed as a mini-sheet watch item beside the §3.1 competition.
+Dorsal placement machinery: **58 place-draw retries, 8 drops (2 unique
+seeds, 59 + 92, across 4 modes ≈ 2.4% of ornamented quadruped genomes —
+above the 1% taste-flag line, flagged for the gate; the drops are the
+mechanism working: long-body + big-head corners where all three slots
+interpenetrate a sibling beyond 0.2 px)**. Flicker: ONE exceedance —
+quadruped tag:fleshy seed 27 walk/down at score 37.2990 vs the U2 walk
+gate 32 → the pinned ONE-STEP recalibration (the U4 lesson) on the
+union histogram (default max 25.1166 ∪ mode max 37.2990): **quadruped
+walk gate 32 → 47** (tightest integer ≥ 1.25 × 37.2990; margin 1.260×;
+the fleshy remap reaches low-motion bob/tail corners the default joint
+distribution made rare — the M1 recalibration's own artifact family);
+all other rows untouched, all other cells pass. Amorphous (800
+exports): **0 export errors, 0 degenerate manifests, 0 craft errors,
+0 flicker exceedances (the U4-calibrated amorphous rows hold on every
+mode cell); emitter visibility 254/254; ornament visibility 449/505 in
+the down-view-f0 criterion** — all 56 misses are crest-occlusion
+geometry (the rear-top rim mounts under the taller crest ball in the
+down view; probe-verified: 37 of the 56 read the rim at ≥ 1 px in
+another view, and 19 of 505 ≈ 3.8% — 18 crest-swallowed plates + one
+sprout — render zero rim pixels in all four views at the walk-f0 pose;
+"interpenetration with the crest ball is legal and invisible" is the §3
+mount's own recorded tradeoff, disclosed as a mini-sheet watch item; no
+law pins ornament visibility). Idempotence spot-checks (per plan,
+chitin + ranged, seeds 0..2, ALL clips × directions — craft re-run
+byte-identical): **0 failures over 360 cells**. Corner sweeps:
+levitant crown canvas corners (alt-hi × depth-hi × attack-f0-rise ×
+wisp/sprout, post-repair): frame-top margins **3.5 px (wisp) /
+3.125 px (sprout)** inside the canvas — the §2.3.1 corner ceiling
+holds. Quadruped maw
+profile (8 corners × 4 views, attack f1): **down-view visibility 8/8**
+(the primary-read view, 0 misses); up-view misses are the face turned
+away (the eye precedent), and the profile misses occur only at
+core-length-hi corners where the max-length head already carries the
+muzzle past the canvas edge (hitboxes legally overhang — in-family with
+the shipped ±1 px default overhang; craft never erased a rendered maw).
+The §8 two-way fallback was NOT triggered. Amorphous rim/orifice
+death-corner occlusion probe (16 corners × f1/f2, per-part field at the
+front face vs TH, run WITH and WITHOUT the new parts): the U4 face law
+HOLDS unchanged — eye worst margin **+1836** (identical with and
+without the new parts: rim/orifice carry no field weight, the field is
+untouched); the highlight's −871 at the min-girth corner is
+PRE-EXISTING U4 behavior, byte-identical in both runs. The NEW parts'
+front faces sit proud of the deflated surface at min-girth corners
+(worst rim −5245, orifice −8770 raw — the rim margin re-probed on the
+FINAL build: the pixel-phase repair moved thin rim rest centers, and
+an earlier draft's −10021 was the pre-repair value, corrected at the
+U5 gate; the orifice, whose halves exceed the repair threshold, is
+untouched by it) — they ride the sink visibly rather than being
+swallowed; no occlusion guarantee was pinned for them; recorded and
+disclosed as a mini-sheet death watch item.
+
+**Suite-time accounting (U5 gate ruling, 2026-07-16).** The as-built
+U5 suite blew the ~180 s guideline for real (456 tests at
+280.76/352.02 s implementer-solo and 218.6–321.9 s at the exec lens —
+NOT the U4 load-inflation pattern: the three new U5 files alone cost
+149.03 s solo, so no quiet machine could land it under 180). The
+round-0 gate ruling (R1) RESCALED the CI slices rather than deleting
+coverage classes: the per-run anchor slice renders defaults +
+seeds 0..1 per plan (9 exports; the committed 33-entry fingerprint
+file stays whole, and the full 33 re-render at every unit close-out),
+and the mode flicker-gate CI test measures each plan's LOUDEST clip
+per (plan, mode) (6 measureClipFlicker calls; the full 4-clip × 4-dir
+× 2-mode × 3-plan grid stays unit evidence in the recorded mode
+sweep). Post-rescale, post-fix measurement (461 tests — the re-roll
+unit vectors added five — logs retained): **187.0 s and 201.5 s wall**
+under light ambient load. The guideline therefore amends **~180 s →
+~200 s** (measured reality of a three-plan suite with mode coverage;
+trimming below the adjudicated corpus pins to chase the old number is
+a bad trade — the U4 ruling's logic). CI wall time on the dedicated
+runners stays the operative check, watched at every push.
+
+**Mini-sheet record:** `SabelFrite_U5_tags_review` (Downloads, standing
+format — 27 primary cells: 3 plans × [baseline, 5 tags, 3 presets] all
+at seed 7, + a quadruped variety strip {chitin, spectral, verdant} ×
+seeds 0..4; per-cell 4× PNGs, one labeled 3× composite, per-cell
+5-clip × 4-direction GIFs at 140 ms, variety composite, 27-cell walk
+overview GIF). Watch items disclosed: rule-5 merges may body-color a
+small ornament; maw profile clip at strike; underside plates on pale
+palettes; wisp thinness (F7 exemption expected); armor's low-depth
+quadrupeds; the quadruped ranged-forfeits-dorsal competition (design 02
+§3 working as intended); the quadruped dorsal reading in profile rather
+than down view on head-occluded genomes, and the amorphous rim plate
+sitting under the crest ball (≈ 3.8% of mode genomes show no rim pixel
+in any view — the render-sweep record above). Owner verdict:
+[EVIDENCE-PENDING owner
+mini-sheet review]. Weight-table retunes and the §4.4.4 fallback are
+legal only before the goldens pin — the goldens are pinned; any retune
+now is a new unit decision.
+
+**CI (second platform):** [EVIDENCE-PENDING CI green on both platforms
+— discharges with the two new goldens].
 
 ## 7. Acceptance instrumentation
 
@@ -1738,7 +2318,7 @@ at unit* sections in the same change.
 | U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
 | U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **CLOSED 2026-07-15 (§2.3.1)**: goldens ritual-pinned + CI-proven on both platforms; 2000-seed close-out sweep (0 export errors, 0 INF, pupil 8000/8000, gates recalibrated walk 47 / attack 144 on the full histogram tail); anchors green; map integrity CI-tested; mini-sheet owner-ACCEPTED, zero flagged seeds | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus — **CLOSED 2026-07-16 (§2.4.1)**: fork error bound 307.2 raw machine-verified; two-layer oracle (pose + field march) exact-matched from docs alone; gates one-step calibrated on the full 0..1999 run-2 sweep (walk 143 / attack 63 / hurt 28 / death 29); S3 craft debt discharged incl. idempotence; goldens CI-proven both platforms; mini-sheet owner-ACCEPTED, zero flagged seeds | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
-| U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
+| U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 — **BUILT 2026-07-16 (§5.1/§6.1)**: anchor-razor baseline byte-compared (6003-entry corpus), zero-degenerate gate sweep 6000/6000 default-path clean, bands measured + pinned (no widening needed), two mode goldens ritual-pinned, §4.4.4 activated; awaiting owner mini-sheet verdict + both-platform CI for close-out | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
 | U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
 
 Risk watch while building: R2 (oatmeal — the whole point of U5/U6),

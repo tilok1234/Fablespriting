@@ -46,13 +46,15 @@ import {
 } from "../src/genome.js";
 import type { Genome, ScalarLocus } from "../src/genome.js";
 import {
-  LEVITANT_CHAINS,
-  LEVITANT_PART_NAMES,
-  LEVITANT_PART_ROLES,
   LEVITANT_PLAN,
   deriveLevitantAnchors,
   growLevitant,
 } from "../src/grammar.js";
+import {
+  LEVITANT_CHAINS,
+  LEVITANT_PART_NAMES,
+  LEVITANT_PART_ROLES,
+} from "../src/wires.js";
 import { craftClip } from "../src/craft.js";
 import {
   CLIP_KS,
@@ -325,13 +327,15 @@ describe("levitant grammar — the design 07 §2.3.1 node table", () => {
     expect(LEVITANT_PART_ROLES.filter((r) => r === "focal")).toEqual(["focal"]); // pupil only
   });
 
-  test("canonical socket order: body.core [sensor, locomotors, ornaments, tendrils]; sensor [iris, pupil]", () => {
+  test("canonical socket order: body.core [sensor, locomotors, ornaments, tendrils, emitter, crown] (U5 appends — emitter BEFORE ornament); sensor [iris, pupil]", () => {
     const orb = LEVITANT_PLAN.core.make(LEV_DEFAULTS, 0, 1);
     expect(orb.sockets!.map((s) => s.name)).toEqual([
       "sensor",
       "locomotors",
       "ornaments",
       "tendrils",
+      "emitter",
+      "crown",
     ]);
     const sclera = orb.sockets![0]!.candidates[0]!.make(LEV_DEFAULTS, 0, 1);
     expect(sclera.sockets!.map((s) => s.name)).toEqual(["iris", "pupil"]);

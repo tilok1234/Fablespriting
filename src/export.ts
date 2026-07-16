@@ -50,6 +50,7 @@ import { DIRECTIONS, DIRECTION_TURNS, TILT_RAW, rasterize, yawSlab } from "./ras
 import type { Palette } from "./palette.js";
 import { applyPalette, derivePalette } from "./palette.js";
 import { encodePng } from "./png.js";
+import { selfCheck } from "./selfcheck.js";
 
 // ---------------------------------------------------------------------------
 // Canonical JSON (design 06 §6, normative)
@@ -500,11 +501,17 @@ export function exportCreature(genome: Genome): CreatureExport {
   }
   const sheetPng = encodePng(sheetRgba, SHEET_WIDTH, SHEET_HEIGHT);
 
-  // Canonical JSON metadata (§6 schema, normative).
+  // Canonical JSON metadata (§6 schema, normative). The U5 readability
+  // self-check (design 07 §5.1) runs at EVERY export: a degenerate
+  // genome's JSON gains top-level `"degenerate": true`, ABSENT when
+  // false (the defaults-absent house rule + the flash-flag additive-key
+  // precedent — every non-degenerate export's JSON is byte-identical to
+  // pre-U5). Accept-and-tag, never an error path (design 05 §1).
   const rgb = (ramp: readonly (readonly number[])[]): JsonValue =>
     ramp.map((c) => [c[0]!, c[1]!, c[2]!]);
   const meta: JsonValue = {
     clips: clipsJson,
+    ...(selfCheck(genome) ? { degenerate: true } : {}),
     frames: frames.map((_, i) => ({
       duration_ms: FRAME_DURATION_MS,
       pivot: { x_fp: OX_RAW, y_fp: OY_RAW },

@@ -33,7 +33,7 @@
 
 import { FP_ONE, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
-import { getScalar, makeGenome } from "./genome.js";
+import { getScalar } from "./genome.js";
 import { createStream } from "./prng.js";
 
 // ---------------------------------------------------------------------------
@@ -114,25 +114,68 @@ export interface PartInit {
  * One candidate part for a socket fill. `kind` participates in the
  * allowed-kind pre-draw pruning; `exclusionGroup` names the max-one group
  * (design 07 §1.1: pruned from the choice set *before* the draw).
+ *
+ * U5 (design 07 §6.1): `existsLocus` names a registry existence marker
+ * (06 §2, default ABSENT) — the candidate is PRUNED pre-draw when it
+ * reads 0; `tagWeights` is a length-5 integer vector indexed by trait
+ * tag id (chitin 0 … verdant 4) — the candidate's effective weight is
+ * the plain integer SUM over the genome's tags (or `neutralWeight`,
+ * default 1, when the vector is absent or the tag set empty), and
+ * effective weight 0 prunes pre-draw like an exclusion group. **Engine
+ * law (H1): `tagWeights` is legal ONLY on candidates that also carry
+ * `existsLocus`** — a mandatory socket can therefore never be
+ * zero-weighted closed (growPlan throws RangeError).
  */
 export interface PartChoice {
   readonly kind: PartKind;
   readonly exclusionGroup?: string;
-  /** Instantiate member `member` of `count` (0-based; mirror: 0 = −x/L). */
-  readonly make: (genome: Genome, member: number, count: number) => PartInit;
+  /** Registry path of the 06 §2 existence marker gating this candidate. */
+  readonly existsLocus?: string;
+  /** Per-tag weight vector (length 5, non-negative integers). */
+  readonly tagWeights?: readonly number[];
+  /** Weight when `tagWeights` is absent or the tag set is empty. */
+  readonly neutralWeight?: number;
+  /**
+   * Instantiate member `member` of `count` (0-based; mirror: 0 = −x/L).
+   * `slot` is the drawn placement slot of a `placeSlots` socket —
+   * growth always passes it (0 when the socket draws no placement).
+   */
+  readonly make: (genome: Genome, member: number, count: number, slot?: number) => PartInit;
 }
 
 /**
+ * Placement retry cap R (design 07 §5.1): a `placeSlots` socket draws at
+ * most R placement attempts (`place:0..R-1`), then drops the part.
+ */
+export const PLACE_RETRY_CAP = 3;
+
+/**
  * A named attachment point (design 07 §1.1): `{name, allowed_kinds,
- * symmetry, clearance_fp}` plus this build's fill wiring. `clearanceFp`
- * is carried but inert until U5 lands clearance retries (design 07 §5).
+ * symmetry, clearance_fp}` plus this build's fill wiring.
+ *
+ * U5 (design 07 §5.1) activates the clearance machinery: a socket WITH
+ * `placeSlots = n` draws a placement slot per attempt from
+ * `stream(seed, drawPath, "place:a")` (a = 0..{@link PLACE_RETRY_CAP}−1),
+ * builds the member slab, and tests it against every previously placed
+ * node EXCEPT the socket's parent (the host — embedding into the host is
+ * the attachment mechanism): **collision ⇔ min over axes of
+ * (hA + hB − |cA − cB|) > clearanceFp** (plain int compares; positive
+ * only when the boxes interpenetrate on all three axes). On collision
+ * the next attempt draws `place:a+1`; after R colliding attempts the
+ * part is DROPPED — the socket closes, no node placed, no budget
+ * consumed, the spent draws stay counted. A socket WITHOUT `placeSlots`
+ * never runs the check (a retry has no draw to re-roll — the shipped
+ * mandatory sockets stay outside the mechanism; their geometry is
+ * locus-derived and domain-table-verified).
  */
 export interface SocketSpec {
   readonly name: string;
   readonly allowedKinds: readonly PartKind[];
   readonly symmetry: Symmetry;
-  /** Sibling clearance radius (16.16 raw). Inert until U5. */
+  /** Sibling clearance radius (16.16 raw) for `placeSlots` sockets. */
   readonly clearanceFp: number;
+  /** Placement slot count n — presence opts the socket into clearance. */
+  readonly placeSlots?: number;
   /**
    * Recorded symmetry-group name; defaults to the socket name. The
    * quadruped's leg pairs record as `legs_fore`/`legs_hind` (design 02 §2
@@ -221,7 +264,7 @@ export function growPlan(spec: PlanSpec, genome: Genome): PartGraph {
   const usedExclusions = new Set<string>();
   let drawsConsumed = 0;
 
-  function place(init: PartInit, kind: PartKind, symmetry: string): PartInit {
+  function place(init: PartInit, kind: PartKind, symmetry: string): number {
     const id = parts.length;
     parts.push(
       Object.freeze({
@@ -245,52 +288,142 @@ export function growPlan(spec: PlanSpec, genome: Genome): PartGraph {
       chainOrder.push(init.animChain);
     }
     chain.push(id);
-    return init;
+    return id;
   }
 
-  function fillSockets(parent: PartInit): void {
+  /** The §5.1 collision predicate: interpenetration past clearanceFp. */
+  function collides(a: RestSlab, b: RestSlab, clearanceFp: number): boolean {
+    let minPen = Infinity;
+    for (let i = 0; i < 3; i++) {
+      const pen = a.half[i]! + b.half[i]! - Math.abs(a.center[i]! - b.center[i]!);
+      if (pen < minPen) minPen = pen;
+    }
+    return minPen > clearanceFp;
+  }
+
+  function fillSockets(parent: PartInit, parentId: number): void {
     for (const socket of parent.sockets ?? []) {
       const count = symmetryMemberCount(socket.symmetry);
       // Budget closes first: a socket needing more members than remain
       // closes without drawing (design 07 §1.4).
       if (parts.length + count > spec.budgetMax) continue;
-      // Pre-draw pruning (design 07 §1.1): allowed kinds, then exclusion
-      // groups already holding a member — never draw-then-reject.
-      const candidates = socket.candidates.filter(
-        (c) =>
-          socket.allowedKinds.includes(c.kind) &&
-          (c.exclusionGroup === undefined || !usedExclusions.has(c.exclusionGroup)),
-      );
-      if (candidates.length === 0) continue; // socket closes, no draw
+      // Pre-draw pruning, pinned order (design 07 §1.1 as extended at
+      // U5: budget → allowed kinds → exclusion groups → existence →
+      // tag-weights) — never draw-then-reject.
+      const survivors: PartChoice[] = [];
+      const weights: number[] = [];
+      for (const c of socket.candidates) {
+        if (c.tagWeights !== undefined) {
+          // The H1 engine law: tagWeights requires existsLocus — a
+          // mandatory socket can never be zero-weighted closed.
+          if (c.existsLocus === undefined) {
+            throw new RangeError(
+              `grammar: socket ${JSON.stringify(socket.name)} candidate carries tagWeights without existsLocus (design 07 §6.1 H1 law)`,
+            );
+          }
+          if (c.tagWeights.length !== 5 || c.tagWeights.some((w) => !Number.isInteger(w) || w < 0)) {
+            throw new RangeError(
+              `grammar: socket ${JSON.stringify(socket.name)} candidate tagWeights must be 5 non-negative integers`,
+            );
+          }
+        }
+        if (!socket.allowedKinds.includes(c.kind)) continue;
+        if (c.exclusionGroup !== undefined && usedExclusions.has(c.exclusionGroup)) continue;
+        // Existence prune (06 §2 markers): a candidate whose existence
+        // locus reads 0 (the default) is pruned BEFORE any weight is
+        // consulted — on every all-defaults-gated genome the socket
+        // closes here with zero draws (the H1 resolution).
+        if (c.existsLocus !== undefined && getScalar(genome, c.existsLocus) === 0) continue;
+        // Effective weight (design 07 §6.1): neutral when the vector is
+        // absent or the tag set empty; otherwise the plain int sum of
+        // the genome's tags' entries. Zero prunes pre-draw.
+        const w =
+          c.tagWeights === undefined || genome.traitTags.length === 0
+            ? (c.neutralWeight ?? 1)
+            : genome.traitTags.reduce((sum, t) => sum + c.tagWeights![t]!, 0);
+        if (w === 0) continue;
+        survivors.push(c);
+        weights.push(w);
+      }
+      if (survivors.length === 0) continue; // socket closes, no draw
       let choice: PartChoice;
-      if (candidates.length === 1) {
-        choice = candidates[0]!; // deterministic fill — no draw spent
+      if (survivors.length === 1) {
+        choice = survivors[0]!; // deterministic fill — no draw spent
       } else {
         if (socket.drawPath === undefined) {
           throw new RangeError(
-            `grammar: socket ${JSON.stringify(socket.name)} has ${candidates.length} candidates but no drawPath (design 07 §1.4 requires one)`,
+            `grammar: socket ${JSON.stringify(socket.name)} has ${survivors.length} candidates but no drawPath (design 07 §1.4 requires one)`,
           );
         }
+        // Exactly ONE weighted draw (design 07 §6.1): T = Σ weights in
+        // candidate-array order, r = nextRange(T), the first candidate
+        // whose cumulative weight exceeds r wins. All weights 1 makes
+        // this arithmetic-identical to the U1 uniform draw.
         const stream = createStream(genome.seed, socket.drawPath, "fill");
-        choice = candidates[stream.nextRange(candidates.length)]!;
+        const total = weights.reduce((a, b) => a + b, 0);
+        const r = stream.nextRange(total);
+        let cum = 0;
+        let idx = 0;
+        for (let i = 0; i < weights.length; i++) {
+          cum += weights[i]!;
+          if (r < cum) {
+            idx = i;
+            break;
+          }
+        }
+        choice = survivors[idx]!;
         drawsConsumed += 1;
       }
-      if (choice.exclusionGroup !== undefined) usedExclusions.add(choice.exclusionGroup);
       const group = socket.group ?? socket.name;
       const symmetry =
         socket.symmetry.kind === "single" ? "single" : `${socket.symmetry.kind}:${group}`;
+      // Build the members — with the §5.1 placement/clearance loop when
+      // the socket opts in via placeSlots.
+      let members: PartInit[] | null = null;
+      if (socket.placeSlots !== undefined) {
+        if (!Number.isInteger(socket.placeSlots) || socket.placeSlots < 1) {
+          throw new RangeError(
+            `grammar: socket ${JSON.stringify(socket.name)} placeSlots must be a positive integer`,
+          );
+        }
+        if (socket.drawPath === undefined) {
+          throw new RangeError(
+            `grammar: socket ${JSON.stringify(socket.name)} has placeSlots but no drawPath for its place draws`,
+          );
+        }
+        for (let a = 0; a < PLACE_RETRY_CAP; a++) {
+          // Each attempt is its own stream (`place:a` — the FIRST
+          // attempt is place:0); a retry in one socket can never
+          // perturb another socket's draws (06 §4 stream keying).
+          const stream = createStream(genome.seed, socket.drawPath, `place:${a}`);
+          const slot = stream.nextRange(socket.placeSlots);
+          drawsConsumed += 1;
+          const built: PartInit[] = [];
+          for (let m = 0; m < count; m++) built.push(choice.make(genome, m, count, slot));
+          const hit = built.some((init) =>
+            parts.some((node) => node.id !== parentId && collides(init.slab, node.slab, socket.clearanceFp)),
+          );
+          if (!hit) {
+            members = built;
+            break;
+          }
+        }
+        if (members === null) continue; // dropped after R colliding attempts — socket closes
+      } else {
+        members = [];
+        for (let m = 0; m < count; m++) members.push(choice.make(genome, m, count, 0));
+      }
+      if (choice.exclusionGroup !== undefined) usedExclusions.add(choice.exclusionGroup);
       // All members place from this one choice, contiguously; children
       // expand depth-first per member afterwards (design 07 §1.4).
-      const members: PartInit[] = [];
-      for (let m = 0; m < count; m++) {
-        members.push(place(choice.make(genome, m, count), choice.kind, symmetry));
-      }
-      for (const member of members) fillSockets(member);
+      const memberIds = members.map((init) => place(init, choice.kind, symmetry));
+      for (let m = 0; m < members.length; m++) fillSockets(members[m]!, memberIds[m]!);
     }
   }
 
-  const core = place(spec.core.make(genome, 0, 1), spec.core.kind, "single");
-  fillSockets(core);
+  const coreInit = spec.core.make(genome, 0, 1, 0);
+  const coreId = place(coreInit, spec.core.kind, "single");
+  fillSockets(coreInit, coreId);
 
   if (parts.length < spec.budgetMin || parts.length > spec.budgetMax) {
     throw new RangeError(
@@ -462,8 +595,138 @@ export function deriveAnchors(genome: Genome): QuadrupedAnchors {
 // The quadruped plan (design 07 §1.4 U1 amendment, node for node)
 // ---------------------------------------------------------------------------
 
-/** Zero clearance: inert until U5 pins real clearance radii (design 07 §5). */
+/** Zero clearance (mandatory sockets stay outside the §5.1 machinery). */
 const NO_CLEARANCE = 0;
+
+// ---------------------------------------------------------------------------
+// U5 shared template constants (design 07 §3/§6.1) — the new optional
+// ornament + emitter parts. Every raw machine-verified before pinning.
+// ---------------------------------------------------------------------------
+
+/** Ornament embed into its host surface: 0.3 px. */
+export const ORN_EMBED = 19661;
+/** Emitter embed into its host surface: 0.3 px. */
+export const EMIT_EMBED = 19661;
+/** Emitter half-extents at size 1.0: (0.7, 0.9, 0.7) — also the FLOOR
+ * raws (the M1 eye-floor mechanism verbatim; identity at size 1.0). */
+export const EMIT_HALF: readonly [number, number, number] = Object.freeze([
+  45875, 58982, 45875,
+]) as [number, number, number];
+
+/** The one ornament candidate family order: [plate, wisp, sprout]. */
+export const ORNAMENT_FAMILIES = ["plate", "wisp", "sprout"] as const;
+
+/**
+ * The tag→weight table (design 07 §6.1, pinned taste constants; ONE
+ * table for all three plans — the families carry the read, per-plan
+ * geometry is §3). Columns index {@link ORNAMENT_FAMILIES}; rows are
+ * per-candidate vectors indexed by tag id (chitin 0, fleshy 1,
+ * spectral 2, mechanical 3, verdant 4). Machine-verified: no 1- or
+ * 2-tag combination zeroes all three candidates (minimum total 6).
+ */
+export const ORNAMENT_TAG_WEIGHTS: Readonly<
+  Record<(typeof ORNAMENT_FAMILIES)[number], readonly number[]>
+> = Object.freeze({
+  plate: Object.freeze([6, 2, 0, 5, 0]), // chitin never grows a ghost-wisp; a ghost wears no plate
+  wisp: Object.freeze([0, 0, 6, 1, 1]),
+  sprout: Object.freeze([1, 4, 1, 0, 6]), // machines don't sprout; plants don't plate
+});
+
+/** Quadruped dorsal placement-slot cy factors of core length: +0.25, 0, −0.25. */
+const SLOT_F: readonly number[] = Object.freeze([16384, 0, -16384]);
+
+/** Quadruped dorsal clearance radius: 0.2 px allowed interpenetration. */
+const DORSAL_CLEARANCE = 13107;
+
+/** Levitant lens z offset below the orb center: −2.0 px. */
+const LENS_OZ = -131072;
+
+/** Emitter half-extents × size (id 52), FLOORED at the EMIT_HALF raws. */
+function emitterHalves(genome: Genome): readonly [number, number, number] {
+  const size = getScalar(genome, "body.emitter[C].size");
+  return [
+    Math.max(fp_mul(size, EMIT_HALF[0]), EMIT_HALF[0]),
+    Math.max(fp_mul(size, EMIT_HALF[1]), EMIT_HALF[1]),
+    Math.max(fp_mul(size, EMIT_HALF[2]), EMIT_HALF[2]),
+  ];
+}
+
+/**
+ * Coverage threshold raw (0.42 px) — mirrored from raster.ts's
+ * COVERAGE_RAW; the U5 thin-ornament pixel-phase repair keys on it.
+ */
+const ORN_COVERAGE_RAW = 27525;
+
+/**
+ * The U5 thin-ornament pixel-phase repair (implementation-evidence
+ * amendment, design 07 §6.1 — the U3 pupil pixel-phase lesson in x/y):
+ * a part whose half-extent along a screen-mapping axis is below the
+ * 0.42-px coverage threshold and whose center sits on a pixel BOUNDARY
+ * splits its supersamples across two columns and can never win a
+ * majority vote — and the §1.5 chain snap PLANTS centered parts
+ * (cx = 0, crown/rim cy) exactly on boundaries, structurally, for every
+ * genome and frame. The mode render sweep found wisp/sprout ornaments
+ * (halves 0.35–0.4) rendering ZERO pixels in EVERY view. Repair: for
+ * x and y independently, when the half-extent < 0.42 px, advance the
+ * rest center FORWARD by the smallest non-negative delta landing its
+ * pixel phase at the pixel CENTER (32768 raw) — at most one pixel,
+ * deterministic, locus-free, and byte-inert for every shipped genome
+ * (no shipped genome grows these parts). Plate candidates (halves
+ * ≥ 0.5 px) are untouched — the pinned tagged golden's dorsal plate
+ * keeps its bytes.
+ */
+function ornamentPhaseCenter(
+  center: readonly [number, number, number],
+  halves: readonly [number, number, number],
+): readonly [number, number, number] {
+  const fix = (c: number, h: number): number => {
+    if (h >= ORN_COVERAGE_RAW) return c;
+    const phase = ((c % 65536) + 65536) % 65536;
+    return fp_add(c, (32768 - phase + 65536) % 65536);
+  };
+  return [fix(center[0], halves[0]), fix(center[1], halves[1]), center[2]];
+}
+
+/**
+ * Build one plan's three ornament candidates (design 07 §6.1): kind
+ * `ornament`, role `underside` (the horns/highlight bright-ramp contrast
+ * precedent), shared tag→weight table, per-plan geometry supplied by
+ * `center` (which receives the candidate's halves and the drawn
+ * placement slot). Centers pass through the thin-ornament pixel-phase
+ * repair above.
+ */
+function ornamentCandidates(
+  namePrefix: string,
+  path: string,
+  existsLocus: string,
+  animChain: string,
+  halvesByFamily: Readonly<Record<(typeof ORNAMENT_FAMILIES)[number], readonly [number, number, number]>>,
+  center: (
+    genome: Genome,
+    halves: readonly [number, number, number],
+    slot: number,
+  ) => readonly [number, number, number],
+): PartChoice[] {
+  return ORNAMENT_FAMILIES.map((family) => ({
+    kind: "ornament" as const,
+    existsLocus,
+    tagWeights: ORNAMENT_TAG_WEIGHTS[family],
+    neutralWeight: 1,
+    make(genome: Genome, _member: number, _count: number, slot = 0): PartInit {
+      const halves = halvesByFamily[family];
+      return {
+        name: `${namePrefix}_${family}`,
+        path,
+        materialRole: "underside",
+        animChain,
+        slab: {
+          center: ornamentPhaseCenter(center(genome, halves, slot), halves),
+          half: halves,
+        },
+      };
+    },
+  }));
+}
 
 function undersideChoice(): PartChoice {
   return {
@@ -681,6 +944,74 @@ function tailChoice(): PartChoice {
   };
 }
 
+/**
+ * The quadruped maw emitter (design 07 §6.1, U5): fires from the face —
+ * chain `head`, role `focal` (F5: the high-contrast focal ramp; F16
+ * merge-protection inherited). Proud of the snout front by
+ * 2·hy_e − 0.3 ≥ 1.5 px at every size (floors), machine-verified.
+ */
+function mawChoice(): PartChoice {
+  return {
+    kind: "emitter",
+    existsLocus: "body.emitter[C].exists",
+    make(genome) {
+      const a = deriveAnchors(genome);
+      const scale = getScalar(genome, "body.head.scale");
+      const [hx, hy, hz] = emitterHalves(genome);
+      const snoutFront = fp_add(
+        fp_add(a.hy, fp_mul(scale, SNOUT_OY)),
+        getScalar(genome, "body.head.snout_len"),
+      );
+      return {
+        name: "maw",
+        path: "body.emitter[C]",
+        materialRole: "focal",
+        animChain: "head",
+        slab: {
+          center: [
+            0,
+            fp_add(snoutFront, fp_sub(hy, EMIT_EMBED)),
+            fp_add(a.hz, fp_mul(scale, SNOUT_OZ)), // the snout line
+          ],
+          half: [hx, hy, hz],
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Quadruped dorsal ornament candidates (design 07 §6.1): plate / wisp /
+ * sprout riding the core top (cz couples to the derived CZ anchor +
+ * genomic depth — delta-form inherited from a.cz, no new σ), placed at
+ * one of 3 drawn cy slots (±0.25·length, 0) under the §5.1 clearance
+ * machinery (the unit's only drawn-placement socket).
+ */
+function dorsalCandidates(): PartChoice[] {
+  return ornamentCandidates(
+    "dorsal",
+    "body.ornament[D]",
+    "body.ornament[D].exists",
+    "body",
+    {
+      plate: [32768, 72090, 58982], // 0.5, 1.1, 0.9
+      wisp: [26214, 45875, 85197], // 0.4, 0.7, 1.3
+      sprout: [22938, 32768, 98304], // 0.35, 0.5, 1.5
+    },
+    (genome, halves, slot) => {
+      const a = deriveAnchors(genome);
+      return [
+        0,
+        fp_mul(SLOT_F[slot]!, getScalar(genome, "body.core.length")),
+        fp_add(
+          fp_add(a.cz, getScalar(genome, "body.core.depth")),
+          fp_sub(halves[2], ORN_EMBED),
+        ),
+      ];
+    },
+  );
+}
+
 function coreChoice(): PartChoice {
   return {
     kind: "core",
@@ -736,6 +1067,28 @@ function coreChoice(): PartChoice {
             symmetry: { kind: "single" },
             clearanceFp: NO_CLEARANCE,
             candidates: [tailChoice()],
+          },
+          // U5 appends (design 07 §6.1) — EMITTER BEFORE ORNAMENT on
+          // every plan (the guarantee-order ruling: the ranged-forced
+          // emitter fills first and can never be budget-vetoed; on the
+          // quadruped, 13 + 2 > 14 means dorsal + emitter never
+          // coexist — a ranged quadruped forfeits its dorsal ornament,
+          // design 02 §3's slot scarcity working as intended).
+          {
+            name: "emitter",
+            allowedKinds: ["emitter"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE, // no placement draw — inert (§5.1 ruling)
+            candidates: [mawChoice()],
+          },
+          {
+            name: "dorsal",
+            allowedKinds: ["ornament"],
+            symmetry: { kind: "single" },
+            clearanceFp: DORSAL_CLEARANCE,
+            placeSlots: 3,
+            drawPath: "body.ornament[D]",
+            candidates: dorsalCandidates(),
           },
         ],
       };
@@ -1044,6 +1397,59 @@ function tendrilsChoice(): PartChoice {
   };
 }
 
+/**
+ * The levitant lens emitter (design 07 §6.1, U5): chain `body` (rides
+ * the hover rigidly with the face, F16), role `focal`. Sits 2.0 px
+ * below the orb center, under the eye stack; proud of the orb front by
+ * ≥ 1.5 px at every size (floors) and of the sclera front at every
+ * sensor scale — machine-verified.
+ */
+function lensChoice(): PartChoice {
+  return {
+    kind: "emitter",
+    existsLocus: "body.emitter[C].exists",
+    make(genome) {
+      const a = deriveLevitantAnchors(genome);
+      const [hx, hy, hz] = emitterHalves(genome);
+      return {
+        name: "lens",
+        path: "body.emitter[C]",
+        materialRole: "focal",
+        animChain: "body",
+        slab: {
+          center: [0, fp_add(a.orbHy, fp_sub(hy, EMIT_EMBED)), fp_add(a.z0, LENS_OZ)],
+          half: [hx, hy, hz],
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Levitant crown ornament candidates (design 07 §6.1): plate (flat cap)
+ * / wisp (flame) / sprout riding the orb top at 0.3 embed — fixed
+ * central placement (no placement draw; crown hx ≤ 1.3 clears both
+ * horns at every girth: horn x tracks girth OUTWARD, the gap only
+ * grows).
+ */
+function crownCandidates(): PartChoice[] {
+  return ornamentCandidates(
+    "crown",
+    "body.ornament[K]",
+    "body.ornament[K].exists",
+    "body",
+    {
+      plate: [85197, 39322, 32768], // 1.3, 0.6, 0.5 — flat cap
+      wisp: [26214, 26214, 104858], // 0.4, 0.4, 1.6 — flame
+      sprout: [22938, 22938, 117965], // 0.35, 0.35, 1.8
+    },
+    (genome, halves) => {
+      const a = deriveLevitantAnchors(genome);
+      return [0, 0, fp_add(a.z0, fp_add(a.orbHz, fp_sub(halves[2], ORN_EMBED)))];
+    },
+  );
+}
+
 function orbChoice(): PartChoice {
   return {
     kind: "core",
@@ -1089,6 +1495,24 @@ function orbChoice(): PartChoice {
             clearanceFp: NO_CLEARANCE,
             candidates: [tendrilsChoice()],
           },
+          // U5 appends (design 07 §6.1) — emitter before ornament (the
+          // §3.1 guarantee-order ruling); census 11 + 2 = 13 ≤ 14, both
+          // fit, no competition on this plan.
+          {
+            name: "emitter",
+            allowedKinds: ["emitter"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [lensChoice()],
+          },
+          {
+            name: "crown",
+            allowedKinds: ["ornament"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE, // fixed placement — no draw to re-roll
+            drawPath: "body.ornament[K]", // the kind fill draw
+            candidates: crownCandidates(),
+          },
         ],
       };
     },
@@ -1121,65 +1545,11 @@ export function growLevitant(genome: Genome): PartGraph {
 }
 
 // ---------------------------------------------------------------------------
-// The grammar's structural output (design 07 §1.2: the frozen M1 wires
-// PART_NAMES / CHAINS / PART_ROLES are now DERIVED from the grown graph)
+// The grammar's structural output wires (PART_NAMES / CHAINS / PART_ROLES
+// and the per-plan variants) live in wires.ts since U5 — derived from the
+// all-defaults growths there, byte-identical values; see wires.ts for the
+// module-cycle rationale.
 // ---------------------------------------------------------------------------
-
-/**
- * The quadruped's structure is genome-independent (no existence loci in
- * version 1; the fidelity law fixes the 13-part set), so the structural
- * wires derive once from the all-defaults growth.
- */
-const STRUCTURE: PartGraph = growQuadruped(makeGenome());
-
-/**
- * Part names in the pinned slab order — the design 06 §1.2 part table's
- * row order with mirror pairs and leg sockets expanded, now emitted by
- * the grammar's depth-first expansion. `poseQuadruped()[i]` is always the
- * part `PART_NAMES[i]`; the rasterizer's part-tag ids index this list.
- * Mirror pairs emit their −x (left) member first, matching the
- * FL-before-FR socket convention (FL is the −hip_x socket, §1.2 hips).
- */
-export const PART_NAMES: readonly string[] = STRUCTURE.slabOrder;
-
-/**
- * The quadruped skeleton chains (design 06 §1.5 pinned chain table):
- * pixel snapping is chain-GROUPED (constraint row 3, F14/F16 — per-slab
- * snapping reshaped the wolf's head), so all slabs of a chain receive
- * one snap offset per frame. Indices index {@link PART_NAMES}; each
- * chain's FIRST slab is its anchor (core, head, each leg, tail) — the
- * slab whose continuous projected screen center defines the chain's
- * screen position in craft.ts `snapOffsets`.
- */
-export const CHAINS: readonly Chain[] = STRUCTURE.chains;
-
-/** Material role of each pinned slab position (§1.2 part-table column). */
-export const PART_ROLES: readonly MaterialRole[] = Object.freeze(
-  STRUCTURE.parts.map((p) => p.materialRole),
-);
-
-/**
- * The levitant's structure is likewise genome-independent (no existence
- * loci; tendril count fixed at 3 in U3), so its structural wires derive
- * once from the all-defaults growth (design 07 §2.3.1 node table).
- */
-const LEVITANT_STRUCTURE: PartGraph = growLevitant(makeGenome());
-
-/** Levitant part names in the pinned slab order (design 07 §2.3.1). */
-export const LEVITANT_PART_NAMES: readonly string[] = LEVITANT_STRUCTURE.slabOrder;
-
-/**
- * The levitant skeleton chains (design 07 §2.3.1 chain table): body =
- * {orb, sclera, iris, pupil, horn_l, horn_r} (slabs 0,1,2,3,6,7 —
- * non-contiguous membership is legal), wing_l {4}, wing_r {5},
- * tendril_0..2 {8},{9},{10}.
- */
-export const LEVITANT_CHAINS: readonly Chain[] = LEVITANT_STRUCTURE.chains;
-
-/** Material role of each levitant slab position (§2.3.1 node table). */
-export const LEVITANT_PART_ROLES: readonly MaterialRole[] = Object.freeze(
-  LEVITANT_STRUCTURE.parts.map((p) => p.materialRole),
-);
 
 // ---------------------------------------------------------------------------
 // Amorphous geometry — design 07 §2.4.1 (U4) pinned template constants.
@@ -1564,6 +1934,63 @@ function highlightChoice(): PartChoice {
   };
 }
 
+/**
+ * The amorphous orifice emitter (design 07 §6.1, U5): a CLASSIC focal
+ * slab (no fieldWeight) on the one blob chain — strictly in front of
+ * the visible field surface by ≥ 1.5 px at every size (floors), it wins
+ * its pixels by depth; no eye floor needed (it PROTRUDES by
+ * construction, never sets back). Machine-verified at defaults.
+ */
+function orificeChoice(): PartChoice {
+  return {
+    kind: "emitter",
+    existsLocus: "body.emitter[C].exists",
+    make(genome) {
+      const a = deriveAmorphousAnchors(genome);
+      const [hx, hy, hz] = emitterHalves(genome);
+      return {
+        name: "orifice",
+        path: "body.emitter[C]",
+        materialRole: "focal",
+        animChain: "blob",
+        slab: {
+          center: [0, fp_add(a.blobVy, fp_sub(hy, EMIT_EMBED)), a.z0],
+          half: [hx, hy, hz],
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Amorphous rim ornament candidates (design 07 §6.1): classic slabs on
+ * the blob chain, rear-top mounted (cy = −0.5·blobVy — clear of the
+ * eyes, reads over the crest; interpenetration with the crest ball is
+ * legal and invisible: one mass). No placement draw ⇒ no clearance
+ * check (§5.1).
+ */
+function rimCandidates(): PartChoice[] {
+  return ornamentCandidates(
+    "rim",
+    "body.ornament[M]",
+    "body.ornament[M].exists",
+    "blob",
+    {
+      plate: [78643, 58982, 32768], // 1.2, 0.9, 0.5
+      wisp: [26214, 26214, 91750], // 0.4, 0.4, 1.4
+      sprout: [22938, 22938, 104858], // 0.35, 0.35, 1.6
+    },
+    (genome, halves) => {
+      const a = deriveAmorphousAnchors(genome);
+      return [
+        0,
+        fp_mul(-32768, a.blobVy),
+        fp_add(a.z0, fp_add(a.blobVz, fp_sub(halves[2], ORN_EMBED))),
+      ];
+    },
+  );
+}
+
 function blobChoice(): PartChoice {
   return {
     kind: "core",
@@ -1601,6 +2028,23 @@ function blobChoice(): PartChoice {
             symmetry: { kind: "single" },
             clearanceFp: NO_CLEARANCE,
             candidates: [highlightChoice()],
+          },
+          // U5 appends (design 07 §6.1) — emitter before ornament (the
+          // §3.1 guarantee-order ruling); census 7 + 2 = 9, both fit.
+          {
+            name: "emitter",
+            allowedKinds: ["emitter"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [orificeChoice()],
+          },
+          {
+            name: "rim",
+            allowedKinds: ["ornament"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE, // fixed placement — no draw to re-roll
+            drawPath: "body.ornament[M]", // the kind fill draw
+            candidates: rimCandidates(),
           },
         ],
       };
@@ -1653,29 +2097,5 @@ export function growAmorphous(genome: Genome): PartGraph {
   return growPlan(AMORPHOUS_PLAN, genome);
 }
 
-/**
- * The amorphous structure is genome-independent (no existence loci;
- * ball count fixed at 4), so its structural wires derive once from the
- * all-defaults growth (design 07 §2.4.1 node table).
- */
-const AMORPHOUS_STRUCTURE: PartGraph = growAmorphous(makeGenome({ values: [["meta.plan", 2]] }));
-
-/** Amorphous part names in the pinned slab order (design 07 §2.4.1):
- * blob, crest, skirt, drip, eye_l, eye_r, highlight. */
-export const AMORPHOUS_PART_NAMES: readonly string[] = AMORPHOUS_STRUCTURE.slabOrder;
-
-/**
- * The amorphous skeleton chains (design 07 §2.4.1 chain table, as
- * amended at implementation): ONE blob chain {0, 1, 2, 3, 4, 5, 6} —
- * balls AND face parts ride the blob's snap offset (the shadow chain
- * seam therefore sees all seven slabs; the ball extents dominate its
- * x-span in the front/back views, and a floor-pushed eye may
- * legitimately widen it in profile — the levitant eye-stack
- * precedent, derived, no special case).
- */
-export const AMORPHOUS_CHAINS: readonly Chain[] = AMORPHOUS_STRUCTURE.chains;
-
-/** Material role of each amorphous slab position (§2.4.1 node table). */
-export const AMORPHOUS_PART_ROLES: readonly MaterialRole[] = Object.freeze(
-  AMORPHOUS_STRUCTURE.parts.map((p) => p.materialRole),
-);
+// AMORPHOUS_PART_NAMES / AMORPHOUS_CHAINS / AMORPHOUS_PART_ROLES live in
+// wires.ts since U5 (byte-identical values; module-cycle rationale there).

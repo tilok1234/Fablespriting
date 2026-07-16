@@ -40,6 +40,7 @@ it, this section is its contract.
 ```
 npm run build
 node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant|amorphous]
+                       [--tags T1[,T2]] [--preset speed|armor|ranged]
                        [--out DIR]                        # or the
                                                           # `fablesprite`
                                                           # bin after
@@ -62,6 +63,17 @@ node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant|amorphous]
   one: `node dist/cli.js sheet --seed-range 0..24 --plan amorphous`
   (the amorphous renders through the metaball field fork — expect a
   few seconds per genome, the march is the pipeline's hot path).
+- `--tags` / `--preset` (since U5, design 07 §6.1) open the sampler
+  MODES: `--tags` forces the trait-tag set (at most 2 distinct names of
+  `chitin, fleshy, spectral, mechanical, verdant` — tag-gated ornament/
+  emitter draws and gait-temperament priors activate), `--preset`
+  applies an FFF prior preset (`ranged` guarantees an emitter part;
+  `armor` forces a shell ornament). Both are recorded in the JSON
+  manifest ONLY when supplied (`tags` as names, `preset` as its name) —
+  committed manifests stay byte-intact. Without these flags the sampler
+  is byte-identical to pre-U5 (the anchor razor). The U5 owner
+  mini-sheet cells: e.g.
+  `node dist/cli.js sheet --seed-range 7..7 --plan levitant --preset ranged`.
 - Each genome contributes its full 128×640 export sheet at 1× (since
   U2: 20 rows — [walk, idle, attack, hurt, death] × 4 directions),
   composed row-major into `ceil(√N)` columns (capped at 31 so the
