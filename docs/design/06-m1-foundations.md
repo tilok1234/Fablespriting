@@ -1128,6 +1128,18 @@ issued genomes, degradation stays linear, and the U4 append will grow
 the hand-edited bound regardless. All three bounds machine-verified,
 CI-pinned in `tests/genome.test.ts` and `tests/levitant.test.ts`.*
 
+*Amended with U4 (2026-07-16): `meta.plan` gains member 2 (amorphous)
+and the registry gains ids 47–50 (07 §2.4.1). The quadruped and
+levitant sampler-reachable worsts stay exactly **138 B** and **85 B**
+(their scope sets did not move); the largest sampler-reachable
+**amorphous** tape (plan entry + max seed + 2 tags + shared loci +
+ids 47–50 at costliest extremes — worst payloads 1 B for id 47, 3 B
+each for ids 48–50) is **60 B = 80 chars**. The fully adversarial
+hand-edited cross-plan tape grows by the predicted 14 B to **193 B =
+258 chars** — still emitted by no sampler, degradation still linear,
+recorded and accepted. All bounds machine-verified, CI-pinned in
+`tests/genome.test.ts` and `tests/amorphous.test.ts`.*
+
 ## 4. Stream keying: hash(seed, path, draw) → PCG32
 
 Design 01 §2's stability rule, made executable. Every random draw in the
@@ -1218,6 +1230,13 @@ draws the shared loci plus ids 36–46; neither plan draws the other's
 scope. A second implementation reading this section verbatim against
 the 47-locus registry MUST apply the scope filter or it will emit
 different bytes. Scope column and full rationale: 07 §2.3.1 (D-a).*
+
+*Amended with U4 (2026-07-16): the scope table gains
+`amorphous = {47–50}` and `sampleGenome` accepts plan 2 (07 §2.4.1
+D-a). The existing scope sets do not move — sampled quadruped AND
+levitant DNA stay byte-identical to the U3-close build's strings,
+CI-asserted against committed-build vectors in
+`tests/amorphous.test.ts`.*
 
 ### 4.3 Test vectors (normative)
 

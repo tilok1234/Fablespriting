@@ -60,7 +60,11 @@ socket order** (pinned per plan in this doc's unit amendments — never
 iteration order of a map), every draw stream-keyed by
 `hash(seed, locus_path, draw_name)` exactly as 06 §4. Part budget at
 32×32: 8–14 (design 02 §3); each placement consumes budget; exhausted
-budget closes remaining sockets.
+budget closes remaining sockets. *(U4 note: design 02 §3's band is
+literally "~8–14" — tilde-loose. The amorphous PlanSpec pins
+[7, 14]: its honest mandatory census is 7 parts (the spike's exact
+part list) and inventing an 8th to satisfy the band would be exactly
+the speculation the schema bans. Recorded deviation, §2.4.1.)*
 
 Exclusion groups are socket-level: a group name + max-one rule enforced
 at draw time by removing excluded candidates from the choice set
@@ -101,6 +105,18 @@ paths):
 - Amorphous: `body.blob` (core field), `body.ball[B:0..]` (serial
   metaball control points), `body.eye[L]`/`[R]` (mirror slab face
   parts, S1b-proven composition).
+  **U4 vocabulary amendment (§2.4.1):** `body.blob` IS a grown node —
+  the plan's core (growth must start at a core node; it carries the
+  main body ball's slab) and the field owner (the field is the union
+  of the blob chain's ball slabs, evaluated only by the §3 fork); the
+  serial group holds the three AUXILIARY balls `body.ball[B:0..2]`
+  (crest, skirt, drip — four ball nodes total, the spike's four
+  balls). S1b's asymmetric gloss highlight adds `body.ornament[C]`
+  (kind `ornament` from design 02's closed list, mandatory fill — the
+  U3 horns precedent: the part exists at defaults, so 06 §2's
+  existence-locus optional-ornament form cannot apply; `[C]`
+  single-central spelling per the `body.sensor[C]` precedent; `single`
+  symmetry legally places it off-axis at x = −2.4).
 
 ### 1.4 U1 amendment — engine pins and the quadruped grammar
 
@@ -648,6 +664,627 @@ start* from `spikes/spike01b_more_plans.py::slime()`).
 Death = deflate: envelope scales ball weights down, blob sinks to the
 ground line, face parts fade behind the collapsing surface.
 
+#### 2.4.1 U4 amendment — the amorphous plan and the renderer fork (delivered)
+
+Notation: design 06 §0 — every decimal below denotes the fp raw
+`RHE(d · 65536)`; phases/lags in TURNS. Every raw in this amendment was
+machine-verified against its authored derivation before pinning
+(`u4-specwork/verify_u4.py`, the adjudication `u4-adjwork/adjudicate_u4.py`
+— ALL CHECKS PASS — and the implementation re-check
+`u4-verify/verify_impl_raws.py`, 74/74); derivations, not decimals, are
+the pins where they disagree by 1 ulp (the M1 underside-line precedent).
+
+**Registry append (ids 47–50, 4 loci).** Bounds inclusive, in raws;
+every locus has exactly one pipeline consumer (no speculative loci —
+squash_amp gains a second, growth-time consumer in the wide-pose eye
+floor below).
+
+| id | path | kind | [lo, hi] | default | consumer |
+|----|------|------|----------|---------|----------|
+| 47 | `anim.amorphous.pulse_freq` | int | [1, 2] | 1 | gait base phase θ = p·φ (slime sin(φ)); p = 2 freezes hop AND squash at K = 4 (sin of half-turn multiples ≡ 0) — recorded degeneracy, the gait_freq-2/hover_freq-2 precedent; crest/drip stay alive via lag (the tendril analog) |
+| 48 | `anim.amorphous.squash_amp` | fp ratio | [0, 13107] (0–0.2) | 9830 (0.15) | walk squash = 1 − a·sin(θ) (slime 0.15). Domain NARROWED from a 0.25 sketch by the 512-config corner sweep (F9 normative — amplitudes are geometry): at 0.25 the max-squash frames bury the eyes (worst proud margin −344 raw) and detach the drip; 0.2 clears every corner. RATIO-typed, not px: squash is the multiplicative mechanism; the F9 visible-units law binds the px-denominated amplitudes (hop/drip/crest — template constants, which ARE visible units: centers translate 1:1) — recorded honestly |
+| 49 | `anim.amorphous.ball_phase_delta` | fp turns | [0, 16384] (0–0.25 turns) | 13559 (1.3 rad = 0.20690143 turns) | soft-body lag λ: crest signal sin(θ − λ); drip lag = λ + DRIP_EXTRA (plain int add). TURNS per the tail_lag/tendril_lag precedent (cross-checks: RHE(0.7 rad) = 7301 = id 39's default, RHE(0.9 rad) = 9387 = id 11 — reproduced). **DRIP_EXTRA = 6259, ADJUDICATED: the spike authors the drip lag as ABSOLUTE 1.9 rad, so the pin is the difference RHE(1.9 rad turns) − RHE(1.3 rad turns) = 19818 − 13559 = 6259 — the all-defaults drip lag is exactly the spike's own raw 19818 (the rejected alternative RHE(0.6 rad) = 6258 lands −1 ulp off the spike, which never authors 0.6).** Hi 0.25 turns: past a quarter turn the crest reads anti-phase to the hop; domains cannot shrink post-ship |
+| 50 | `anim.amorphous.anticipation` | fp | [32768, 131072] (0.5–2) | 65536 (1.0) | attack f0 scale — the exact id-35/41 analog (§4.4.3 rule: f0 only) |
+
+**D-a scoping (design 06 §4.2 amendment).** `meta.plan` grows member
+`amorphous = 2` (enum hi 1 → 2); `LOCUS_SCOPES` gains
+`amorphous = {47–50}`; shared and quadruped/levitant scope sets DO NOT
+MOVE, so sampled quadruped AND levitant DNA is byte-identical to the
+U3-close build's (CI-asserted against committed-build strings, seeds
+0/1/7/40/1132 quadruped + 0/1/7 levitant). Plan stays a caller
+parameter consuming no draw (plan-MIX defers to U6). CLI:
+`--plan amorphous`. All-defaults amorphous tape = bytes `01 00 04` =
+**`AQAE`**.
+
+**The big call (D-d homology, the U3 ruling re-verified).** The main
+ball's dims consume the EXISTING `body.core.girth/length/depth`
+(ids 13/14/15) through delta-form couplings (anchor table below):
+x ↔ girth, y ↔ length, z ↔ depth, exact at defaults because
+`fp_mul(σ, 0) = 0`. The skirt, drip position, eye and highlight anchors
+couple to the same three ids. No amorphous dimension locus exists —
+body-path crossover homology stays honest. **Recorded divergence (the
+eye-scale homology gap):** ids 19 (`body.head.eye_size`) and 43
+(`body.sensor[C].scale`) have no amorphous member; a
+`body.blob.eye_size` variety locus was contested at adjudication and
+NOT appended — U4's registry scope is the §2.4-named anim leaves +
+anticipation, and append-only makes eye variety a free later append
+(the U3 FLAP_AMP ruling). Eye visibility is carried by the forward
+floors below instead.
+
+**Template constants (the five-leaf ruling applied — named, one
+consumer each, NOT loci):** HOP_AMP 78643 (1.2), IDLE_BREATH 6554
+(0.10), DRIP_ZAMP 72090 (1.1), DRIP_YAMP 78643 (1.2), HOP_DRIP 19661
+(0.3), CREST_XAMP 104858 (1.6), CREST_ZREL 235930 (3.6), EYE_ZREL
+52429 (0.8), DRIP_EXTRA 6259 (the adjudicated difference pin), ball
+weights W = [65536, 52429, 45875, 36045] (1.0/0.8/0.7/0.55), every
+visible-radius constant, anchor slope, envelope delta, and fork
+constant below.
+
+**Node table (7 nodes, one slab per node; names are the amorphous
+PART_NAMES; raster part tags index this order — THE part-tag law).**
+`body.blob` IS a grown node — the plan's core and the field owner (the
+field is the union of the ball slabs, evaluated only by the fork);
+the three auxiliary balls are `body.ball[B:0..2]` (crest, skirt, drip
+— serial(3), ordinals in placement order; ball count FIXED at 4, the
+U3 tendril-count ruling verbatim: a count locus defaulting to 3
+collides with 06 §2's existence-defaults-absent law — recorded
+tension, deferred). The highlight is `body.ornament[C]` (§1.3 U4
+vocabulary amendment — the U3 horns precedent: kind `ornament`,
+mandatory fill, `[C]` per the `body.sensor[C]` spelling; a single
+part legally placed off-axis at x = −2.4, the spike's asymmetric
+gloss). Canonical socket order `body.blob: [balls, eyes, highlight]`;
+every socket a single-candidate mandatory fill ⇒ **zero draws for
+every amorphous genome** (CI-asserted); `mirror_broken` false always.
+Budget pinned [7, 14] — the honest mandatory census is 7 (the spike's
+exact part list; design 02 §3's band is "~8–14", tilde-loose, and an
+invented 8th part would be banned speculation; §1.1 note added).
+
+| id | name | path | kind | role | chain | symmetry |
+|----|------|------|------|------|-------|----------|
+| 0 | blob | body.blob | core | hide | blob | single |
+| 1 | crest | body.ball[B:0] | segment | hide | blob | serial:balls |
+| 2 | skirt | body.ball[B:1] | segment | hide | blob | serial:balls |
+| 3 | drip | body.ball[B:2] | segment | hide | blob | serial:balls |
+| 4 | eye_l | body.eye[L] | sensor | focal | blob | mirror:eyes |
+| 5 | eye_r | body.eye[R] | sensor | focal | blob | mirror:eyes |
+| 6 | highlight | body.ornament[C] | ornament | underside | blob | single |
+
+**D-c roles:** blob + balls = hide (one mass, one ramp); eyes = focal
+(F16 merge-protected, the pinned focal table); highlight =
+**underside** — the F5 contrast read: underside is the palette's
+bright ramp, exactly the gloss cue the spike's `slimehi` ramp plays.
+Roles used = exactly [hide, underside, focal]. Recorded watch item
+(mini-sheet): the dominant-ball part tags create interior part
+boundaries inside the hide mass; craft rule 4 may draw edge-2 seams
+along ball boundaries where depth differs (the spike's single-material
+craft_lite has none). Recorded fallback if the owner flags
+segmentation seams: collapse all ball part tags to node 0 (one golden
+re-pin before U4 closes, never after) — the iris↔sclera fallback
+pattern.
+
+**D-e chains — AMENDED AT IMPLEMENTATION (evidence below): ONE blob
+chain holding all seven slabs.** The adjudicated resolution gave the
+eyes and highlight their own chains (the wing/tendril own-signal
+reading). Production evidence refuted its fitness: under own chains
+the 06 §1.5 snap law plants each eye chain's anchor — the eye itself —
+on a whole-pixel raw, i.e. a pixel CORNER, every genome, every frame:
+the worst possible 4-way sample straddle for a 1.7 px focal part, and
+STRUCTURAL — no rest-geometry lever can move it (any rest shift
+cancels through the chain's own snap), so the pinned U3 pixel-phase
+fallback is mechanically inapplicable. The rendered visibility sweep
+found zero-focal-pixel frames with HEALTHY field margins (seed 11 walk
+f3: field 6246 raw BELOW TH at the eye front yet zero focal pixels —
+the eye's ~4 samples per straddled pixel lose every majority vote;
+the raw value is a PRE-REPAIR-BUILD diagnostic whose probe log was not
+retained — the zero-focal fact itself is backed by the run-1 shard
+record's zff list).
+Riding the blob chain restores the spike's exact relative vote
+geometry — the accepted S1b renders are the evidence — and the face's
+oscillators ARE the squash signal (eye y = restCy·squash, highlight z
+rides stretch), the blob's own signal: this is the levitant F16
+rigid-face case, not the wing/tendril independent-signal case the
+adjudication assumed. Face scramble is impossible by construction
+(one chain, one offset; CI asserts all seven slabs share the frame
+offset). §3's "face parts keep their own chains" sketch line is
+superseded by this record. Within-chain relative motion renders at
+raw sub-pixel positions (the levitant pupil-on-body-chain precedent);
+the flicker gates below price the resulting breathing shimmer on the
+full histogram.
+
+| chain | slab indices | anchor |
+|-------|--------------|--------|
+| blob | 0, 1, 2, 3, 4, 5, 6 | blob |
+
+**D-k shadow/hitbox.** Ball slabs carry VISIBLE half-extents (F8) —
+`deriveHitbox`, the AABB, the shadow, flicker energy, and craft see
+visible-radius geometry with NO plan special-case; the fork alone
+converts to ball radii. Shadow = `graph.chains[0]` through the
+existing plan-aware seam (no code change) — now all seven slabs; the
+ball extents dominate its x-span in the front/back views, and a
+floor-pushed eye may legitimately widen it in profile (the levitant
+eye-stack precedent, derived, no special case). The slime TOUCHES the
+ground (rest blob bottom −0.156 px, skirt −0.512 px below the ground
+line, constant across the depth domain by the shared σ): the
+ground-anchored ellipse reads as a contact shadow. Recorded honestly:
+(1) where balls overlap, the summed field bulges past single-ball
+visible radii, so rendered pixels can overshoot the slab-derived
+hitbox — measured worst case on the full 0..1999 sweep: **1 px**
+(seed 3, walk left f0) — legal, the hitbox law is slab-derived;
+(2) death hitboxes derive from undeflated extents (weight-only
+deflate; overshoot grows on f2/f3 — same clause).
+
+**THE FORK (D-f) — normative fp field rasterization.** Lives entirely
+inside `rasterize`; same projection, frame anchors, supersample grid,
+coverage rule, majority vote, tie-breaks, per-pixel (part, depth,
+material, tone) tags, and the 06 §1.4 canonical serialization
+VERBATIM. `Slab` gains optional `fieldWeight` (positive fp raw,
+per-frame — death deflates it); slabs carrying it form THE field
+group; classic slabs run the Q-steps unchanged; `yawSlab` passes it
+through; the §1.5 offset hook applies to ball slabs like classic ones.
+Constants: VIS_RATIO 43909 = RHE(0.67·2^16) (F8's normative law),
+BALL_FROM_VIS 97815 = fp_div(65536, 43909) — ball radii recover ONCE
+per rasterize call as `fp_mul(vis, BALL_FROM_VIS)`, inverses once per
+ball per axis (divides never per sample, 06 §5.2; round-trip vs the
+spike's authored ball radii ≤ 1 ulp — recorded; the true single-ball
+visible ratio at TH 0.3 is 0.6725, so surfaces sit ~0.4% proud of
+authored visible radii). TH_RAW = MARCH_STEP = 19661 = RHE(0.3·2^16);
+MARCH_CAP = 256 (exceeding it traps — the MAX_PASS_ITERS pattern;
+worst legal span 99 steps, headroom 157); BISECT_ITERS = 6 with
+`mid = asr(fp_add(lo, hi), 1)` (floor, pinned); ENTRY DEPTH = hi (the
+inside point, spike verbatim). Worst-case surface-depth error =
+MARCH_STEP/2^6 = **307.2 raw = 0.0046875 px** (machine-verified
+≤ 308 raw); determinism does not rest on the bound — every op is a
+pinned exact fp op. Field per point: per ball in ascending node id,
+per-axis guards |X|,|Y|,|Z| ≤ FP_ONE (they keep every squaring inside
+int32 for arbitrarily distant samples), `d2 = X² + Y² + Z²` plain int
+adds, term = `fp_mul(w, fp_mul(t, t))`, `t = FP_ONE − d2`, **a ball's
+term is 0 when d2 ≥ FP_ONE** (the t ≤ 0 clamp, pinned: the per-axis
+guards alone admit d2 up to 3·FP_ONE, so an unclamped t² would
+contribute spurious positive field — the march start point would
+already read ≥ TH — and the Σ W bound below assumes the clamp), field =
+Σ term. **Int32 overflow audit (the 06 §1.4 A/B/C precedent applied):
+max field = Σ W = 199885 ≪ 2^31; every intermediate bounded — the
+naive 4-ball sum is int32-safe by construction; NO normalized form is
+needed** (the precedent demanded the analysis, not a rejection).
+March admission per column: strict raw compare |dx| < ballRx (the
+spike's prune); y-span from admitted balls; no admitted ball → miss.
+March loop form, pinned: evaluate at the admitted span's min y first,
+step +MARCH_STEP, stop once past the span max. **INSIDE = field ≥
+TH_RAW** — the ≥, not strict >, is the pin for BOTH the march stop and
+the bisection keep-side (hi = mid exactly when field(mid) ≥ TH_RAW;
+the strict-> alternative changes the pinned fork golden grid —
+verified experimentally, so the comparison direction is
+determinism-bearing).
+Nearest-hit vs classic slabs: the field group contributes at most one
+hit per sample at pseudo-slab-index = the lowest ball node id (0);
+winner = smallest entry depth, strict <, ties to the lower index —
+§1.4's rule verbatim (the blob wins depth ties against face slabs;
+CI observes the tie through the pinned depth tag). Part tag =
+dominant ball (largest term at the entry point, ties → lowest node
+id; the spike renders one material and pins nothing here — our
+choice, recorded; it feeds the seam watch item and gives F15
+part-level stats real parts). Tone: field-gradient normal by central
+differences at the entry point, GRAD_E = 16384 = RHE(0.25·2^16) (the
+spike's e), difference orientation pinned: **n_i = field(p − e_i) −
+field(p + e_i)** — outward = the NEGATIVE field gradient, matching
+T2's outward classic normal (the flipped order changes tones in the
+pinned fork golden grid — verified experimentally), then T3–T7 of
+06 §1.4 VERBATIM (|n_i| ≤ 199885 ⇒ T3 sum
+≤ 1828950 ≪ 2^31 ✓). Per-column precompute (admission/X², march
+y-grid + Y², negated-tilt z-bases) is semantics-preserving hoisting
+only — every hoisted raw is the identical fp value. A U4 raster
+golden pins the all-defaults walk φ=0 down serialized grid
+(sha256 `785694ab…`, offset-free — the fork's determinism anchor
+beside the M1 classic one).
+
+**Rest geometry.** Visible-radius template constants (single rounding
+RHE(0.67·r·2^16)): BLOB_V (360055, 342491, 298582), CREST_V (175636,
+166855, 149291), SKIRT_V (324927, 307364, 158073 — z constant),
+DRIP_V (100991, 100991, 87818), EYE_HALF (55706, 39322, 72090),
+HI_HALF (78643, 58982, 65536). Derived anchors
+(`anchor = C + fp_mul(σ, dim − D)`, exact at defaults):
+
+| anchor | C | tracks | σ | slope |
+|--------|---|--------|---|-------|
+| BLOB_VX | 360055 | girth | 92322 | 0.67·8.2/3.9 |
+| BLOB_VY | 342491 | length | 45065 | 0.67·7.8/7.6 |
+| BLOB_VZ | 298582 | depth | 87818 | 0.67·6.8/3.4 |
+| Z0 (rest blob z) | 288358 (4.4) | depth | 87818 | shares BLOB_VZ's σ ⇒ constant rest ground gap −0.156 px |
+| SKIRT_VX | 324927 | girth | 83315 | 0.67·7.4/3.9 |
+| SKIRT_VY | 307364 | length | 40443 | 0.67·7.0/7.6 |
+| DRIP_Y0 | −353894 (−5.4) | length | −39322 | −0.6 DAMPED, sweep-optimized (0.55 ⇒ 42 corner fails, 0.60 ⇒ 14, 0.65 ⇒ 22 — totals; each carries a constant +4 death-occlusion baseline from the sweep scripts' pre-calibration DEFLATE f2 = 0.35, so drip-only counts are 38/10/18, and the shipped-pin drip residual below is 10) |
+| EYE_X | 131072 (2.0) | girth | 33608 | 2.0/3.9 |
+| EYE_Y | 301466 (4.6) | length | 45065 | shares BLOB_VY's σ ⇒ constant 0.626 px front setback where the forward floors are inactive (a floor can only shrink it) |
+| HI_X | −157286 (−2.4) | girth | −40330 | −2.4/3.9 |
+| HI_Y | 170394 (2.6) | length | 22420 | 2.6/7.6 |
+| HI_ZREL | 196608 (3.0) | depth | 57826 | 3.0/3.4 (decimal-ratio and fp_div forms agree — no ulp split, adjudication-verified) |
+
+Rest centers: blob (0, 0, Z0); crest (0, −52429, Z0 + 235930); skirt
+(0, 39322, 124518); drip (0, DRIP_Y0, 104858); eyes (∓EYE_X,
+EYE_Y_final, Z0 + 52429); highlight (HI_X, HI_Y, Z0 + HI_ZREL).
+Reproduction evidence (machine-run, exact fp vs the float spike): all
+four walk phases + idle at defaults — worst |fp − float| 0.00126 px
+(ball centers), 0.00006 px (radii), 0.00003 px (face slabs). Rendered
+fidelity: the fp fork exact-matched the FLOAT spike renderer — **0
+silhouette / role / tone differences over all 32 walk+idle × phase ×
+direction cells (3706 opaque pixels)**, re-verified at the resume
+audit (`u4-verify/compare_spike.py`).
+
+**The eye forward floors (the M1 eye-visibility mechanism, amorphous
+form).** At growth time, in the ball-radius frame,
+`floor_b = cy_b + fp_mul(ballRy_b, fp_sqrt(q_b − X² − Z²)) −
+EYE_HALF.y` with `X = fp_div(eyeX − cx_b, ballRx_b)` and
+`Z = fp_div(eyeZ − cz_b, ballRz_b)`, each `ballR_b =
+fp_mul(vis_b, BALL_FROM_VIS)` — growth-time per-axis divides (the
+06 §5.2 divides-allowed-at-growth path), NOT the fork's per-sample
+inverse-multiply convention above: fp_div and the inverse-multiply are
+not ulp-equivalent and land a DIFFERENT rest eye_y on real genomes
+(inactive if |X| or |Z| > 1 or the radicand ≤ 0);
+`EYE_Y_final = max(coupled, active floors)`. Four candidates:
+1. REST blob ball, Q_BODY = 32768 exact (term budget 0.25) —
+   evidence-triggered by the 512-config corner sweep (**256 buried-eye
+   configs without it, 0 with** — re-measured at the round-0 evidence
+   audit on the pinned geometry, artifact `u4_audit_nofloor.out`:
+   266 corner failures total without the rest floor = 256 buried-eye
+   + the 10 drip pinches; the spec draft's "~594" appears in no script
+   output — u4-spec.md's own line-700 admission — and did not
+   reproduce under any reconstruction, so it is CORRECTED here; the
+   mechanism's evidence trigger and the "0 with" half both verify);
+2. REST skirt ball, Q_SKIRT = 48021 = FP − fp_sqrt(fp_div(3277,
+   45875)) (budget 0.05);
+3. **the WIDE-POSE skirt floor (implementation repair,
+   evidence-triggered by the rendered 0..1999 sweep):** the same skirt
+   arithmetic at the genome's own wide-squash pose — squash_w =
+   1 + max(squash_amp, IDLE_BREATH) (the walk-φ0.75 / idle-φ0.25
+   extreme; hop = 0 there), skirt halves ×squash_w — order pinned:
+   the wide factor multiplies the VISIBLE half first,
+   `fp_mul(squash_w, vis)`, exactly as the pose factors apply, and the
+   scaled visible half then converts via BALL_FROM_VIS inside the
+   floor step; convert-then-scale is NOT fp_mul-equivalent and
+   diverges on real genomes' rest eye_y — eye z at
+   z0 + EYE_ZREL + dz0_w — mapped back to a REST anchor by the pinned
+   division form (pose re-applies ×squash_w exactly up to ≤ 1 ulp of
+   the div/mul round-trip; budget slack is thousands of raws).
+   Mechanism: squash widens the skirt while dz0 < 0 sinks the eye
+   toward it, so rest-proud eyes drown at the wide frames (worst
+   observed: seed 11 idle f1, field 1238 raw PAST TH — a
+   PRE-REPAIR-BUILD diagnostic, probe log not retained; the shipped
+   build's probe gives this eye +5159 proud with the floors active);
+4. **the WIDE-POSE blob floor** (same pose; blob halves × (squash_w,
+   squash_w, stretch_w) — the same visible-first order: factors
+   multiply the VISIBLE halves, which then convert via BALL_FROM_VIS —
+   center z rides dz0_w with the eye so their z
+   offset stays EYE_ZREL exactly) at its OWN budget
+   **Q_BODY_WIDE = FP − fp_sqrt(RHE(0.26·2^16) = 17039) = 32119**
+   (machine-derived; a hand 32118 was 1 ulp wrong): a deep blob can
+   bury the eye alone (seed 4 walk f3: blob term 18865, total margin
+   +796 raw, zero focal pixels — a PRE-REPAIR-BUILD diagnostic, probe
+   log not retained and the discarded build not re-runnable; on the
+   shipped build the floor lands this eye at +2620 proud). Budget 0.26
+   sits strictly above the defaults' own wide-pose blob term (walk-f3
+   16751 / idle-f1 16315 — re-verified on the shipped build), so the
+   defaults stay exactly inert while pushed eyes land at
+   **≥ 2620 raw** of field margin (production-path probe
+   `u4-verify/field_probe.mjs` on the shipped dist: seed 4 walk f3 =
+   2620 exactly, seed 11 idle f1 = 5159; the draft's "≥ 2622" was
+   measured before the DRIP_EXTRA 6258→6259 re-pin, whose ≤ 7.5-raw
+   shift accounts for the 2-raw drift — as printed it was false on the
+   production path, corrected here) — the defaults' proven league
+   (defaults win their pixels at 2910, re-verified).
+Counterfactual (run on the pre-repair build, seeds 0..1999
+amorphous-forced, down view, walk 4 phases): **237/8000 zero-focal
+frames across 114 seeds**; with the floors and the D-e chain merge:
+the sweep record below. Every floor is inactive at every default:
+rest-body margin 6878 raw, wide-skirt margin 153464 raw, wide-blob
+budget clearance above (machine-verified in CI) — byte-inert, the M1
+EY-floor pattern; forward-only (+y, protrusion never occlusion).
+
+**Gait template (D-g).** Oscillators (sin = the 06 §5.3 LUT; φ fp
+turns; p·φ a plain integer product; a = squash_amp, λ =
+ball_phase_delta, p = pulse_freq):
+
+```
+walk:  θ = p·φ;  squash = fp_sub(FP, fp_mul(a, sin(θ)))   (wide when landed)
+       hop = max(0, fp_mul(HOP_AMP, sin(θ)))
+idle:  θ = φ (freq ignored — M1 rule);  squash = fp_add(FP, fp_mul(IDLE_BREATH, sin(φ)));  hop = 0
+both:  stretch = fp_div(FP, squash)                        (THE pinned division form)
+       sigC = sin(θ − λ);  sigD = sin(θ − (λ + DRIP_EXTRA))
+       dripLift = max(0, fp_mul(DRIP_ZAMP, sigD))
+       dz0 = fp_add(fp_mul(Z0_rest, fp_sub(stretch, FP)), hop)
+```
+
+Per-node deltas/factors (centers = rest + delta, halves = factor ×
+rest, VISIBLE units — F9): blob (0, 0, dz0) × (squash, squash,
+stretch); crest (CREST_XAMP·sigC, 0, dz0 + CREST_ZREL·(stretch − 1)) ×
+(1,1,1); skirt (0, 0, hop) × (squash, squash, 1); drip (0,
+−DRIP_YAMP·sigD, dripLift + HOP_DRIP·hop); eyes (0,
+EYE_Y_final·(squash − 1), dz0); highlight (0, 0, dz0 +
+HI_ZREL·(stretch − 1)). **Rest-pose law — the multiplicative-extents
+extension of the U1 decomposition law:** per-frame center deltas stay
+exact int32 adds onto rest raws; per-frame EXTENT factors multiply
+rest half-extents via fp_mul with every factor exactly FP_ONE at rest
+(squash = 65536 ⇒ stretch = fp_div(65536, 65536) = 65536 exactly, and
+fp_mul(65536, x) = x identically — machine-verified). **The U4 idle
+rule (recorded deviation):** idle is the SPIKE'S OWN preset, not the
+M1 half-amplitude rule — hop = 0 (locomotion zeroed, rule honored),
+squash flips to +0.10 breathing, crest/drip lag oscillators run at
+FULL amplitude (the spike's formulas are clip-independent). Grounds:
+the all-defaults-reproduces-slime() law outranks the half-amplitude
+convention; S1b's accepted renders ARE the idle evidence; the
+levitant flap-freeze established plan-specific idle rules by
+justification. Mini-sheet watch item. An independent from-spec Python
+pose oracle (`tests/goldens/amorphous_pose_oracle.v2.json`) pins the
+vectors for the all-defaults genome and one genome with every
+amorphous locus EXCEPT pulse_freq non-default (p = 2 is the recorded
+freeze degeneracy, pinned by its own CI tests), every clip × frame,
+slab raws + fieldWeights.
+
+**Envelopes (D-h; §4.4.2 semantics; part classes ball vs face inside
+the one blob chain — death's per-part deltas extend §2.4's
+already-per-part deflate exception, values identical to the
+adjudicated singleton-face-chain form).** attack (K = 4, 1+1+2, a
+single-mass lunge — every part takes the SAME [dy, dz]; the blob has
+no head/limb/tail analog): f0 [−98304, −45875] (−1.5, −0.7 — the
+quadruped body-row squat) × anticipation; f1 [+147456, 0] (+2.25);
+f2 [+49152, 0] (+0.75 = f1/3 exact); f3 [0, 0]. Corner-swept worst f1
+canvas bottom margin 1.241 px. hurt (K = 2): f0 [−147456, 0]
+(−2.25, the U2-tuned raw) every part; f1 zeros; `flash: true`
+metadata-only. **death (K = 4) = DEFLATE (§2.4's new envelope
+mechanism, pinned):** stagger `cy += −49152` every part every frame;
+ball fieldWeight at frame k = `fp_mul(DEFLATE[k], W_i)`,
+**DEFLATE = [58982, 42598, 29491] (0.9, 0.65, 0.45)** — f0/f1 reuse
+the DEATH_FOLD raws (weight is the blob's limb); f2 calibrated UP
+from fold's 0.35 by the 16-config death corner sweep (0.35 leaves the
+deflated field too thin to occlude the sunken face, worst −1620 raw;
+0.45 clears every corner at +634 and still reads as deflation: drip
+f2 weight 0.248 < TH — the drip evaporates). Balls sink
+`cz −= fp_mul(DEATH_SINK[k], DEFLATE_DROP_CAP)` with
+**DEFLATE_DROP_CAP = 196608 (3.0)** — a pinned constant REPLACING the
+derived capacity, which is 0 for a grounded blob (the deflation, not
+rest clearance, creates the drop room; grounding machine-verified:
+blob bottom −0.47/−0.85/−1.06 px at f0/f1/f2). Face parts sink on
+their OWN rest capacity `max(0, restCz − restHz)` (quadruped formula
+verbatim — eyes ~4.1 px, highlight ~6.4 px at defaults) AND retract
+`cy −= fp_mul(DEATH_SINK[k], max(0, restCy))` — the occlusion
+mechanism (eye front-probe field ≥ TH at f1/f2 for defaults and all
+16 corners, worst margin +634 raw; at f0 the eye is still proud —
+the face visibly "goes under" from f1, the intended read;
+depth-sorted occlusion only, no alpha exists). The idle base
+(breathing) continues through death; **f3 = f2 WHOLESALE** (base
+phase + envelope + weights + drop + retract) — every held pair scores
+exactly 0.0.
+
+**Flicker (D-i).** Metric arithmetic unchanged (06 §1.6);
+`evaluateCell`'s guard accepts the 7-slab amorphous list. The
+amorphous FLICKER_GATES row was calibrated in **ONE step on the FULL
+seeds 0..1999 amorphous-forced sweep** (the §4.4.6 close-out lesson —
+never 200-then-2000), 8000 cells (2000 seeds × 4 directions) per clip
+on the FINAL
+production path (the pre-repair run-1 histograms were discarded with
+the repair; run 2 is the record), gate = tightest integer ≥ 1.25× the
+observed max. Idle stays measurable but ungated (M1 policy; the row
+carries walk's rational). Energy note, recorded: squash is an EXTENT
+oscillation — skirt/drip centers barely move, so amorphous cells have
+changed-pixels sources with no energy counterpart; the calibration
+prices this in (the U3 one-chain-mass artifact analog). 0 INF on the
+full sweep (every clip has a moving center at every pair). The gate
+TABLE is single-sourced: exactly one test module
+(`tests/flicker-gates.test.ts`) asserts the full FLICKER_GATES object
+for ALL THREE plans — the U3 close-out's duplicate pins in
+clips.test.ts/levitant.test.ts were consolidated into it (behavioral
+gate tests stay in their unit files).
+
+**Calibration record (RUN 2026-07-16, seeds 0..1999 amorphous-forced,
+8000 cells (2000 seeds × 4 directions) per gated clip, the final
+production path):**
+
+| clip | observed max (seed, dir) | ×1.25 | gate | margin |
+|------|--------------------------|-------|------|--------|
+| walk | 113.8060 (1933, up) | 142.2575 | **143** | 1.257× |
+| attack | 49.7549 (431, up) | 62.1936 | **63** | 1.266× |
+| hurt | 22.0728 (864, down) | 27.5910 | **28** | 1.269× |
+| death | 22.6905 (900, down) | 28.3632 | **29** | 1.278× |
+
+0 INF over all 88 000 measured pairs; the 8000 death held pairs score
+exactly 0.0. Walk histogram (score-floor buckets, 32 000 pairs): the
+mass sits at 0–19 (30 087 pairs); a long tail thins through 20–51
+(1 863) into 50 squash-loud pairs (buckets 54:13, 57:1, then 58, 59,
+62, 64, 70, 81, 84, 98, 113 at 4 each — single seeds × 4 directions).
+The tail is the squash mechanism's metric artifact,
+priced in by design: squash oscillates EXTENTS, so changed-pixel
+counts have no matching center-motion energy in the one-chain mass
+(the U3 one-chain artifact, amplified). Attack histogram peaks at 4–9
+(16 529) with max 49.75; hurt at 5–8 (4 929) max 22.07; death carries
+its 8000 held-pair zeros plus a 2–7 body (13 449) max 22.69.
+
+**Craft debt (D-j — the S3 scope note DISCHARGED).** The full craft
+property suite — orphans (rule 2), jaggies (rule 3), budget (rule 5),
+selout exemptions (rule 4/F7/F15), and IDEMPOTENCE — runs on the
+pinned amorphous corpus: CI-scaled = defaults + seeds 0..4 all clips ×
+directions (idempotence defaults + 0..2); unit evidence = the craft
+outcomes inside the 0..1999 sweeps (0 craft errors). F7/F15 on
+squashed-blob geometry, recorded facts at defaults: down-view walk —
+exempt parts [2, 4, 5, 6] (the squash-thinned skirt fringe, both
+~4-px eyes, the highlight); left view — the ~2-px drip is exempt; the
+drip is fully occluded in the down view (no stats ⇒ no entry).
+
+**Wire (D-l, design 06 §3.5 amendment).** All-defaults tape `AQAE`
+(4 chars, CI round-trip). Largest sampler-reachable amorphous tape =
+**60 B = 80 chars** (worst payloads: id 47 → 1 B, ids 48/49/50 → 3 B
+each); quadruped 138 B and levitant 85 B unchanged (scopes untouched);
+the fully-adversarial hand-edited cross-plan bound grows 179 → **193 B
+= 258 chars** (the U3 amendment predicted exactly this growth; no
+sampler emits it; degradation linear; accepted). **Semantic map** goes
+three-column (§2.5 realized as one row set, absent = unmapped): rows
+gait_freq↔hover_freq↔pulse_freq, bob_amp↔hover_amp↔squash_amp,
+tail_lag↔tendril_lag↔ball_phase_delta, tail_amp↔tendril_amp↔—,
+anticipation³. All four amorphous loci are mapped; quadruped
+leg_swing_amp/leg_lift_amp and levitant flap_ratio stay unmapped
+(recorded). bob_amp ↔ squash_amp is a px-ratio unit mismatch mapped on
+semantics ("primary body oscillation amplitude") — correspondence
+data, not a converter; M5 resolves units. Integrity CI: every entry
+resolves via locusByPath, all `anim.*`, no duplicate endpoints per
+column.
+
+**Domain-extreme sanity (adjudication-run 2026-07-16, 512 walk/idle
+corner configs + 16 death configs, exact fp).** Eyes proud + attached
+everywhere with the floors + amp hi 0.2 (worst proud margin +295 raw,
+worst attach +2602 raw; 256 buried-eye configs without the rest floor
+— the corrected, artifact-backed figure, see floor candidate 1);
+highlight attached everywhere after the HI_Y/HI_ZREL ratio re-coupling
+(worst inner-field margin +326 raw; detached at G-hi/L-extreme corners
+with constant couplings); crest/skirt attached (worst +28583/+33560);
+canvas worst top 4.84 px / bottom 1.82 px (walk), side 5.43 px,
+attack-f1 bottom 1.24 px, death bottom 4.60 px; march worst span 99
+steps. Residual, ACCEPTED + RECORDED (the U3 tendril-gap precedent):
+**10 drip transient pinches** at walk φ = 0.25 L-extreme corners
+(worst min-field −13340 raw below TH along the drip→skirt segment) —
+the trailing drip briefly pinches ~1 px off the hopping mass at corner
+genomes; thematically a drip, single-phase transient; σ_DRIP_Y = −0.6
+is the sweep optimum. Gated by the pixel-level connectivity sweep
+below; mini-sheet judgment item. (The sweep ran at DRIP_EXTRA 6258;
+the adjudicated 6259 re-pin shifts any lag term ≤ 7.5 raw ≈ 0.00012 px
+— three orders below the smallest margin; re-verified on the
+production path by the sweeps below.)
+
+**Full-sweep evidence (seeds 0..1999 amorphous-forced, the FINAL
+production path — RUN 2026-07-16; the pre-repair build's run is kept
+only as the visibility counterfactual).**
+
+- **Eye visibility (down view, walk 4 phases, 8000 frames):
+  3/8000 zero-focal frames across 3 seeds (805, 1289, 1539 — all at
+  walk f3, the wide-squash frame). The pinned target was 0 — MISSED BY
+  3, recorded honestly and NOT repaired further, pending ruling.**
+  The counterfactual (pre-repair build, same corpus): 237/8000 across
+  114 seeds — the two evidence-driven repairs (wide-pose floors + the
+  D-e chain merge) removed 98.7% of the family. The residual three are
+  field-PROUD at the failing frame (margins +3415/+915/+2623 raw — NOT
+  buried): they lose the pixel VOTE by sub-pixel phase, the levitant
+  vote-lottery class. The literally-pinned U3 pixel-phase fallback is
+  mechanically inapplicable (the amorphous eye's relative screen phase
+  varies per frame with squash — no single rest-cy advance lands every
+  frame on a proven phase), and any further global geometry nudge
+  re-rolls the phase lottery for all 2000 seeds with regression risk
+  against the 7997 now-passing frames. Precedent for accept-and-record:
+  the U3 tendril-gap residual (119 links) and this unit's own drip
+  pinches. Single-phase transients (the eye reappears at f0); disclosed
+  as a mini-sheet watch item with the three seeds named.
+- **Connectivity (crest/skirt/drip pixel clusters 8-connected to the
+  nearer-ball mass ∪ blob, down-view walk frames): 12 357/12 357
+  rendered links = 100% ≥ the 99% target**; 11 643 fully occluded
+  links (mostly the drip hidden behind the mass in the down
+  projection) have nothing to break and are recorded, not failed. The
+  §8-predicted corner-genome drip-pinch family did NOT materialize at
+  pixel level on the sampled corpus (0 fails); the 10-pinch fp-field
+  family stays recorded above as corner-genome evidence.
+- **Hitbox/shadow overshoot (rendered pixels vs the slab-derived AABB,
+  every rendered cell of the FOUR GATED CLIPS — walk/attack/hurt/death
+  — × 4 directions): worst 1 px** (seed 3, walk left f0) — inside the
+  predicted sub-pixel-to-~1-px overlap-bulge band; slab-derived law,
+  recorded. The sweep worker never rendered idle cells (recorded
+  honestly — an earlier "all five clips" phrasing overstated this);
+  idle overshoot/render coverage lives at CI scale only.
+- **Craft: 0 errors over every swept cell** (the four gated clips × 4
+  directions of every seed, crafted through the production path by the
+  sweep; idle craft coverage lives in the CI corpora — defaults +
+  seeds 0..4 all clips × directions, idempotence defaults + 0..2 —
+  not in the 0..1999 sweep).
+- Double-render byte-stability: seeds 0..9 exported twice,
+  byte-identical sheets/JSON (10/10), plus the two-render golden
+  ritual at defaults.
+
+**Golden provenance (the M1 ritual, RUN 2026-07-16 — re-run from
+scratch after the visibility repair + chain merge landed).**
+All-defaults amorphous (72 frames, 128×640, genome `AQAE`, hurt flash,
+mirror false):
+
+```
+sheet PNG  sha256 834e00a9c3019c59242ebd230ac29e53e1d49b5bf24478317c51b2d9c3517dee
+sheet RGBA sha256 7712bff19d42be221467eb48ac81e0cc47e1b1956f5ec67426ca6a79d01bf5ac
+JSON       sha256 66fe432fd38499a86620620afaf67efd8885a0ddc0c6e9837073227cb8bb5be0
+```
+
+Pinned only after: PIL pixel-compare of the sheet PNG against the raw
+RGBA; independent Python JSON re-canonicalization (byte-identical);
+all 72 hitboxes exact-matched by the from-spec Python snap + hitbox
+oracle (one-chain table); every sha256 recomputed in Python; two
+consecutive renders byte-identical; and the spike-fidelity
+pixel-compare above (3706 opaque pixels, 0 diffs). Files committed as
+`tests/goldens/amorphous.sheet.png` / `amorphous.json`. One sampled
+amorphous (seed 0) RGBA sha256 additionally CI-pinned (`c3172d3d…`).
+The fork raster golden (`785694ab…`) is offset-free and survived the
+chain merge unchanged. Second-platform byte-identity:
+**[EVIDENCE-PENDING: CI run on both platforms after this commit
+lands.]**
+
+**Mini-sheet review (seeds 0..24 amorphous-forced, §7 delivery
+format).** **[EVIDENCE-PENDING: owner verdict.]** Watch items to
+disclose: ball-boundary selout seams (fallback: collapse part tags to
+node 0); full-amplitude idle crest/drip (the spike-verbatim idle
+rule); pulse_freq-2 frozen hop/squash seeds; drip transient pinches
+(corner genomes, walk mid-hop); death f0 face-still-proud read; the
+face breathing shimmer under the one-chain snap (spike-faithful, gated
+by the calibrated flicker row).
+
+Scope lines (recorded): no new craft rules, palette changes, 16×16,
+plan-mix sampling (U6), tag gating (U5); clearance radii 0 throughout;
+GENERATOR_VERSION stays 2 — U4 adds output for plan-2 and changes none
+for plans 0/1 (the full M1/U2 quadruped anchor suite + U3 levitant
+goldens stay green, run not assumed).
+
+**Suite-time accounting (the ~180 s budget, 2026-07-16).** Recorded
+runs, this tree, Windows dev machine: solo (quiet machine) **406
+tests green at 164.38 s wall** (worker-aggregate test time 369.9 s;
+the dominant file is tests/amorphous.test.ts — the fork march is the
+pipeline's hot path and its CI corpora price it; no green full-suite
+run's per-file log was retained, so its solo cost is cited from the
+nearest retained records: ~139.2 s in a 1-failed intermediate
+full-suite run, and 275.87 s in a green 45/45 solo-file run under
+sweep load, artifact `u4_audit_amorphous_solo.txt`);
+one additional green run at 406.65 s wall under a pathological load
+(8 CPU-saturated sweep shards — not the normal-load case). The solo
+run sits UNDER the ~180 s budget but OVER the unit spec's own 150 s
+trim-trigger with only ~1.1× load headroom — recorded honestly: every
+CI corpus is already at the spec's own pinned scale (flicker defaults
++ seeds 0..4; craft defaults + 0..4; idempotence defaults + 0..2;
+visibility seeds 0..19 — extended at implementation to idle frames,
+which guards the repaired burial mode), so trimming further means
+cutting below the adjudicated corpus pins; that judgment is left to
+the U4 gate with the candidates named (halve the visibility-idle
+extension, or thin the craft direction set) rather than taken
+unilaterally. **Round-0 verification re-measurement (prior-round
+record; unlike every other figure in this paragraph its vitest logs
+were NOT retained, so the qualitative pattern — not the decimals — is
+the record):** three green 406/406 runs, two over the budget under
+~94% external CPU load (Folding@home + two Photos indexer processes)
+and the quietest borderline under at ~45% residual load. Fix-round
+re-measurement at ~12% load (the nearest
+to solo conditions achieved since): **406/406 green at 166.89 s and
+162.97 s wall** (two runs, the second on the finished tree) —
+corroborates the 164.38 s solo figure. Round-1 verification
+re-observed the round-0 pattern (its two mandated runs over budget
+under ambient load — Photos/FAH/Discord CPU present but small by
+direct measurement, back-to-back all-core runs on a Balanced-power
+i7-1255U the plausible inflator — and a later quieter diagnostic run
+under; logs likewise not retained, the pattern is the record); the
+round-1 fix pass then measured **406/406 green at 163.01 s wall**
+(worker-aggregate 366.17 s; log retained). The budget holds on a
+quiet machine and is exceeded under load; the question is therefore
+load-sensitive and stays with the U4 gate: accept on the four
+quiet-machine sub-180 runs, or re-measure on second-platform CI
+before commit.
+
+**U4 gate ruling (orchestrator, 2026-07-16): ACCEPTED at the pinned
+corpora — no trim.** Two further independent gate-time measurements on
+a verified-quiet machine: **406/406 green at 166.3 s and 165.3 s wall**
+(six consistent sub-180 solo measurements total across three
+sessions). Every over-budget observation traces to measured external
+CPU load; the adjudicated corpus pins buy real coverage, and trimming
+them to buy margin against a load profile CI runners do not have is a
+bad trade. The ~180 s budget stands as the guideline; CI wall time on
+the dedicated runners is the operative check from here (watched at
+every push).
+
 ### 2.5 The anim semantic map (06 §1.1's pinned mechanism)
 
 Ships with U3 as a data table beside the registry: per plan pair, leaf
@@ -689,7 +1326,10 @@ Chain semantics for snapping (06 §1.5 requires every slab in a chain):
 each metaball control point is a chain member of the **blob chain**
 (one chain — the blob shifts as a unit, per F16's assembly lesson);
 face parts keep their own chains. *Pinned at unit start* against S1b
-renders.
+renders. *(U4 delivery note: the second clause did NOT survive contact
+with S1b renders — own face chains corner-straddle the eyes'
+sample votes structurally; the delivered pin is ONE blob chain holding
+all seven slabs. Full evidence record: §2.4.1 D-e.)*
 
 **Craft coverage debt (S3 scope note) is discharged in U4:** the full
 craft property suite (orphans, jaggies, budget, selout exemptions,
@@ -744,13 +1384,16 @@ silently. A cell asserts the gate row of its genome's `meta.plan`.
 |------|------|------|--------|------|-------|
 | quadruped | 32.0 | ungated | 19.0 | 14.0 | 25.0 |
 | levitant | 47.0 | ungated | 144.0 | 22.0 | 19.0 |
+| amorphous | 143.0 | ungated | 63.0 | 28.0 | 29.0 |
 
 The quadruped row is **the U2 pins RESTATED, not recalibrated**
 (§4.4.6 — its histograms have not moved; walk is the M1 gate). The
 levitant row was calibrated at U3 on seeds 0..199 (walk 22 / attack
 87) and **recalibrated at U3 close-out on the full 0..1999 sweep**
 (walk 47 / attack 144 — §4.4.6 close-out record; hurt and death held
-at 2000-seed scale). Idle stays measurable but ungated in every plan
+at 2000-seed scale). The amorphous row was calibrated at U4 in ONE
+step on the full 0..1999 sweep — the §4.4.6 close-out lesson applied
+(record: §2.4.1). Idle stays measurable but ungated in every plan
 (M1 policy).
 
 ### 4.3 Versioning and the M1 anchors

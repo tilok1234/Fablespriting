@@ -18,8 +18,9 @@
  * its head at the sprite's bottom).
  */
 
-import { FP_ONE, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub, rheDiv } from "./fixed.js";
+import { FP_ONE, asr, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub, rheDiv } from "./fixed.js";
 import type { MaterialRole } from "./grammar.js";
+import { BALL_FROM_VIS } from "./grammar.js";
 import type { Slab } from "./pose.js";
 
 // ---------------------------------------------------------------------------
@@ -122,6 +123,42 @@ export const TONE_THRESHOLDS: Readonly<Record<3 | 4 | 5, readonly number[]>> =
   });
 
 // ---------------------------------------------------------------------------
+// Renderer-fork constants (design 07 §2.4.1 / §3, U4 — determinism-bearing,
+// pinned at unit start with a machine-verified worst-case error bound)
+// ---------------------------------------------------------------------------
+
+/**
+ * Metaball field threshold TH = 0.3 of per-ball peak weight, ABSOLUTE
+ * raw (F8 — the spike's TH; design 07 §2.4): the field surface is
+ * `field(p) = TH_RAW` with `field = Σ w_i·(1 − d_i²)²`.
+ */
+export const FIELD_TH_RAW = 19661;
+
+/**
+ * March step along the depth ray, RHE(0.30·2^16). With BISECT_ITERS = 6
+ * the worst-case surface-depth error vs the true crossing is
+ * MARCH_STEP/2^6 = 307.2 raw = 0.0046875 px (machine-verified ≤ 308
+ * raw). Determinism does not rest on the bound — every op is a pinned
+ * exact fp op; the bound is the tone/depth-sanity guarantee. Features
+ * thinner than 0.3 px in y cannot be stepped over: the minimum ball
+ * y-radius in the amorphous domain is 2.3 px (recorded).
+ */
+export const MARCH_STEP = 19661;
+
+/**
+ * March iteration cap — exceeding it is a spec violation and TRAPS (the
+ * MAX_PASS_ITERS pattern). Worst-case step count over the full
+ * registry-corner × phase sweep is 99 (headroom 157).
+ */
+export const MARCH_CAP = 256;
+
+/** Exact bisection refinement count after the march finds a crossing. */
+export const BISECT_ITERS = 6;
+
+/** Central-difference epsilon of the field-gradient normal (the spike's e). */
+export const GRAD_E = 16384; // RHE(0.25·2^16)
+
+// ---------------------------------------------------------------------------
 // Yaw (design 04 §2: extents permute exactly at quarter turns)
 // ---------------------------------------------------------------------------
 
@@ -130,6 +167,8 @@ export const TONE_THRESHOLDS: Readonly<Record<3 | 4 | 5, readonly number[]>> =
  * (x, y) → (−y, x) and swaps the (x, y) half-extents at odd turn counts —
  * exact integer permutation/negation, no resampling error (P4's "true
  * projections" rest on this). Negative or ≥ 4 turn counts wrap mod 4.
+ * `fieldWeight` (the U4 metaball seam, design 07 §2.4.1) passes through
+ * untouched — yaw is pure geometry.
  */
 export function yawSlab(slab: Slab, quarterTurns: number): Slab {
   if (!Number.isInteger(quarterTurns)) {
@@ -152,7 +191,257 @@ export function yawSlab(slab: Slab, quarterTurns: number): Slab {
     hy: swap ? slab.hx : slab.hy,
     hz: slab.hz,
     role: slab.role,
+    ...(slab.fieldWeight === undefined ? {} : { fieldWeight: slab.fieldWeight }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// The metaball field fork (design 07 §2.4.1 D-f / §3, U4) — fp field
+// evaluation + march. Lives ENTIRELY inside rasterization: same
+// projection, frame anchors, supersample grid, coverage rule, majority
+// vote, tie-breaks, per-pixel (part, depth, material, tone) tags, and
+// the §1.4 canonical serialization VERBATIM.
+// ---------------------------------------------------------------------------
+
+/** One metaball of the field group, post-yaw/offset, radii in BALL units. */
+interface FieldBall {
+  /** Original slab index — the ball's part-tag id (node id). */
+  readonly idx: number;
+  readonly cx: number;
+  readonly cy: number;
+  readonly cz: number;
+  /** Ball radii per axis (F0: fp_mul(visible half-extent, BALL_FROM_VIS)). */
+  readonly rx: number;
+  readonly ry: number;
+  readonly rz: number;
+  /** fp_div(FP_ONE, ballR) per axis — computed once per rasterize call. */
+  readonly invRx: number;
+  readonly invRy: number;
+  readonly invRz: number;
+  /** The slab's fieldWeight raw (per-frame — death deflates it). */
+  readonly w: number;
+  readonly roleId: number;
+}
+
+/** Per-column march grid of one sample column (rows share it — the
+ * march y-positions depend on the column only). */
+interface FieldColumnGrid {
+  /** March y positions y0 + k·MARCH_STEP, at most MARCH_CAP entries. */
+  readonly yVals: Int32Array;
+  /** fp_sub(0, fp_mul(TILT_RAW, y)) per position (the ray's z base). */
+  readonly negTiltY: Int32Array;
+  /** Per (ball, step) flattened b·nPos + i: Y-guard passed. */
+  readonly yok: Uint8Array;
+  /** Per (ball, step): Y² = fp_mul(Y, Y) (valid where yok). */
+  readonly y2: Int32Array;
+  /** True iff the admitted span continues past MARCH_CAP positions — a
+   * sample exhausting the grid without a crossing TRAPS (M3). */
+  readonly overCap: boolean;
+}
+
+/** The field group's per-call precompute (semantics-preserving hoists). */
+interface FieldColumns {
+  readonly balls: readonly FieldBall[];
+  readonly nCols: number;
+  /** Per column: 1 iff any ball admits it (M1 raw compare |dx| < rx). */
+  readonly admit: Uint8Array;
+  /** Per (ball, column) flattened b·nCols + c: F1 X-guard passed. */
+  readonly xok: Uint8Array;
+  /** Per (ball, column): X² (valid where xok). */
+  readonly x2: Int32Array;
+  readonly grids: readonly (FieldColumnGrid | null)[];
+}
+
+/**
+ * Field evaluation at an arbitrary point (F1/F2, the normative step
+ * order): per ball in ascending node-id order, X/Y/Z guards (|·| >
+ * FP_ONE → term 0 — they keep every squaring inside int32 for
+ * arbitrarily distant samples, the C1 law), `d2 = X² + Y² + Z²` (plain
+ * int adds), `term = fp_mul(w, fp_mul(t, t))` with `t = FP_ONE − d2`;
+ * `field = Σ term` (plain int adds — the naive 4-ball sum is int32-safe
+ * by construction: max field = Σ w = 199885 ≪ 2^31, machine-audited).
+ */
+function fieldAt(balls: readonly FieldBall[], px: number, py: number, pz: number): number {
+  let f = 0;
+  for (const b of balls) {
+    const x = fp_mul(fp_sub(px, b.cx), b.invRx);
+    if (x > FP_ONE || x < -FP_ONE) continue;
+    const y = fp_mul(fp_sub(py, b.cy), b.invRy);
+    if (y > FP_ONE || y < -FP_ONE) continue;
+    const z = fp_mul(fp_sub(pz, b.cz), b.invRz);
+    if (z > FP_ONE || z < -FP_ONE) continue;
+    const d2 = fp_mul(x, x) + fp_mul(y, y) + fp_mul(z, z);
+    if (d2 >= FP_ONE) continue;
+    const t = FP_ONE - d2;
+    f += fp_mul(b.w, fp_mul(t, t));
+  }
+  return f;
+}
+
+/** One ball's field term at a point (the dominant-ball part-tag rule). */
+function ballTerm(b: FieldBall, px: number, py: number, pz: number): number {
+  const x = fp_mul(fp_sub(px, b.cx), b.invRx);
+  if (x > FP_ONE || x < -FP_ONE) return 0;
+  const y = fp_mul(fp_sub(py, b.cy), b.invRy);
+  if (y > FP_ONE || y < -FP_ONE) return 0;
+  const z = fp_mul(fp_sub(pz, b.cz), b.invRz);
+  if (z > FP_ONE || z < -FP_ONE) return 0;
+  const d2 = fp_mul(x, x) + fp_mul(y, y) + fp_mul(z, z);
+  if (d2 >= FP_ONE) return 0;
+  const t = FP_ONE - d2;
+  return fp_mul(b.w, fp_mul(t, t));
+}
+
+/** Build the field group's column precompute (admission M1, X² per F1,
+ * and the per-column march grids M2). */
+function buildFieldColumns(
+  balls: readonly FieldBall[],
+  colSx: Int32Array,
+  nCols: number,
+): FieldColumns {
+  const nb = balls.length;
+  const admit = new Uint8Array(nCols);
+  const xok = new Uint8Array(nb * nCols);
+  const x2 = new Int32Array(nb * nCols);
+  const grids: (FieldColumnGrid | null)[] = new Array<FieldColumnGrid | null>(nCols).fill(null);
+  for (let c = 0; c < nCols; c++) {
+    const sx = colSx[c]!;
+    // M1 admission per ball: dx = fp_sub(sx, cx); strict |dx| < rx (the
+    // spike's |sx − cx| < rx, raw compare); y0/y1 from admitted balls.
+    let y0 = 0;
+    let y1 = 0;
+    let any = false;
+    for (let b = 0; b < nb; b++) {
+      const ball = balls[b]!;
+      const dx = fp_sub(sx, ball.cx);
+      if (dx < ball.rx && dx > -ball.rx) {
+        const lo = fp_sub(ball.cy, ball.ry);
+        const hi = fp_add(ball.cy, ball.ry);
+        if (!any) {
+          y0 = lo;
+          y1 = hi;
+          any = true;
+        } else {
+          if (lo < y0) y0 = lo;
+          if (hi > y1) y1 = hi;
+        }
+      }
+      // F1 X-guard + X² per (ball, column) — hoisted, value-identical.
+      const x = fp_mul(dx, ball.invRx);
+      if (x > FP_ONE || x < -FP_ONE) continue;
+      xok[b * nCols + c] = 1;
+      x2[b * nCols + c] = fp_mul(x, x);
+    }
+    if (!any) continue; // no admitted ball → every sample of the column misses
+    admit[c] = 1;
+    // M2/M3 march grid: positions y0 + k·MARCH_STEP while y ≤ y1, built
+    // to at most MARCH_CAP entries (a sample needing a 257th iteration
+    // traps — the grid records that the span continues).
+    const positions: number[] = [];
+    let y = y0;
+    let overCap = false;
+    for (;;) {
+      if (y > y1) break;
+      if (positions.length >= MARCH_CAP) {
+        overCap = true;
+        break;
+      }
+      positions.push(y);
+      y = fp_add(y, MARCH_STEP);
+    }
+    const nPos = positions.length;
+    const yVals = Int32Array.from(positions);
+    const negTiltY = new Int32Array(nPos);
+    const yok = new Uint8Array(nb * nPos);
+    const y2 = new Int32Array(nb * nPos);
+    for (let i = 0; i < nPos; i++) {
+      negTiltY[i] = fp_sub(0, fp_mul(TILT_RAW, yVals[i]!));
+      for (let b = 0; b < nb; b++) {
+        const ball = balls[b]!;
+        const yn = fp_mul(fp_sub(yVals[i]!, ball.cy), ball.invRy);
+        if (yn > FP_ONE || yn < -FP_ONE) continue;
+        yok[b * nPos + i] = 1;
+        y2[b * nPos + i] = fp_mul(yn, yn);
+      }
+    }
+    grids[c] = { yVals, negTiltY, yok, y2, overCap };
+  }
+  return { balls, nCols, admit, xok, x2, grids };
+}
+
+/** Field evaluation at (column c's sx, y, pz) reusing the hoisted X²
+ * (value-identical to {@link fieldAt} at that point). */
+function fieldColAt(field: FieldColumns, c: number, y: number, pz: number): number {
+  const balls = field.balls;
+  let f = 0;
+  for (let b = 0; b < balls.length; b++) {
+    if (field.xok[b * field.nCols + c] === 0) continue;
+    const ball = balls[b]!;
+    const yn = fp_mul(fp_sub(y, ball.cy), ball.invRy);
+    if (yn > FP_ONE || yn < -FP_ONE) continue;
+    const z = fp_mul(fp_sub(pz, ball.cz), ball.invRz);
+    if (z > FP_ONE || z < -FP_ONE) continue;
+    const d2 = field.x2[b * field.nCols + c]! + fp_mul(yn, yn) + fp_mul(z, z);
+    if (d2 >= FP_ONE) continue;
+    const t = FP_ONE - d2;
+    f += fp_mul(ball.w, fp_mul(t, t));
+  }
+  return f;
+}
+
+/**
+ * The march (M1–M4) for one sample: front-to-back along the depth ray
+ * `p(y) = (sx, y, −TILT·y − sy)` in MARCH_STEP increments from the
+ * admitted span's y0; first `field ≥ TH` finds the crossing; then
+ * exactly BISECT_ITERS bisections with `mid = asr(fp_add(lo, hi), 1)`
+ * (floor — pinned, deterministic); ENTRY DEPTH = hi, the inside point
+ * (spike verbatim, including the f(y0) ≥ TH edge case: bisection walks
+ * hi down toward y0 − step). Returns the entry depth or null (miss);
+ * TRAPS past MARCH_CAP iterations (spec violation — legal genomes'
+ * worst span is 99 steps).
+ */
+function fieldMarch(field: FieldColumns, c: number, sy: number): number | null {
+  if (field.admit[c] === 0) return null;
+  const grid = field.grids[c]!;
+  const balls = field.balls;
+  const nb = balls.length;
+  const nPos = grid.yVals.length;
+  for (let i = 0; i < nPos; i++) {
+    const pz = fp_sub(grid.negTiltY[i]!, sy);
+    let f = 0;
+    for (let b = 0; b < nb; b++) {
+      if (field.xok[b * field.nCols + c] === 0) continue;
+      if (grid.yok[b * nPos + i] === 0) continue;
+      const ball = balls[b]!;
+      const z = fp_mul(fp_sub(pz, ball.cz), ball.invRz);
+      if (z > FP_ONE || z < -FP_ONE) continue;
+      const d2 = field.x2[b * field.nCols + c]! + grid.y2[b * nPos + i]! + fp_mul(z, z);
+      if (d2 >= FP_ONE) continue;
+      const t = FP_ONE - d2;
+      f += fp_mul(ball.w, fp_mul(t, t));
+    }
+    if (f >= FIELD_TH_RAW) {
+      // M4: exactly BISECT_ITERS bisections; hi is the inside point.
+      let lo = fp_sub(grid.yVals[i]!, MARCH_STEP);
+      let hi = grid.yVals[i]!;
+      for (let k = 0; k < BISECT_ITERS; k++) {
+        const mid = asr(fp_add(lo, hi), 1);
+        const pzm = fp_sub(fp_sub(0, fp_mul(TILT_RAW, mid)), sy);
+        if (fieldColAt(field, c, mid, pzm) >= FIELD_TH_RAW) {
+          hi = mid;
+        } else {
+          lo = mid;
+        }
+      }
+      return hi;
+    }
+  }
+  if (grid.overCap) {
+    throw new Error(
+      "raster: field march exceeded MARCH_CAP iterations (design 07 §2.4.1 spec violation)",
+    );
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +500,9 @@ export interface SlabOffset {
  * never per sample). See {@link rasterize} for the numbered step orders.
  */
 interface SlabSetup {
+  /** Original slab index — the part-tag id (the fork partitions the
+   * list, so classic setups carry their own indices explicitly). */
+  readonly index: number;
   readonly cx: number;
   readonly cy: number;
   readonly cz: number;
@@ -387,9 +679,14 @@ export function rasterize(
   }
 
   // Yaw the slabs (exact permutation), apply the §1.5 screen-space
-  // offsets when present (cx += dx, cz −= dy — depth-invariant), and run
-  // the per-slab setup steps.
-  const setups: SlabSetup[] = slabs.map((raw, i) => {
+  // offsets when present (cx += dx, cz −= dy — depth-invariant), then
+  // PARTITION (design 07 §2.4.1 D-f): slabs carrying `fieldWeight` form
+  // THE field group (at most one group per call — evaluated by the
+  // marched-field fork, at pseudo-slab-index = the lowest ball slab
+  // index); classic slabs run the Q-steps unchanged.
+  const setups: SlabSetup[] = [];
+  const fieldBalls: FieldBall[] = [];
+  slabs.forEach((raw, i) => {
     const yawed = yawSlab(raw, turns);
     const off = offsets?.[i];
     const sl =
@@ -400,6 +697,34 @@ export function rasterize(
             cx: fp_add(yawed.cx, off.dx),
             cz: fp_sub(yawed.cz, off.dy),
           };
+    if (raw.fieldWeight !== undefined) {
+      const w = raw.fieldWeight;
+      if (!Number.isInteger(w) || w <= 0) {
+        throw new RangeError(`raster: fieldWeight must be a positive integer raw, got ${w}`);
+      }
+      // F0: ball radii recover from the slab's VISIBLE half-extents
+      // once per rasterize call (F8's 0.67 law, BALL_FROM_VIS =
+      // fp_div(65536, 43909)); inverses once per ball per axis
+      // (divides never happen per sample — 06 §5.2).
+      const rx = fp_mul(sl.hx, BALL_FROM_VIS);
+      const ry = fp_mul(sl.hy, BALL_FROM_VIS);
+      const rz = fp_mul(sl.hz, BALL_FROM_VIS);
+      fieldBalls.push({
+        idx: i,
+        cx: sl.cx,
+        cy: sl.cy,
+        cz: sl.cz,
+        rx,
+        ry,
+        rz,
+        invRx: fp_div(FP_ONE, rx),
+        invRy: fp_div(FP_ONE, ry),
+        invRz: fp_div(FP_ONE, rz),
+        w,
+        roleId: ROLE_IDS[sl.role],
+      });
+      return;
+    }
     const tiltCy = fp_mul(TILT_RAW, sl.cy); // P1
     const zs = fp_sub(0, fp_div(fp_mul(TILT_RAW, sl.hy), sl.hz)); // P2
     const a = fp_add(FP_ONE, fp_mul(zs, zs)); // P3
@@ -423,7 +748,8 @@ export function rasterize(
       rowZ0sq[r] = fp_mul(z0, z0);
       rowB0[r] = fp_mul(z0, zs);
     }
-    return {
+    setups.push({
+      index: i,
       cx: sl.cx,
       cy: sl.cy,
       cz: sl.cz,
@@ -438,8 +764,17 @@ export function rasterize(
       colOneMinusX2,
       rowZ0sq,
       rowB0,
-    };
+    });
   });
+
+  // Field-group column precompute (semantics-preserving hoists only —
+  // design 07 §2.4.1's performance note: X² per (ball, column), the
+  // march y-grid + Y² per (ball, step) per column, negated-tilt z bases;
+  // every hoisted value is the identical fp raw the per-sample F1/M1–M3
+  // steps would compute — int-add associativity and fp-op purity make
+  // the split exact).
+  const field = fieldBalls.length > 0 ? buildFieldColumns(fieldBalls, colSx, nCols) : null;
+  const fieldIndex = fieldBalls.length > 0 ? fieldBalls[0]!.idx : -1;
 
   const n = setups.length;
   const grid: (RasterPixel | null)[][] = [];
@@ -462,9 +797,22 @@ export function rasterize(
         const r = py * s + iy;
         for (let ix = 0; ix < s; ix++) {
           const c = px * s + ix;
-          // Nearest slab: ascending index, strict < — lower index wins ties.
+          // Nearest hit: ascending slab index, strict < — lower index
+          // wins depth ties (design 06 §1.4). The field group (if any)
+          // contributes at most ONE hit per sample at its pseudo-index
+          // (the lowest ball slab index); the min-by-(depth, index)
+          // comparison below reproduces the ascending strict-< scan for
+          // any index interleaving.
           let best = -1;
           let bestDepth = 0;
+          let bestSetup: SlabSetup | null = null;
+          if (field !== null) {
+            const entry = fieldMarch(field, c, rowSy[r]!);
+            if (entry !== null) {
+              best = fieldIndex;
+              bestDepth = entry;
+            }
+          }
           for (let j = 0; j < n; j++) {
             const su = setups[j]!;
             const oneMinusX2 = su.colOneMinusX2[c]!;
@@ -474,20 +822,59 @@ export function rasterize(
             const sqrtQ = fp_sqrt(q); // Q3
             const y = fp_mul(fp_sub(fp_sub(0, su.rowB0[r]!), sqrtQ), su.invA); // Q4
             const depth = fp_add(su.cy, fp_mul(su.hy, y)); // Q5
-            if (best < 0 || depth < bestDepth) {
-              best = j;
+            if (best < 0 || depth < bestDepth || (depth === bestDepth && su.index < best)) {
+              best = su.index;
               bestDepth = depth;
+              bestSetup = su;
             }
           }
           if (best < 0) continue;
           hits++;
-          const su = setups[best]!;
-          // Q5 hit point → tone steps T2–T7.
           const pxm = colSx[c]!;
           const pzm = fp_sub(fp_sub(0, fp_mul(TILT_RAW, bestDepth)), rowSy[r]!);
-          const nx = fp_mul(fp_sub(pxm, su.cx), su.invE2x); // T2
-          const ny = fp_mul(fp_sub(bestDepth, su.cy), su.invE2y);
-          const nz = fp_mul(fp_sub(pzm, su.cz), su.invE2z);
+          let nx: number;
+          let ny: number;
+          let nz: number;
+          let roleId: number;
+          let partId: number;
+          if (bestSetup === null) {
+            // Field hit: dominant-ball part tag (largest term at the
+            // entry point, ties → lowest ball node id) and the
+            // field-gradient normal G1 (central differences, GRAD_E).
+            const balls = field!.balls;
+            partId = balls[0]!.idx;
+            roleId = balls[0]!.roleId;
+            let bestTerm = -1;
+            for (const b of balls) {
+              const term = ballTerm(b, pxm, bestDepth, pzm);
+              if (term > bestTerm) {
+                bestTerm = term;
+                partId = b.idx;
+                roleId = b.roleId;
+              }
+            }
+            nx = fp_sub(
+              fieldAt(balls, fp_sub(pxm, GRAD_E), bestDepth, pzm),
+              fieldAt(balls, fp_add(pxm, GRAD_E), bestDepth, pzm),
+            ); // G1
+            ny = fp_sub(
+              fieldAt(balls, pxm, fp_sub(bestDepth, GRAD_E), pzm),
+              fieldAt(balls, pxm, fp_add(bestDepth, GRAD_E), pzm),
+            );
+            nz = fp_sub(
+              fieldAt(balls, pxm, bestDepth, fp_sub(pzm, GRAD_E)),
+              fieldAt(balls, pxm, bestDepth, fp_add(pzm, GRAD_E)),
+            );
+          } else {
+            // Classic hit: Q5 hit point → ellipsoid-normal step T2.
+            const su = bestSetup;
+            partId = su.index;
+            roleId = su.roleId;
+            nx = fp_mul(fp_sub(pxm, su.cx), su.invE2x); // T2
+            ny = fp_mul(fp_sub(bestDepth, su.cy), su.invE2y);
+            nz = fp_mul(fp_sub(pzm, su.cz), su.invE2z);
+          }
+          // T3–T7 (design 06 §1.4 VERBATIM for both renderers).
           const len = fp_sqrt(
             fp_add(fp_add(fp_mul(nx, nx), fp_mul(ny, ny)), fp_mul(nz, nz)),
           ); // T3
@@ -499,10 +886,10 @@ export function rasterize(
             fp_add(fp_mul(ux, LIGHT_RAW[0]!), fp_mul(uy, LIGHT_RAW[1]!)),
             fp_mul(uz, LIGHT_RAW[2]!),
           ); // T6
-          const thresholds = su.roleId === ROLE_IDS.focal ? focalThresholds : bodyThresholds;
+          const thresholds = roleId === ROLE_IDS.focal ? focalThresholds : bodyThresholds;
           let tone = 0; // T7
           for (const t of thresholds) if (d > t) tone++;
-          const key = su.roleId * 4 + tone; // tone ≤ 3, roleId ≤ 2 — injective
+          const key = roleId * 4 + tone; // tone ≤ 3, roleId ≤ 2 — injective
           let vote = votes.get(key);
           if (vote === undefined) {
             vote = { count: 0, depthSum: 0, parts: new Map() };
@@ -510,7 +897,7 @@ export function rasterize(
           }
           vote.count++;
           vote.depthSum += bestDepth;
-          vote.parts.set(best, (vote.parts.get(best) ?? 0) + 1);
+          vote.parts.set(partId, (vote.parts.get(partId) ?? 0) + 1);
         }
       }
       // Coverage: exact integer comparison hits·2^16 ≥ S²·COVERAGE_RAW.

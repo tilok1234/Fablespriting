@@ -30,12 +30,13 @@ const TWO64 = 1n << 64n;
 
 /**
  * Enum member names of locus 0 `meta.plan` (design 06 §1.1 as extended by
- * design 07 §2.1 at U3): { quadruped = 0, levitant = 1 }. `amorphous = 2`
- * is deliberately NOT here — it appends with U4 (a decodable-but-
- * ungrowable enum member would be a landmine); old builds decoding
- * plan = 1 raise UpgradeRequired, the correct 06 §3.3 behavior.
+ * design 07 §2.1 at U3 and §2.4.1 at U4):
+ * { quadruped = 0, levitant = 1, amorphous = 2 }. Each member appended
+ * only in the unit that made it growable (a decodable-but-ungrowable
+ * enum member would be a landmine); old builds decoding a newer plan id
+ * raise UpgradeRequired, the correct 06 §3.3 behavior.
  */
-export const PLAN_NAMES = Object.freeze(["quadruped", "levitant"] as const);
+export const PLAN_NAMES = Object.freeze(["quadruped", "levitant", "amorphous"] as const);
 
 /**
  * Enum member names of locus 2 `meta.trait_tags` (design 06 §1.1):
@@ -108,8 +109,9 @@ function s(
 
 /**
  * The canonical version-1 locus registry of design 06 §1.1 as extended by
- * design 07 §4 (U2 appends id 35) and design 07 §2.3.1 (U3 appends the
- * levitant loci, ids 36–46), transcribed exactly: ids 0–46,
+ * design 07 §4 (U2 appends id 35), design 07 §2.3.1 (U3 appends the
+ * levitant loci, ids 36–46), and design 07 §2.4.1 (U4 appends the
+ * amorphous loci, ids 47–50), transcribed exactly: ids 0–50,
  * append-only per version-table, never renumbered, never reused.
  * `REGISTRY[i].id === i` for every entry. All fp bounds and defaults are
  * the spec's pinned raws (`RHE(d · 2^16)` of the authored decimals); the
@@ -118,7 +120,7 @@ function s(
  * (06 §3 wire law), so every issued v1 DNA string decodes unchanged.
  */
 export const REGISTRY: readonly Locus[] = Object.freeze([
-  s(0, "meta.plan", "enum", 0, 1, 0), // {quadruped = 0, levitant = 1} — U3 (design 07 §2.1)
+  s(0, "meta.plan", "enum", 0, 2, 0), // {quadruped = 0, levitant = 1, amorphous = 2} — U3/U4 (design 07 §2.1)
   Object.freeze({ id: 1, path: "meta.seed", kind: "u64" } as const),
   Object.freeze({
     id: 2,
@@ -175,6 +177,14 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
   s(44, "body.core.locomotor_size", "fp", 32768, 117965, 65536), // 1.0 of [0.5, 1.8] — wing size (ear_size precedent)
   s(45, "body.core.tendril_girth", "fp", 45875, 91750, 58982), // 0.9 px of [0.7, 1.4] — tendril x/y halves, taper −i·9830
   s(46, "body.core.tendril_len", "fp", 52429, 98304, 85197), // 1.3 px of [0.8, 1.5] — tendril z half; spacing derives
+  // U4 appends (design 07 §2.4.1): the amorphous plan, defaults from
+  // S1b's slime (spike01b slime()) — every decimal is RHE(d·2^16), every
+  // raw machine-verified before pinning. Lags/phases in TURNS (the U3
+  // 0.7-rad precedent: 1.3 rad = 0.20690143 turns → 13559).
+  s(47, "anim.amorphous.pulse_freq", "int", 1, 2, 1), // gait base phase θ = p·φ (slime sin(φ)); p = 2 freezes hop AND squash at K = 4 (recorded degeneracy, gait_freq-2 precedent; crest/drip stay alive via lag)
+  s(48, "anim.amorphous.squash_amp", "fp", 0, 13107, 9830), // 0.15 ratio of [0, 0.2] — walk squash = 1 − a·sin(θ); hi sweep-narrowed from a 0.25 sketch (eye burial, drip detach at 0.25)
+  s(49, "anim.amorphous.ball_phase_delta", "fp", 0, 16384, 13559), // 1.3 rad = 0.20690143 turns of [0, 0.25] — soft-body lag λ; drip lag = λ + DRIP_EXTRA (6259, the adjudicated difference pin)
+  s(50, "anim.amorphous.anticipation", "fp", 32768, 131072, 65536), // 1.0 of [0.5, 2] — attack f0 scale (id-35/41 analog)
 ]);
 
 /**
@@ -185,39 +195,64 @@ export const REGISTRY: readonly Locus[] = Object.freeze([
  * its own set. Every registry id belongs to exactly one scope
  * (CI-asserted). Unconsumed loci on any genome stay wire-legal and inert.
  */
-export const LOCUS_SCOPES: Readonly<Record<"shared" | "quadruped" | "levitant", ReadonlySet<number>>> =
-  Object.freeze({
-    shared: Object.freeze(new Set([0, 1, 2, 3, 4, 5, 6, 13, 14, 15])),
-    quadruped: Object.freeze(
-      new Set([7, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]),
-    ),
-    levitant: Object.freeze(new Set([36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46])),
-  });
+export const LOCUS_SCOPES: Readonly<
+  Record<"shared" | "quadruped" | "levitant" | "amorphous", ReadonlySet<number>>
+> = Object.freeze({
+  shared: Object.freeze(new Set([0, 1, 2, 3, 4, 5, 6, 13, 14, 15])),
+  quadruped: Object.freeze(
+    new Set([7, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]),
+  ),
+  levitant: Object.freeze(new Set([36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46])),
+  amorphous: Object.freeze(new Set([47, 48, 49, 50])),
+});
 
 /**
  * One cross-plan `anim` leaf correspondence (design 06 §1.1's pinned
- * mechanism, shipped at U3 per design 07 §2.5). Paths are canonical
- * registry spellings; referential integrity is CI-tested. No crossover
- * code consumes this table until M5.
+ * mechanism, shipped at U3 per design 07 §2.5; grown three-column at
+ * U4 per §2.4.1). Paths are canonical registry spellings; a missing
+ * plan column means "unmapped for that plan" (the design 01 §3
+ * "present in one parent only" case). Referential integrity is
+ * CI-tested. No crossover code consumes this table until M5.
  */
 export interface AnimSemanticEntry {
   readonly quadruped: string;
   readonly levitant: string;
+  readonly amorphous?: string;
 }
 
 /**
- * The anim semantic map (design 07 §2.5, U3): quadruped ↔ levitant leaf
- * correspondences for `anim.*` only — body paths align by raw path
- * identity (design 01 §3) and need no map. Unmapped, recorded (the
- * design 01 §3 "present in one parent only" case): quadruped
- * leg_swing_amp + leg_lift_amp; levitant flap_ratio.
+ * The anim semantic map (design 07 §2.5 as realized at U3/U4):
+ * quadruped ↔ levitant ↔ amorphous leaf correspondences for `anim.*`
+ * only — body paths align by raw path identity (design 01 §3) and need
+ * no map. All four amorphous loci are mapped. Unmapped, recorded:
+ * quadruped leg_swing_amp + leg_lift_amp; levitant flap_ratio; the
+ * tail_amp ↔ tendril_amp row has no amorphous member. bob_amp ↔
+ * squash_amp is a px-ratio unit mismatch mapped on semantics ("primary
+ * body oscillation amplitude") — the map is correspondence data, not a
+ * converter; M5's crossover resolves units.
  */
 export const ANIM_SEMANTIC_MAP: readonly AnimSemanticEntry[] = Object.freeze([
-  Object.freeze({ quadruped: "anim.quadruped.gait_freq", levitant: "anim.levitant.hover_freq" }),
-  Object.freeze({ quadruped: "anim.quadruped.bob_amp", levitant: "anim.levitant.hover_amp" }),
-  Object.freeze({ quadruped: "anim.quadruped.tail_lag", levitant: "anim.levitant.tendril_lag" }),
+  Object.freeze({
+    quadruped: "anim.quadruped.gait_freq",
+    levitant: "anim.levitant.hover_freq",
+    amorphous: "anim.amorphous.pulse_freq",
+  }),
+  Object.freeze({
+    quadruped: "anim.quadruped.bob_amp",
+    levitant: "anim.levitant.hover_amp",
+    amorphous: "anim.amorphous.squash_amp",
+  }),
+  Object.freeze({
+    quadruped: "anim.quadruped.tail_lag",
+    levitant: "anim.levitant.tendril_lag",
+    amorphous: "anim.amorphous.ball_phase_delta",
+  }),
   Object.freeze({ quadruped: "anim.quadruped.tail_amp", levitant: "anim.levitant.tendril_amp" }),
-  Object.freeze({ quadruped: "anim.quadruped.anticipation", levitant: "anim.levitant.anticipation" }),
+  Object.freeze({
+    quadruped: "anim.quadruped.anticipation",
+    levitant: "anim.levitant.anticipation",
+    amorphous: "anim.amorphous.anticipation",
+  }),
 ]);
 
 const BY_PATH: ReadonlyMap<string, Locus> = new Map(
@@ -731,10 +766,11 @@ export function decodeGenome(text: string): Genome {
 
 /**
  * The pinned M1 sampler (design 06 §4.2), plan-scoped since U3
- * (design 07 §2.3.1, resolving D-a): given a sheet seed s and a caller-
- * chosen plan (default quadruped — plan is a PARAMETER, it consumes NO
- * draw; 06 §4.2 governs draw *spending* and plan is not drawn at all in
- * U3 — plan-MIX sampling defers to U6, which if it samples must use the
+ * (design 07 §2.3.1, resolving D-a; U4 adds plan 2 with scope
+ * {47–50}): given a sheet seed s and a caller-chosen plan (default
+ * quadruped — plan is a PARAMETER, it consumes NO draw; 06 §4.2 governs
+ * draw *spending* and plan is not drawn at all in
+ * U3/U4 — plan-MIX sampling defers to U6, which if it samples must use the
  * reserved `stream(seed, "meta.plan", "sample")`), the sampled genome has
  * `meta.seed = s`, `meta.plan = plan`, and draws exactly the SHARED loci
  * plus the requested plan's scope ({@link LOCUS_SCOPES}), each from its
@@ -761,12 +797,12 @@ export function sampleGenome(seed: bigint, plan = 0): Genome {
   if (typeof seed !== "bigint" || seed < 0n || seed >= TWO64) {
     throw new RangeError(`genome: sampler seed ${seed} outside u64 [0, 2^64)`);
   }
-  if (plan !== 0 && plan !== 1) {
+  if (plan !== 0 && plan !== 1 && plan !== 2) {
     throw new RangeError(
-      `genome: sampler plan ${plan} outside the version-${GENOME_VERSION} enum {0, 1}`,
+      `genome: sampler plan ${plan} outside the version-${GENOME_VERSION} enum {0, 1, 2}`,
     );
   }
-  const planScope = LOCUS_SCOPES[PLAN_NAMES[plan] as "quadruped" | "levitant"];
+  const planScope = LOCUS_SCOPES[PLAN_NAMES[plan] as "quadruped" | "levitant" | "amorphous"];
 
   const values: Array<readonly [number, number]> = [];
   if (plan !== 0) values.push([0, plan]);

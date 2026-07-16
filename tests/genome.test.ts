@@ -40,8 +40,8 @@ function genomesEqual(a: Genome, b: Genome): boolean {
 }
 
 describe("design 06 §1.1 registry", () => {
-  test("47 loci, ids 0–46 (U3 appends 36–46), REGISTRY[i].id === i", () => {
-    expect(REGISTRY.length).toBe(47);
+  test("51 loci, ids 0–50 (U3 appends 36–46, U4 appends 47–50), REGISTRY[i].id === i", () => {
+    expect(REGISTRY.length).toBe(51);
     for (let i = 0; i < REGISTRY.length; i++) expect(REGISTRY[i]!.id).toBe(i);
   });
 
@@ -50,7 +50,7 @@ describe("design 06 §1.1 registry", () => {
       expect(locusById(locus.id)).toBe(locus);
       expect(locusByPath(locus.path)).toBe(locus);
     }
-    expect(locusById(47)).toBeUndefined();
+    expect(locusById(51)).toBeUndefined();
     expect(locusById(-1)).toBeUndefined();
     expect(locusByPath("body.leg[fl].length")).toBeUndefined(); // no normalization (§2)
   });
@@ -180,11 +180,11 @@ describe("design 06 §3.3 reject rules (each fires with the right error class)",
     ["unknown version prefix 2", "02"],
     ["unknown version prefix 0", "00"],
     ["unknown version prefix 2^32", "80808080107b"],
-    ["locus id 47 beyond the version-1 registry (U3 extended it to 46)", "012f02"],
+    ["locus id 51 beyond the version-1 registry (U4 extended it to 50)", "013302"],
     ["locus id 300 beyond the version-1 registry", "01ac0202"],
     ["trait tag 5 beyond the version-1 registry", "01020105"],
     ["phase_group enum member 2 beyond the registry", "011704"],
-    ["meta.plan enum member 2 beyond the registry (amorphous is U4's append)", "010004"],
+    ["meta.plan enum member 3 beyond the registry (plan 3 is a future unit's append)", "010006"],
   ];
   for (const [name, hex] of upgradeTapes) {
     test(`UpgradeRequired: ${name}`, () => {
@@ -354,18 +354,20 @@ describe("design 06 §3.5 adversarial worst cases (as amended at U3)", () => {
     expect(genomesEqual(decodeGenome(text), g)).toBe(true);
   });
 
-  test("fully-adversarial cross-plan tape (hand-edited, every locus): 179 bytes = 239 chars", () => {
+  test("fully-adversarial cross-plan tape (hand-edited, every locus): 193 bytes = 258 chars", () => {
     // Exceeds design 01 req 4's ~200-char guidance — recorded honestly in
     // the design 06 §3.5 amendment: the guidance was a target, degradation
-    // is linear, no sampler can emit this tape, and U4 grows it regardless.
+    // is linear, and no sampler can emit this tape. U3's bound was 179 B =
+    // 239 chars; the U4 append (ids 47–50) grows it by 14 B exactly as the
+    // U3 amendment predicted (machine-verified).
     const g = makeGenome({
       seed: (1n << 64n) - 1n,
       traitTags: [3, 4],
-      values: [[0, 1], ...worstValues(idSet([3, 46]))],
+      values: [[0, 1], ...worstValues(idSet([3, 50]))],
     });
     const text = encodeGenome(g);
-    expect(text.length).toBe(239);
-    expect(Buffer.from(text, "base64url").length).toBe(179);
+    expect(text.length).toBe(258);
+    expect(Buffer.from(text, "base64url").length).toBe(193);
     expect(genomesEqual(decodeGenome(text), g)).toBe(true);
   });
 });

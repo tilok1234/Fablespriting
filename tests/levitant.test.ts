@@ -100,10 +100,11 @@ describe("U3 registry append — ids 36–46, plan enum, scopes", () => {
     }
   });
 
-  test("meta.plan extends to {quadruped = 0, levitant = 1} — and NOT amorphous", () => {
+  test("meta.plan carries levitant = 1 (U4 extended the enum to amorphous = 2 — amorphous.test.ts pins it)", () => {
     const plan = REGISTRY[0] as ScalarLocus;
-    expect([plan.kind, plan.lo, plan.hi, plan.defaultRaw]).toEqual(["enum", 0, 1, 0]);
-    expect(PLAN_NAMES).toEqual(["quadruped", "levitant"]); // amorphous = 2 is U4's append
+    expect([plan.kind, plan.lo, plan.defaultRaw]).toEqual(["enum", 0, 0]);
+    expect(plan.hi).toBeGreaterThanOrEqual(1);
+    expect(PLAN_NAMES[1]).toBe("levitant");
   });
 
   test("scope-set completeness: every registry id in exactly one scope", () => {
@@ -278,7 +279,7 @@ describe("plan-scoped sampler", () => {
   });
 
   test("sampler rejects unknown plans", () => {
-    expect(() => sampleGenome(0n, 2)).toThrow(RangeError);
+    expect(() => sampleGenome(0n, 3)).toThrow(RangeError);
     expect(() => sampleGenome(0n, -1)).toThrow(RangeError);
   });
 });
@@ -853,18 +854,13 @@ describe("the all-defaults levitant golden (pinned after the provenance ritual)"
 describe("levitant flicker gates (CI corpus: defaults + seeds 0..9, all clips)", () => {
   test("levitant gate row holds on levitant cells; death held pair scores exactly 0.0; no INF", { timeout: 600000 }, () => {
     // Per-(plan, clip) tables (§4.2 U3 amendment): levitant cells assert
-    // the levitant row, calibrated on the levitant's own §4.4.6 addendum
-    // histograms; the quadruped row stays the U2 pins. CI corpus scaled
-    // to defaults + seeds 0..9 for the ~180 s suite budget (§2.3.1
-    // suite-time accounting); the 200-seed histograms are the recorded
-    // unit evidence.
-    expect(FLICKER_GATES.levitant).toEqual({
-      walk: { num: 47n, den: 1n },
-      idle: { num: 47n, den: 1n },
-      attack: { num: 144n, den: 1n },
-      hurt: { num: 22n, den: 1n },
-      death: { num: 19n, den: 1n },
-    });
+    // the levitant row through measureClipFlicker. The table PIN itself
+    // is single-sourced in tests/flicker-gates.test.ts (U4
+    // consolidation — the U3 close-out found duplicate pins here and in
+    // clips.test.ts). CI corpus scaled to defaults + seeds 0..9 for the
+    // ~180 s suite budget (§2.3.1 suite-time accounting); the 200-seed
+    // histograms are the recorded unit evidence.
+    expect(FLICKER_GATES.levitant).toBeDefined();
     const genomes: Genome[] = [LEV_DEFAULTS];
     for (let seed = 0; seed < 10; seed++) genomes.push(sampleGenome(BigInt(seed), 1));
     for (const [gi, genome] of genomes.entries()) {

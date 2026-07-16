@@ -131,7 +131,7 @@ export function buildContactSheet(from: number, to: number, plan = 0): ContactSh
   });
 }
 
-const USAGE = `usage: fablesprite sheet --seed-range A..B [--plan quadruped|levitant] [--out DIR]
+const USAGE = `usage: fablesprite sheet --seed-range A..B [--plan quadruped|levitant|amorphous] [--out DIR]
   Renders sampled genomes for every seed in the inclusive range A..B and
   composes their 128x640 export sheets into one contact-sheet PNG plus a
   JSON manifest (grid position -> seed/dna). --plan forces every sampled

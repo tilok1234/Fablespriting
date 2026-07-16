@@ -121,12 +121,12 @@ describe("--plan (design 07 §2.3.1 D-a: the U3 mini-sheet instrument)", { timeo
       return true;
     }) as typeof process.stderr.write;
     try {
-      expect(main(["sheet", "--seed-range", "0..0", "--plan", "amorphous"])).toBe(2);
+      expect(main(["sheet", "--seed-range", "0..0", "--plan", "serpentine"])).toBe(2);
     } finally {
       process.stderr.write = orig;
     }
     expect(errs.join("")).toContain("bad --plan");
-    expect(() => buildContactSheet(0, 0, 2)).toThrow(RangeError);
+    expect(() => buildContactSheet(0, 0, 3)).toThrow(RangeError);
   });
 });
 

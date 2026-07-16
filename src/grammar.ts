@@ -31,7 +31,7 @@
  * grammar's *output* — derived from the grown graph, no longer hardcoded.
  */
 
-import { fp_add, fp_div, fp_mul, fp_sqrt, fp_sub } from "./fixed.js";
+import { FP_ONE, fp_add, fp_div, fp_mul, fp_sqrt, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { getScalar, makeGenome } from "./genome.js";
 import { createStream } from "./prng.js";
@@ -1179,4 +1179,503 @@ export const LEVITANT_CHAINS: readonly Chain[] = LEVITANT_STRUCTURE.chains;
 /** Material role of each levitant slab position (§2.3.1 node table). */
 export const LEVITANT_PART_ROLES: readonly MaterialRole[] = Object.freeze(
   LEVITANT_STRUCTURE.parts.map((p) => p.materialRole),
+);
+
+// ---------------------------------------------------------------------------
+// Amorphous geometry — design 07 §2.4.1 (U4) pinned template constants.
+// All-defaults reproduces S1b's slime() (spike01b_more_plans.py:144) in
+// exact fp (worst |fp − float| 0.00126 px over all four walk phases —
+// machine-verified before pinning). NOTE: ball slabs carry VISIBLE
+// half-extents (F8's normative 0.67× law: the visible surface at
+// TH = 0.3 sits at ~0.67× the ball radius); the renderer fork alone
+// converts to ball radii via BALL_FROM_VIS. Every raw is RHE(d·2^16) of
+// its authored decimal.
+// ---------------------------------------------------------------------------
+
+/**
+ * F8's normative visible-radius law: VIS_RATIO = RHE(0.67·2^16); ball
+ * radius recovers from a visible half-extent as
+ * `fp_mul(vis, BALL_FROM_VIS)` with BALL_FROM_VIS = fp_div(2^16, 43909)
+ * — computed ONCE per rasterize call in the fork, and at growth time by
+ * the eye forward floor below. Round-trip fidelity vs the spike's
+ * authored ball radii is ≤ 1 ulp (machine-verified per axis: blob.x
+ * +1, crest.x −1, crest.y +1, crest.z +1, skirt.y +1, rest 0; the
+ * authored VISIBLE raws are the pins, recovered ball radii are
+ * derived values).
+ */
+export const VIS_RATIO = 43909; // RHE(0.67·2^16)
+/** fp_div(65536, VIS_RATIO) — the visible→ball radius factor. */
+export const BALL_FROM_VIS = 97815;
+
+/** Blob (main ball) visible half-extents C: 0.67·(8.2, 7.8, 6.8). */
+const BLOB_VX_C = 360055; // 5.494
+const BLOB_VY_C = 342491; // 5.226
+const BLOB_VZ_C = 298582; // 4.556
+/** Blob coupling slopes σ: 0.67·8.2/3.9 girth, 0.67·7.8/7.6 length, 0.67·6.8/3.4 depth. */
+const SIG_BLOB_VX = 92322;
+const SIG_BLOB_VY = 45065;
+const SIG_BLOB_VZ = 87818;
+/** Rest blob center z — C 4.4, tracks depth at BLOB_VZ's OWN σ, so the
+ * rest ground gap (Z0 − BLOB_VZ = −10224 raw = −0.156 px: the slime
+ * TOUCHES the ground) is constant across the depth domain. */
+const Z0_C = 288358; // 4.4
+/** Crest visible half-extents — constants (0.67·(4.0, 3.8, 3.4)); the
+ * crest merges into big bodies rather than scaling (recorded). */
+const CREST_V = [175636, 166855, 149291] as const;
+/** Crest rest offsets: y −0.8, z rel +3.6 (rides stretch in pose). */
+const CREST_Y = -52429; // −0.8
+export const CREST_ZREL = 235930; // 3.6 — pose.ts consumes it (z delta rides stretch)
+/** Skirt visible half-extents: x/y coupled (0.67·(7.4, 7.0)), z constant 0.67·3.6. */
+const SKIRT_VX_C = 324927; // 4.958
+const SKIRT_VY_C = 307364; // 4.69
+const SKIRT_VZ = 158073; // 2.412 — constant (grounded band)
+const SIG_SKIRT_VX = 83315; // 0.67·7.4/3.9
+const SIG_SKIRT_VY = 40443; // 0.67·7.0/7.6
+/** Skirt rest center: y 0.6, z 1.9 (spike constants). */
+const SKIRT_Y = 39322; // 0.6
+const SKIRT_Z = 124518; // 1.9
+/** Drip visible half-extents — constants 0.67·(2.3, 2.3, 2.0). */
+const DRIP_V = [100991, 100991, 87818] as const;
+/** Drip rest y — C −5.4 tracking length at σ −0.6 DAMPED (sweep-optimized:
+ * 0.55 ⇒ 42 corner fails, 0.60 ⇒ 14, 0.65 ⇒ 22 — totals incl. a
+ * constant +4 death-occlusion baseline; drip-only 38/10/18 — design 07
+ * §2.4.1). */
+const DRIP_Y0_C = -353894; // −5.4
+const SIG_DRIP_Y = -39322; // −0.6
+/** Drip rest z 1.6 (spike). */
+const DRIP_Z0 = 104858; // 1.6
+/** Eye slab half-extents — constants (0.85, 0.6, 1.1), spike slabs. */
+const AMORPH_EYE_HALF = [55706, 39322, 72090] as const;
+/** Eye x — C 2.0 tracking girth at 2.0/3.9 (constant visible-flank ratio). */
+const AMORPH_EYE_X_C = 131072; // 2.0
+const SIG_AMORPH_EYE_X = 33608; // 2.0/3.9
+/** Eye y — C 4.6 sharing BLOB_VY's σ ⇒ constant 0.626 px front setback. */
+const AMORPH_EYE_Y_C = 301466; // 4.6
+const SIG_AMORPH_EYE_Y = SIG_BLOB_VY;
+/** Eye z rides the blob center at constant rel +0.8. */
+export const EYE_ZREL = 52429; // 0.8
+/** Highlight half-extents — constants (1.2, 0.9, 1.0). */
+const HI_HALF = [78643, 58982, 65536] as const;
+/** Highlight x — C −2.4 tracking girth at −2.4/3.9. */
+const HI_X_C = -157286; // −2.4
+const SIG_HI_X = -40330; // −2.4/3.9
+/** Highlight y — C 2.6 tracking length at 2.6/7.6 (constant body-frame ratio). */
+const HI_Y_C = 170394; // 2.6
+const SIG_HI_Y = 22420; // 2.6/7.6
+/** Highlight z rel — C 3.0 tracking depth at 3.0/3.4 (constant z ratio to
+ * the blob ball; both the decimal-ratio and fp_div forms land 57826). */
+const HI_ZREL_C = 196608; // 3.0
+const SIG_HI_ZREL = 57826; // 3.0/3.4
+
+/**
+ * Per-ball field weights W (spike: 1.0, 0.8, 0.7, 0.55) in node-id order
+ * blob, crest, skirt, drip. Template constants; pose.ts emits them as
+ * per-frame `fieldWeight` raws (death deflates them — design 07 §2.4.1).
+ */
+export const AMORPHOUS_WEIGHTS: readonly number[] = Object.freeze([
+  65536, 52429, 45875, 36045,
+]);
+
+/**
+ * Eye forward floor thresholds (design 07 §2.4.1, the M1 eye-visibility
+ * mechanism in amorphous form — evidence-triggered: 256 buried-eye
+ * corner configs without the floor, 0 with it — the corrected,
+ * artifact-backed figure, see §2.4.1). The floor guarantees
+ * the blob ball contributes < 0.25 and the skirt ball < 0.05 of field
+ * at the eye's front face (sum + crest/drip residual < TH, sweep-proven
+ * with worst margin +295 raw). Q_BODY = FP − fp_sqrt(fp_div(16384,
+ * 65536)) = 32768 exact; Q_SKIRT = FP − fp_sqrt(fp_div(3277, 45875)).
+ */
+const Q_BODY = 32768;
+const Q_SKIRT = 48021;
+/**
+ * Wide-pose BLOB floor threshold (the U4 visibility repair's second
+ * candidate): term budget B = 0.26 of field —
+ * Q_BODY_WIDE = FP − fp_sqrt(RHE(0.26·2^16) = 17039) = 32119
+ * (machine-derived; a hand-derived 32118 was 1 ulp wrong — the
+ * machine-verify law at work). B sits strictly ABOVE the defaults' own
+ * wide-pose blob term (walk-f3 16751, idle-f1 16315 —
+ * machine-verified), so the all-defaults genome stays exactly inert,
+ * while burial genomes (worst caught: seed 4 walk f3, blob term 18865,
+ * total margin +796 raw yet zero focal pixels — a pre-repair-build
+ * diagnostic) are pushed to ≥ 2620 raw of field margin (production
+ * probe: seed 4 walk f3 = 2620 exactly; the draft's 2622 predates the
+ * DRIP_EXTRA 6259 re-pin — §2.4.1) — the defaults' proven league
+ * (defaults win their pixels at 2910).
+ */
+const Q_BODY_WIDE = 32119;
+
+/**
+ * Idle breathing squash amplitude — template constant, 0.10 (the
+ * spike's OWN idle preset; the sign FLIPS vs the walk squash — the
+ * recorded U4 idle-rule deviation). Lives here because the wide-pose
+ * eye floor below consumes it at growth time; pose.ts imports it.
+ */
+export const IDLE_BREATH = 6554;
+
+/**
+ * The derived amorphous anchors (design 07 §2.4.1): every geometry
+ * anchor in delta form off the SHARED core dims — `fp_mul(σ, 0) = 0`,
+ * exact at defaults; no amorphous dimension locus exists (the U3 D-d
+ * homology ruling re-verified against the blob geometry). G/L/D are ids
+ * 14/13/15.
+ */
+export interface AmorphousAnchors {
+  /** Blob visible half-extents (x, y, z). */
+  readonly blobVx: number;
+  readonly blobVy: number;
+  readonly blobVz: number;
+  /** Rest blob center z — C 4.4, shares blobVz's σ (constant ground gap −0.156 px). */
+  readonly z0: number;
+  /** Skirt visible half-extents x, y (z is the SKIRT_VZ constant). */
+  readonly skirtVx: number;
+  readonly skirtVy: number;
+  /** Drip rest y — C −5.4, σ −0.6 damped. */
+  readonly dripY: number;
+  /** Eye |x| — C 2.0, σ 2.0/3.9. */
+  readonly eyeX: number;
+  /** Eye rest y AFTER the forward floor (max of the coupled anchor,
+   * the rest floors, and the wide-pose skirt floor; every floor
+   * inactive at all defaults — rest-body margin 6878 raw, wide-skirt
+   * margin 153 464 raw — byte-inert, the M1 EY-floor pattern). */
+  readonly eyeY: number;
+  /** Highlight x (C −2.4) and y (C 2.6). */
+  readonly hiX: number;
+  readonly hiY: number;
+  /** Highlight z rel to the blob center — C 3.0, σ 3.0/3.4; pose.ts
+   * consumes it (the z delta rides stretch). */
+  readonly hiZRel: number;
+}
+
+/**
+ * One eye forward floor candidate (design 07 §2.4.1 §5, exact fp step
+ * order): in the BALL-radius frame of ball b at rest,
+ * `X = fp_div(eyeX − cx, ballRx)`, `Z = fp_div(eyeZ − cz, ballRz)`
+ * (|X| or |Z| > 1 → inactive), `rem = q − X² − Z²` (≤ 0 → inactive),
+ * `floor = cy + fp_mul(ballRy, fp_sqrt(rem)) − EYE_HALF.y`. Growth-time
+ * divides — never per sample.
+ */
+function eyeFloor(
+  eyeX: number,
+  eyeZ: number,
+  cx: number,
+  cy: number,
+  cz: number,
+  visRx: number,
+  visRy: number,
+  visRz: number,
+  q: number,
+): number | null {
+  const rx = fp_mul(visRx, BALL_FROM_VIS);
+  const ry = fp_mul(visRy, BALL_FROM_VIS);
+  const rz = fp_mul(visRz, BALL_FROM_VIS);
+  const x = fp_div(fp_sub(eyeX, cx), rx);
+  if (x > FP_ONE || x < -FP_ONE) return null;
+  const z = fp_div(fp_sub(eyeZ, cz), rz);
+  if (z > FP_ONE || z < -FP_ONE) return null;
+  const rem = fp_sub(fp_sub(q, fp_mul(x, x)), fp_mul(z, z));
+  if (rem <= 0) return null;
+  return fp_sub(fp_add(cy, fp_mul(ry, fp_sqrt(rem))), AMORPH_EYE_HALF[1]);
+}
+
+/** Compute the amorphous anchors for a genome (design 07 §2.4.1 table). */
+export function deriveAmorphousAnchors(genome: Genome): AmorphousAnchors {
+  const girth = getScalar(genome, "body.core.girth");
+  const length = getScalar(genome, "body.core.length");
+  const depth = getScalar(genome, "body.core.depth");
+  const blobVx = anchor(BLOB_VX_C, SIG_BLOB_VX, girth, GIRTH_D);
+  const blobVy = anchor(BLOB_VY_C, SIG_BLOB_VY, length, LENGTH_D);
+  const blobVz = anchor(BLOB_VZ_C, SIG_BLOB_VZ, depth, DEPTH_D);
+  const z0 = anchor(Z0_C, SIG_BLOB_VZ, depth, DEPTH_D);
+  const skirtVx = anchor(SKIRT_VX_C, SIG_SKIRT_VX, girth, GIRTH_D);
+  const skirtVy = anchor(SKIRT_VY_C, SIG_SKIRT_VY, length, LENGTH_D);
+  const eyeX = anchor(AMORPH_EYE_X_C, SIG_AMORPH_EYE_X, girth, GIRTH_D);
+  const eyeYCoupled = anchor(AMORPH_EYE_Y_C, SIG_AMORPH_EYE_Y, length, LENGTH_D);
+  // The eye forward floor (growth time, rest geometry, ball-radius
+  // frame): candidates from the blob ball and the skirt ball.
+  const eyeZ = fp_add(z0, EYE_ZREL);
+  const floorBody = eyeFloor(eyeX, eyeZ, 0, 0, z0, blobVx, blobVy, blobVz, Q_BODY);
+  const floorSkirt = eyeFloor(
+    eyeX,
+    eyeZ,
+    0,
+    SKIRT_Y,
+    SKIRT_Z,
+    skirtVx,
+    skirtVy,
+    SKIRT_VZ,
+    Q_SKIRT,
+  );
+  // The WIDE-POSE skirt floor (U4 visibility repair, evidence-triggered
+  // at implementation — design 07 §2.4.1): the rendered 0..1999 sweep
+  // found genomes whose eyes render ZERO focal pixels at the wide-squash
+  // frames (walk φ = 0.75 / idle φ = 0.25): squash widens the skirt
+  // while dz0 = z0·(stretch − 1) < 0 sinks the eye toward it, so the
+  // skirt's field term at the eye front blows the 0.05 budget the rest
+  // floor guaranteed only at rest (worst observed: seed 11, idle f1
+  // field −1238 raw PAST TH). The pinned U3 pixel-phase fallback is
+  // mechanically ineffective here (the eyes' own-chain snap cancels
+  // rest sub-pixel shifts, and this is field burial, not vote phase),
+  // so the repair extends the floor mechanism itself: one more
+  // candidate — the SAME skirt floor arithmetic evaluated at the
+  // genome's own wide-squash pose (squash_w = 1 + max(squash_amp,
+  // IDLE_BREATH), hop = 0, the walk/idle wide extreme; skirt halves
+  // ×squash_w, eye z at z0 + EYE_ZREL + dz0_w), mapped back to a REST
+  // anchor by the pinned division stretch form (pose re-applies
+  // ×squash_w exactly up to ≤ 1 ulp of the div/mul round-trip —
+  // recorded, budget slack is thousands of raws). Forward-only via the
+  // same max(); inert at all defaults (the defaults' wide-pose skirt
+  // candidate sits 153 464 raw BELOW the coupled anchor —
+  // machine-verified in tests) so the all-defaults geometry is
+  // untouched.
+  const squashAmp = getScalar(genome, "anim.amorphous.squash_amp");
+  const squashW = fp_add(FP_ONE, Math.max(squashAmp, IDLE_BREATH));
+  const stretchW = fp_div(FP_ONE, squashW);
+  const dz0W = fp_mul(z0, fp_sub(stretchW, FP_ONE)); // hop = 0 at the wide phase
+  const eyeZW = fp_add(eyeZ, dz0W);
+  const floorSkirtWide = eyeFloor(
+    eyeX,
+    eyeZW,
+    0,
+    SKIRT_Y,
+    SKIRT_Z,
+    fp_mul(squashW, skirtVx),
+    fp_mul(squashW, skirtVy),
+    SKIRT_VZ,
+    Q_SKIRT,
+  );
+  // Wide-pose BLOB floor (candidate 4): the blob widens in x/y and
+  // flattens in z at the wide pose (halves × (squash_w, squash_w,
+  // stretch_w), center z rides dz0_w with the eye — their z offset
+  // stays EYE_ZREL exactly), and a deep blob can bury the eye alone
+  // (seed 4 walk f3). Budget 0.26 (Q_BODY_WIDE) — see the constant.
+  const floorBodyWide = eyeFloor(
+    eyeX,
+    eyeZW,
+    0,
+    0,
+    fp_add(z0, dz0W),
+    fp_mul(squashW, blobVx),
+    fp_mul(squashW, blobVy),
+    fp_mul(stretchW, blobVz),
+    Q_BODY_WIDE,
+  );
+  const wideCandidates = [floorSkirtWide, floorBodyWide].filter(
+    (f): f is number => f !== null,
+  );
+  const floorWideRest =
+    wideCandidates.length === 0 ? null : fp_div(Math.max(...wideCandidates), squashW);
+  let eyeY = eyeYCoupled;
+  if (floorBody !== null && floorBody > eyeY) eyeY = floorBody;
+  if (floorSkirt !== null && floorSkirt > eyeY) eyeY = floorSkirt;
+  if (floorWideRest !== null && floorWideRest > eyeY) eyeY = floorWideRest;
+  return Object.freeze({
+    blobVx,
+    blobVy,
+    blobVz,
+    z0,
+    skirtVx,
+    skirtVy,
+    dripY: anchor(DRIP_Y0_C, SIG_DRIP_Y, length, LENGTH_D),
+    eyeX,
+    eyeY,
+    hiX: anchor(HI_X_C, SIG_HI_X, girth, GIRTH_D),
+    hiY: anchor(HI_Y_C, SIG_HI_Y, length, LENGTH_D),
+    hiZRel: anchor(HI_ZREL_C, SIG_HI_ZREL, depth, DEPTH_D),
+  });
+}
+
+/** The three auxiliary balls in serial ordinal order (design 07 §2.4.1). */
+const BALL_NAMES = ["crest", "skirt", "drip"] as const;
+
+function ballsChoice(): PartChoice {
+  return {
+    kind: "segment",
+    make(genome, member) {
+      const a = deriveAmorphousAnchors(genome);
+      const name = BALL_NAMES[member]!;
+      let slab: RestSlab;
+      switch (name) {
+        case "crest":
+          slab = {
+            center: [0, CREST_Y, fp_add(a.z0, CREST_ZREL)],
+            half: [CREST_V[0], CREST_V[1], CREST_V[2]],
+          };
+          break;
+        case "skirt":
+          slab = {
+            center: [0, SKIRT_Y, SKIRT_Z],
+            half: [a.skirtVx, a.skirtVy, SKIRT_VZ],
+          };
+          break;
+        default:
+          slab = {
+            center: [0, a.dripY, DRIP_Z0],
+            half: [DRIP_V[0], DRIP_V[1], DRIP_V[2]],
+          };
+      }
+      return {
+        name,
+        path: `body.ball[B:${member}]`,
+        materialRole: "hide",
+        animChain: "blob",
+        slab,
+      };
+    },
+  };
+}
+
+function amorphousEyesChoice(): PartChoice {
+  return {
+    kind: "sensor",
+    make(genome, member) {
+      const a = deriveAmorphousAnchors(genome);
+      const tag = MIRROR_TAGS[member]!;
+      return {
+        name: `eye_${tag.toLowerCase()}`,
+        path: `body.eye[${tag}]`,
+        materialRole: "focal",
+        animChain: "blob",
+        slab: {
+          center: [member === 0 ? -a.eyeX : a.eyeX, a.eyeY, fp_add(a.z0, EYE_ZREL)],
+          half: [AMORPH_EYE_HALF[0], AMORPH_EYE_HALF[1], AMORPH_EYE_HALF[2]],
+        },
+      };
+    },
+  };
+}
+
+function highlightChoice(): PartChoice {
+  return {
+    kind: "ornament",
+    make(genome) {
+      const a = deriveAmorphousAnchors(genome);
+      return {
+        name: "highlight",
+        path: "body.ornament[C]",
+        materialRole: "underside",
+        animChain: "blob",
+        slab: {
+          center: [a.hiX, a.hiY, fp_add(a.z0, a.hiZRel)],
+          half: [HI_HALF[0], HI_HALF[1], HI_HALF[2]],
+        },
+      };
+    },
+  };
+}
+
+function blobChoice(): PartChoice {
+  return {
+    kind: "core",
+    make(genome) {
+      const a = deriveAmorphousAnchors(genome);
+      return {
+        name: "blob",
+        path: "body.blob",
+        materialRole: "hide",
+        animChain: "blob",
+        slab: {
+          center: [0, 0, a.z0],
+          half: [a.blobVx, a.blobVy, a.blobVz],
+        },
+        // Canonical socket order (design 07 §2.4.1):
+        // body.blob: [balls, eyes, highlight].
+        sockets: [
+          {
+            name: "balls",
+            allowedKinds: ["segment"],
+            symmetry: { kind: "serial", n: 3 },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [ballsChoice()],
+          },
+          {
+            name: "eyes",
+            allowedKinds: ["sensor"],
+            symmetry: { kind: "mirror" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [amorphousEyesChoice()],
+          },
+          {
+            name: "highlight",
+            allowedKinds: ["ornament"],
+            symmetry: { kind: "single" },
+            clearanceFp: NO_CLEARANCE,
+            candidates: [highlightChoice()],
+          },
+        ],
+      };
+    },
+  };
+}
+
+/**
+ * The amorphous plan (design 07 §2.4.1, U4): 7 nodes — the blob core
+ * (`body.blob`, the field owner: the union of the blob chain's ball
+ * slabs, evaluated only by the renderer fork), 3 serial auxiliary balls
+ * (`body.ball[B:0..2]` — crest, skirt, drip; count FIXED at 4 total, the
+ * U3 tendril-count ruling verbatim), mirror eyes `body.eye[L]`/`[R]`
+ * (focal slab face parts), and the single asymmetric highlight
+ * `body.ornament[C]` (the U3 horns vocabulary-amendment precedent —
+ * mandatory fill, underside role: the F5 bright-ramp gloss cue). Every
+ * socket is a single-candidate mandatory fill ⇒ zero draws for every
+ * amorphous genome; `mirror_broken` false always. Chains: ONE blob
+ * chain holding ALL SEVEN slabs (§3's blob chain plus the face — the
+ * D-e AMENDMENT, implementation-evidence-triggered, design 07 §2.4.1:
+ * under own face chains the snap law plants each eye's center on a
+ * pixel CORNER for every genome and frame — the worst possible
+ * 4-way sample straddle for a 1.7-px focal part, structurally beyond
+ * any rest-geometry repair — and the rendered visibility sweep found
+ * zero-focal frames with HEALTHY field margins (seed 11 walk f3).
+ * Riding the blob chain restores the spike's exact relative vote
+ * geometry — the accepted S1b renders are the evidence — and the
+ * eyes' oscillator IS the squash signal (restCy·squash), the blob's
+ * own signal, so this is the levitant F16 rigid-face case, not the
+ * wing/tendril independent-signal case. Face scramble is impossible
+ * by construction (one chain, one offset). Death's face retract
+ * survives as per-PART deltas inside the chain — the §2.4 deflate
+ * exception already operates per part (per-ball weights).
+ * Budget [7, 14]: the mandatory census is 7 (the spike's exact part
+ * list); design 02 §3's "~8–14" band is tilde-loose and inventing an
+ * 8th part would be banned speculation (recorded deviation, design 07
+ * §1.1 amendment note). Ball slabs carry VISIBLE half-extents (F8) —
+ * hitboxes, shadow, flicker energy, and craft see visible-radius
+ * geometry with no plan special-case; only the fork converts.
+ */
+export const AMORPHOUS_PLAN: PlanSpec = Object.freeze({
+  plan: "amorphous",
+  budgetMin: 7,
+  budgetMax: 14,
+  core: blobChoice(),
+});
+
+/** Grow the amorphous part graph — `growPlan(AMORPHOUS_PLAN, genome)`. */
+export function growAmorphous(genome: Genome): PartGraph {
+  return growPlan(AMORPHOUS_PLAN, genome);
+}
+
+/**
+ * The amorphous structure is genome-independent (no existence loci;
+ * ball count fixed at 4), so its structural wires derive once from the
+ * all-defaults growth (design 07 §2.4.1 node table).
+ */
+const AMORPHOUS_STRUCTURE: PartGraph = growAmorphous(makeGenome({ values: [["meta.plan", 2]] }));
+
+/** Amorphous part names in the pinned slab order (design 07 §2.4.1):
+ * blob, crest, skirt, drip, eye_l, eye_r, highlight. */
+export const AMORPHOUS_PART_NAMES: readonly string[] = AMORPHOUS_STRUCTURE.slabOrder;
+
+/**
+ * The amorphous skeleton chains (design 07 §2.4.1 chain table, as
+ * amended at implementation): ONE blob chain {0, 1, 2, 3, 4, 5, 6} —
+ * balls AND face parts ride the blob's snap offset (the shadow chain
+ * seam therefore sees all seven slabs; the ball extents dominate its
+ * x-span in the front/back views, and a floor-pushed eye may
+ * legitimately widen it in profile — the levitant eye-stack
+ * precedent, derived, no special case).
+ */
+export const AMORPHOUS_CHAINS: readonly Chain[] = AMORPHOUS_STRUCTURE.chains;
+
+/** Material role of each amorphous slab position (§2.4.1 node table). */
+export const AMORPHOUS_PART_ROLES: readonly MaterialRole[] = Object.freeze(
+  AMORPHOUS_STRUCTURE.parts.map((p) => p.materialRole),
 );

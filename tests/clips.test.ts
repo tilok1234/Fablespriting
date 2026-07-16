@@ -188,30 +188,14 @@ describe("locus 35 wire behavior", () => {
 // ---------------------------------------------------------------------------
 
 describe("one-shot flicker policy", () => {
-  test("pinned gates and one-shot roster", () => {
-    // Per-(plan, clip) gate tables (design 07 §4.2 as amended at U3):
-    // each plan is calibrated by the M1 method against its OWN histogram.
-    // The quadruped row is EXACTLY the U2 pins, restated not recalibrated
-    // (its histograms have not moved) — a quadruped regression past its
-    // own calibrated ceiling fails even where levitant cells are
-    // legitimately louder.
-    expect(FLICKER_GATES.quadruped).toEqual({
-      walk: { num: 32n, den: 1n },
-      idle: { num: 32n, den: 1n },
-      attack: { num: 19n, den: 1n },
-      hurt: { num: 14n, den: 1n },
-      death: { num: 25n, den: 1n },
-    });
-    // Levitant row from the §4.4.6 U3 addendum sweep maxima (walk
-    // 17.2966, attack 68.9279, hurt 17.2825, death 14.9359 → tightest
-    // integers with ≥ 1.25× margin).
-    expect(FLICKER_GATES.levitant).toEqual({
-      walk: { num: 47n, den: 1n },
-      idle: { num: 47n, den: 1n },
-      attack: { num: 144n, den: 1n },
-      hurt: { num: 22n, den: 1n },
-      death: { num: 19n, den: 1n },
-    });
+  test("one-shot roster (the gate TABLE pin is single-sourced in tests/flicker-gates.test.ts — U4 consolidation)", () => {
+    // The per-(plan, clip) gate table (design 07 §4.2) is asserted by
+    // exactly ONE module, tests/flicker-gates.test.ts: the U3 close-out
+    // found duplicate pins here AND in levitant.test.ts — a silent-
+    // divergence risk. This file keeps the quadruped BEHAVIORAL gate
+    // tests (below); the quadruped cells still assert their own row
+    // through measureClipFlicker.
+    expect(FLICKER_GATES.quadruped).toBeDefined();
     expect([...ONE_SHOT_CLIPS].sort()).toEqual(["attack", "death", "hurt"]);
     expect(CLIP_KS).toEqual({ walk: 4, idle: 4, attack: 4, hurt: 2, death: 4 });
   });

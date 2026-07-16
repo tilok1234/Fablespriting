@@ -38,7 +38,7 @@ import { fp_mul, fp_sub } from "./fixed.js";
 import type { Genome } from "./genome.js";
 import { PLAN_NAMES, getScalar } from "./genome.js";
 import { applyPalette, derivePalette } from "./palette.js";
-import { LEVITANT_PART_NAMES, PART_NAMES } from "./grammar.js";
+import { AMORPHOUS_PART_NAMES, LEVITANT_PART_NAMES, PART_NAMES } from "./grammar.js";
 import type { ClipName, Slab } from "./pose.js";
 import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, growCreature, poseCreature } from "./pose.js";
 import type { Direction } from "./raster.js";
@@ -103,6 +103,21 @@ export interface FlickerGate {
  * dominating the 11-slab silhouette), not visible churn; renders in
  * the §2.3.1 close-out record.
  *
+ * amorphous — calibrated at U4 in ONE step on the FULL seeds 0..1999
+ * amorphous-forced sweep (the §4.4.6 close-out lesson: never
+ * 200-then-2000), 8000 cells (2000 seeds × 4 directions) per clip on
+ * the FINAL
+ * production path (post visibility-repair + chain merge), no INF
+ * anywhere, death held pairs exactly 0.0: observed maxima walk
+ * 113.8060 (seed 1933 up) / attack 49.7549 (seed 431 up) / hurt
+ * 22.0728 (seed 864 down) / death 22.6905 (seed 900 down) → gates
+ * 143 (1.257×), 63 (1.266×), 28 (1.269×), 29 (1.278×). The loud walk
+ * tail (a handful of cells 58–113.8) is the squash mechanism's metric
+ * artifact priced in by design: squash oscillates EXTENTS, so
+ * changed-pixel counts have no matching center-motion energy in the
+ * one-chain mass — the U3 one-chain artifact, amplified (histograms in
+ * design 07 §2.4.1).
+ *
  * Idle rows carry the plan's walk rational for callers that measure
  * idle cells, but idle is NOT CI-gated (unchanged M1 policy).
  */
@@ -122,6 +137,13 @@ export const FLICKER_GATES: Readonly<
     attack: Object.freeze({ num: 144n, den: 1n }),
     hurt: Object.freeze({ num: 22n, den: 1n }),
     death: Object.freeze({ num: 19n, den: 1n }),
+  }),
+  amorphous: Object.freeze({
+    walk: Object.freeze({ num: 143n, den: 1n }),
+    idle: Object.freeze({ num: 143n, den: 1n }),
+    attack: Object.freeze({ num: 63n, den: 1n }),
+    hurt: Object.freeze({ num: 28n, den: 1n }),
+    death: Object.freeze({ num: 29n, den: 1n }),
   }),
 });
 
@@ -314,11 +336,15 @@ export function evaluateCell(
     );
   }
   for (const slabs of slabLists) {
-    // A plan's normative slab list: 13 (quadruped, 06 §1.2) or 11
-    // (levitant, design 07 §2.3.1).
-    if (slabs.length !== PART_NAMES.length && slabs.length !== LEVITANT_PART_NAMES.length) {
+    // A plan's normative slab list: 13 (quadruped, 06 §1.2), 11
+    // (levitant, design 07 §2.3.1), or 7 (amorphous, design 07 §2.4.1).
+    if (
+      slabs.length !== PART_NAMES.length &&
+      slabs.length !== LEVITANT_PART_NAMES.length &&
+      slabs.length !== AMORPHOUS_PART_NAMES.length
+    ) {
       throw new RangeError(
-        `flicker: expected a plan slab list (${PART_NAMES.length} or ${LEVITANT_PART_NAMES.length} slabs), got ${slabs.length}`,
+        `flicker: expected a plan slab list (${PART_NAMES.length}, ${LEVITANT_PART_NAMES.length}, or ${AMORPHOUS_PART_NAMES.length} slabs), got ${slabs.length}`,
       );
     }
   }
