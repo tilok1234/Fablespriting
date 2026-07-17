@@ -2306,6 +2306,323 @@ now is a new unit decision.
   distance; the review loop demonstrably ran (the qa/ history is the
   record).
 
+### 7.1 U6 amendment — the acceptance instrument (delivered 2026-07-17)
+
+Everything below is **pinned at U6** (adjudicated spec 2026-07-17; two
+independent specs reconciled, every contested number re-derived on a
+fresh d279e74 build). The anchor razor held: the U6 diff moves ZERO
+shipped bytes — the 60-entry U5-baseline spot check (20 seeds/plan,
+default path, full export sha256 pairs) byte-matched before and after
+the change, and every pre-existing golden/anchor/mode fingerprint test
+passes unchanged.
+
+**1. The mix entry point (G-a, pinned).** `sampleBestiary(seed)` in
+genome.ts — a wrapper that OWNS the plan draw (plan stops being a
+caller parameter exactly and only here; the rejected alternative, a
+`mix` opt on `sampleGenome`, would contradict its plan argument or
+demand a sentinel):
+
+- `meta.plan` drawn ONCE from the RESERVED
+  `stream(seed, "meta.plan", "sample")` — the U3 D-a reservation
+  (§2.3.1), finally consumed; grep-verified as that stream's ONLY
+  `createStream` consumer in src/ (`drawMixPlan`, genome.ts). The draw
+  is one logical `nextRange(Σ PLAN_MIX_WEIGHTS)`, cumulative in enum
+  order (the §6.1 weighted-fill convention); at [1, 1, 1] it is
+  `nextRange(3)` verbatim.
+- Trait tags drawn by the seed's own DEFAULT-PATH tag draw — the
+  `drawTraitTags` helper, extracted at U6 as the single shared source
+  of both the default path and the mix (byte-inert on the default
+  path; the step-zero baseline proves it) — then passed FORCED into
+  the U5 tag mode. **Tags GATE growth in mix mode** (design 02 §3's
+  defense 1, finally ambient): temperament priors, tag-weighted
+  ornament kind fills, the gated existence draws (ornament P = 3/4;
+  emitter P = 1/2 spectral/mechanical else 1/8), and the sampler-time
+  self-check all run. The plain path (`sampleGenome(seed, plan)`, tags
+  gating nothing) stays reachable and byte-frozen — the v1-compat
+  surface, not the bestiary.
+- **Presets do NOT enter the mix.** A stat block (design 02 §5) is a
+  game-side designer input, absent for an ambient bestiary; folding
+  presets in would push the ranged/armor structural guarantees into
+  the ambient distribution with no consumer, and would break the
+  identity law. `sampleBestiary` takes NO opts; FFF stays
+  caller-scoped (§6.1).
+- **The identity law:** for every seed, `sampleBestiary(seed)` ===
+  `sampleGenome(seed, P, { tags: T })` with P the reserved-stream draw
+  and T the default-path tag set. Evidence: by construction (the
+  wrapper IS that call); CI vectors seeds 0..49 with P/T re-derived
+  from raw stream calls transcribed from the spec text
+  (tests/u6-mix.test.ts — the pin-against-spec discipline); tag
+  identity `sampleGenome(s, P).traitTags == T` re-measured 100/100;
+  an independent mirror script rebuilt all 100 sheet genomes from raw
+  streams + the exported bias tables and byte-matched 100/100 DNAs
+  (pre-re-roll in-band on all 100 — the reroll never fires on this
+  corpus); the from-spec Python PCG32 oracle re-derived the 0..99 plan
+  sequence + tag sets from the docs alone, 100/100 + 100/100.
+
+**2. The distribution (G-b, pinned): PLAN_MIX_WEIGHTS = [1, 1, 1].**
+Both candidates measured on the committed build (uniform vs the
+rejected quadruped-heavy 2:1:1):
+
+| corpus | uniform q/l/a | heavy q/l/a |
+|--------|---------------|-------------|
+| seeds 0..99 | **34 / 33 / 33** | 45 / 36 / 19 |
+| seeds 0..1999 | 662 / 659 / 679 | 995 / 527 / 478 |
+
+Ruling for uniform (adjudicated; the heavy case — quadruped carries
+26 plan-scoped loci of variety capacity vs levitant 11 / amorphous
+4 — recorded honestly): (1) the instrument must not be tuned toward
+passing — down-weighting the plan most at risk of reading samey
+composes a flattering sheet instead of measuring; (2) the
+amorphous-oatmeal fear is not evidence-backed — the U4 mini-sheet (25
+amorphous-forced) was owner-accepted with zero flagged seeds; (3) the
+plan×tag matrix minima: uniform's realized minimum cell is 7 genomes,
+the heavy candidate drops amorphous×verdant to 3; (4) §0's D4
+sentence read whole ("maximum spread") supports equal footing;
+(5) uniform is the zero-taste-constant choice. **Honesty clause:** the
+realized 0..99 census {34, 33, 33} is RECORDED, not engineered — the
+weights stay principled regardless of the pinned range's luck; a
+retune is a one-constant reviewed regeneration (new qa artifacts + new
+fixtures in the same commit), never a seed-range change. The pinned
+plan sequence, seeds 0..99 (0 = quad, 1 = lev, 2 = amor),
+CI-asserted (tests/u6-mix.test.ts):
+
+```
+0002200211100221101021022102001102202022020121120220101112020212121010102101102010102121221112201020
+```
+
+Corpus fingerprints (sha256 of newline-joined mix DNA strings),
+pre-registered in the spec and landed EXACTLY (no legal diff existed —
+every piece is frozen): seeds 0..99
+`ae3bbbe767449b0e1d5c4affed15a43ed4448a47a2bae13ba63aeaa9583036ea`
+(CI-asserted); seeds 0..1999
+`010dcce0c83a068ad2367e579fab2ffd40a8129d3a3082ef4c0fd42e790e2898`
+(re-asserted on the final build). Realized mix-corpus facts
+(MEASURED): tag census 0..99 chitin 28 / fleshy 31 / spectral 27 /
+mechanical 33 / verdant 26, 45 two-tag genomes; ornament incidence
+80/100 and 1521/2000 (76%); emitter 30/100 and 678/2000 (33.9%) — the
+U5 tag-mode constants' ambient consequence, pinned AS IS to preserve
+the identity and disclosed as a review watch item (a retune of the
+§6.1 existence probabilities was legal only BEFORE the qa pin; the
+owner review judges the realized incidence); degenerate manifests
+0/100 and 0/2000 — **the §5.1 bands hold on the first genuinely new
+sampled space they were built to guard.** Max mix DNA 178 chars (seed
+858), mean 108.5 over 0..99 — design 01 req-4's ~200-char guidance
+holds. **Zero registry appends** (REGISTRY stays ids 0..55,
+CI-pinned); PLAN_MIX_WEIGHTS is a pinned sampler constant, not a
+locus; no new draw names; GENERATOR_VERSION stays 2 (U6 changes no
+output on any existing surface).
+
+**3. The pinned sheet (G-c).** CLI:
+`fablesprite sheet --seed-range A..B --mix [--out DIR]` — `--mix` is a
+valueless boolean flag (`--mix=x` is a usage error), mutually
+exclusive with `--plan`/`--tags`/`--preset` (exit 2, the message names
+the conflict — they force what mix draws; silent precedence would lie
+about provenance). Basename `sheet_mix_<A>_<B>` (the M1-era
+qa/sheet_0_49.* stays untouched history).
+`buildContactSheet(from, to, planOrMix: number | "mix", opts?)` —
+`"mix"` with opts throws; the exported `buildMixManifestEntries(from,
+to)` (sample + encode, no render) single-sources the manifest, and the
+mix render loop consumes it via `decodeGenome(entry.dna)` (the
+round-trip law makes the decoded render identical — every cell is
+reproducible from its DNA alone). Manifest schema (canonical JSON,
+defaults-absent): top-level `mix: true` (absent on non-mix sheets);
+entries `{col, dna, plan, row, seed, tags}` with plan/tags as name
+strings — self-describing twice over. Geometry: N = 100 → 10×10,
+**1298 × 6418 px** (10·128 + 9·2 × 10·640 + 9·2; the 31-column cap
+has 2798 px of headroom). Artifacts: `qa/sheet_mix_0_99.png` +
+`.json`, generated by
+`node dist/cli.js sheet --seed-range 0..99 --mix --out qa` from the
+final build. Pin ritual (the golden ritual applied to a qa artifact),
+run 2026-07-17 on the final build: double-rendered — render A the CLI
+subprocess into qa/, render B in-process
+`buildContactSheet(0, 99, "mix")` (walls observed at ~213 s each —
+quiet-machine observations with no retained timing artifact, same
+labeling as the per-leg guard times in items 4–5; the renders
+themselves ARE retained: render B's PNG/JSON/raw-RGBA live in the
+session scratchpad `u6-work/renderB/`) — PNG and JSON
+byte-IDENTICAL across the two; PIL decoded the committed PNG and
+pixel-compared it against render B's raw RGBA buffer, all 33,322,256
+bytes identical; the manifest re-canonicalized independently in Python
+(sorted keys, minimal separators) byte-equal. Provenance hashes
+(sha256, Python-recomputed, matching the committed fixture):
+PNG `27c19ee4b6408848662eb05aea7e8da4c870010e7c522b84ac8d4ed30e7c35e5`,
+JSON `d1cdcd2f80dcd883a3bea5db5af0530c338f3317d14df5ddee76957986d0bba7`.
+The M1-era "no goldens hash the composed sheet"
+note (cli.ts header, README) is superseded FOR MIX SHEETS by §7's
+guard law — both amended in this change; plain sheets keep the M1
+rule.
+
+**4. The CI hash guard (G-d — §7's law, realized; the U5 anchor-slice
+scaling precedent applied verbatim).** tests/qa-guard.test.ts,
+per-run, three legs against the committed fixture
+`tests/goldens/u6_mix_guard.txt`:
+
+1. **Full-manifest identity** (spec-priced ~2.5 s; observed
+   3.6–4.0 s on a quiet machine, 2026-07-17 — per-leg times are
+   observations without a retained per-leg artifact; item 5 has the
+   RETAINED whole-file guard walls): all 100 mix genomes
+   re-derived via `buildMixManifestEntries(0, 99)`, canonical manifest
+   string byte-compared against the committed qa JSON — any
+   sampler/registry/stream drift fails here; every genome on the sheet
+   is pinned per-run.
+2. **Render slice, 6 cells (2 per plan)** (spec-priced ~15 s;
+   observed ~21–23 s quiet): per plan, the LOWEST seed plus the
+   LOWEST EMITTER-BEARING seed; if those coincide, the plan's
+   NEXT-LOWEST seed joins instead — NOT the next emitter-bearing seed
+   (levitant's lowest seed 8 IS its first emitter, so lev takes 9;
+   advancing to lev's next emitter seed 10 would LOSE lev × ornament
+   — neither 8 nor 10 carries an ornament, machine-verified).
+   Realized quad {0, 11}, lev {8, 9}, amor {3, 4}. The selection
+   heuristic is advisory; the NORMATIVE property, re-verified by
+   enumeration at any regeneration, is that the realized six cells
+   cover every plan × {ornament, emitter} render path (today: quad
+   dorsal 0 + quad emitter 11, lev emitter 8 + lev crown 9, amor
+   rim 3 + amor emitter/two-tag 4 — lev × ornament rides on seed 9's
+   crown, which the heuristic alone does not guarantee).
+   Each re-exports through the full pipeline; sheet-RGBA sha256
+   asserted against the fixture AND the committed PNG is DECODED and
+   the six cell regions pixel-compared against the re-render — the
+   committed PNG provably contains today's renderer output, not a
+   stale paste.
+3. **Whole-file sha256 pins** of the PNG and manifest — every hash
+   move is an explicit reviewed fixture diff line.
+
+**The guard's law, operative:** any grammar/craft/sampler change that
+moves a shipped byte fails leg 1 or 2 until qa/sheet_mix_0_99.* AND
+the fixture regenerate in the SAME commit — that regeneration diff is
+the reviewed artifact. A hash move without it cannot pass CI. **Honest
+coverage tradeoff:** per-run pixel coverage is 6/100 cells; the other
+94 cells' genomes are guarded by leg 1, the renderer by the six cells
++ the standing goldens + the U5 9-export anchor slice, and a
+regression expressible ONLY on an unsliced cell is caught at the next
+close-out full re-render (standing practice from U6 on: the full 100
+re-renders and byte-compares at every unit close-out). The priced
+fallback (1 cell/plan, −6 s, loses the quad/amor emitter exemplars)
+was NOT taken.
+
+**5. Suite-time accounting (G-f).** Full suite after U6: **475
+tests / 22 files, all green on every retained run.** Retained walls
+(vitest-reported, 2026-07-17, session scratchpad): the u6-fix pair
+**185.5/192.1 s** (`u6-fix/suite_run{1,2}_full.log`), the fix-round
+pair **188.3/190.6 s** (`u6-fixr1/suite_full.log`,
+`u6-fixr1/suite_fixround1_full.log` — the latter, start 06:18:55, is
+the round-1 post-fix full rerun), the wf2 exec triple
+**188.2/216.4/211.2 s** (`u6-exec-wf2/suite_run{1,2,3}.log`), and
+the wf2r1 exec pair **281.0/211.2 s**
+(`u6-exec-wf2r1/suite_run{1,2}.log`) — the 211.15 s run started on a
+machine verified idle immediately beforehand (zero stray node/python
+processes; the preceding 281.0 s run was partly self-contended by
+its own lingering vitest workers — both live exec-lens
+observations). Honest reading: **185.5–281.0 s across nine retained
+green runs; four of the nine walls are >= 211 s, including the
+verified-idle 211.15 s (~5% over)** — the suite STRADDLES the
+~200 s guideline on this machine rather than sitting under it. An
+earlier revision's "the suite stays UNDER the ~200 s guideline per
+the retained logs" described only the u6-fix pair and is withdrawn
+as a characterization of reproducible behavior; whether ~211 s
+typical is inside the guideline's tolerance is an explicit
+close-out gate ruling, not self-ruled here. Quietness is evidenced
+by the walls themselves sitting at the uncontended profile — NOT by
+the import phase: the two RETAINED deliberately cross-contended
+runs (`u6-exec/suite_run{1,2}_full.log`, three concurrent suites)
+walled 267.3/300.6 s with import phases of 29.95/53.43 s, i.e. a
+clean ~30 s import co-occurred with a 267 s contended wall, so
+import time alone does not indicate quietness. An earlier draft of
+this item cited 187.3/206.1 s with no retained logs; those numbers
+are superseded by the logged runs above.
+U6 adds 14 tests (u6-mix 6, qa-guard 3, cli 5); the spec prices
+(~2.5 s manifest re-derive + ~15 s 6-cell render slice + ~4 s
+identity/census vectors + ~1 s CLI smoke) are estimates SUPERSEDED
+by measurement. The guard FILE's retained solo walls are
+**25.2–33.0 s** (vitest Duration; tests-time 24.8–32.5 s:
+`u6-exec/guard_run{1,2}.log` 33.0/32.3 s,
+`u6-exec-wf2r1/guard_run{1,2}.log` 25.2/25.5 s). The per-leg figures
+(leg 1 ~3.6–4.0 s, leg 2 ~21–23 s, leg 3 0.03 s) are quiet-machine
+OBSERVATIONS with no retained per-leg artifact; an earlier "~25 s
+guard-file test time" was the sum of those observations, not a
+measured file wall, and the originally stated leg-2 band
+21.1–21.7 s was exceeded (~23 s) on a quiet re-measure — both are
+superseded by the retained file walls above. Inside the full suite
+the additions are largely absorbed by vitest's parallel workers —
+the BEST U6 walls (185.5–188.3 s) sit at or below the U5 461-test
+record (187.0/201.5 s, which now traces only to the §6.1 amendment
+text: the U5-era retained logs did not survive to this audit, so
+the cross-unit delta is indicative rather than exact). The
+1-per-plan slice fallback was not taken (the 2-per-plan slice
+landed as recommended); the guideline-amend fallback is now LIVE as
+the flagged gate ruling above.
+  One audited flake, diagnosed by name and fixed: one of the
+cross-contended 2026-07-17 audit runs (three concurrent full suites)
+failed exactly one test — export.test.ts "two exports of the
+defaults genome are byte-identical" overran the vitest DEFAULT
+5000 ms cap on its full 72-frame export (~0.7 s quiet). That failing
+run's log was NOT retained (the failure was observed live; an
+earlier draft's specifics — 88.2 s import, a 474/475 count, a ~348 s
+wall — are unverifiable against any retained artifact and are
+withdrawn; the retained contended logs are the u6-exec pair above).
+Diagnosed as a TIMEOUT, not a hash mismatch, by matching the
+observed failure's code-frame shape against a forced-timeout repro,
+which IS retained (session scratchpad
+`u6-fix/flake_repro_timeout_shape.log`, a 100 ms-cap rerun);
+determinism was corroborated in the same run — the committed-golden
+byte-match and the seeds-0..4 re-render sweep passed — recorded as
+live observation, not retained evidence. Root-cause fix: an explicit
+60 s cap on that test — it was the last render-heavy test body left
+on the 5 s default (every other one carries 60–600 s) — with
+assertions unchanged, under the law the neighboring sweep test
+already records: a cap overrun under load is a scheduling flake, not
+a determinism failure. The fix is in-tree and verified
+(tests/export.test.ts); every retained run above that postdates the
+fix (the u6-fix pair onward) is green.
+
+**6. The 0..1999 mix close-out sweep (order normative: sweep BEFORE
+the qa pin — dual-tag temperament combos were unswept space and
+recalibration is legal only pre-pin).** Ran 2026-07-17 on the final
+build, before the pin, sharded ×4 over seeds 0..1999: every mix genome
+through the FULL exportCreature plus per-clip flicker measurement
+(walk/attack/hurt/death × 4 directions) against each genome's own
+plan gate row. Result: **0 export errors, 0 degenerate manifests,
+0 craft errors, 0 flicker exceedances** — the per-(plan, clip) gates
+calibrated on single-plan corpora at U3/U4/U5 hold unchanged on the
+ambient mix, INCLUDING the first realized dual-tag temperament family
+(~51% of the sweep corpus — twoTag 1027/2000 per the retained shard
+artifacts `u6-work/sweep_0..3.json`; the pinned 0..99 sheet's figure
+is 45/100, as item 2 records); the named one-step union-histogram
+recalibration fallback stayed unused, so the qa pin proceeded with no
+gate motion. Realized render-half census 662/659/679 (byte-agrees
+with the sampling half); ornaments 1521/2000 (510 quad / 503 lev /
+508 amor), emitters 678/2000 (229 / 214 / 235) — exactly the
+pre-registered incidence. Hitbox AABB union extremes over all 2000
+genomes (the standing overshoot recording): x ∈ [−12, 44],
+y ∈ [−3, 36] in cell coordinates. Wall: 80.2 min to the last shard's
+completion (~2000 full exports + flicker rasters), timestamp-derived
+from the retained shard artifacts (`u6-work/sweep_{0..3}.log` all
+created 01:05:42 — the parallel launch — and the shard result JSONs
+written at completion 02:18:25/02:21:41/02:23:07/02:25:55, i.e.
+per-shard walls 72.7/76.0/77.4/80.2 min). An earlier draft's
+"≈ 68 min" traced to no retained artifact and is superseded by the
+timestamp derivation.
+
+**7. The M2 acceptance record (pre-written; declaration mechanics land
+with evidence at close-out, never before).**
+
+- **≥80% would-ship (ROADMAP Phase 2 criterion 1):**
+  [EVIDENCE-PENDING: owner ≥80% verdict + flagged-seed list — the
+  Downloads/SabelFrite_U6_bestiary_review deliverable; a flagged seed
+  = would NOT ship in a game jam; ≥80% ⇔ ≤20 flagged; flagged seeds
+  become the M3 taste backlog].
+- **Plan mix visibly distinct at thumbnail distance (criterion 2):**
+  judged on the all-100 walk overview GIF in the same review —
+  [EVIDENCE-PENDING: owner verdict, same review].
+- **The review loop demonstrably ran (criterion 3):** the qa/ history
+  (sheet_0_49 at M1, sheet_mix_0_99 at U6) + the five scheduled
+  reviews — M1 (accepted), U3 (accepted, zero flagged), U4 (accepted,
+  zero flagged), U5 (owner-accepted; formal close rides the
+  billing-blocked CI rerun), U6 (this one) — the R2 record.
+- **CI:** [EVIDENCE-PENDING: CI green both platforms — blocked on the
+  owner's GitHub billing; discharges at the post-billing rerun
+  together with the U5 §6.1 markers, one recorded pass].
+
 ## 8. Build order
 
 Strictly serial (M1 discipline: one unit, one ultracode workflow, one
@@ -2319,7 +2636,7 @@ at unit* sections in the same change.
 | U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **CLOSED 2026-07-15 (§2.3.1)**: goldens ritual-pinned + CI-proven on both platforms; 2000-seed close-out sweep (0 export errors, 0 INF, pupil 8000/8000, gates recalibrated walk 47 / attack 144 on the full histogram tail); anchors green; map integrity CI-tested; mini-sheet owner-ACCEPTED, zero flagged seeds | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus — **CLOSED 2026-07-16 (§2.4.1)**: fork error bound 307.2 raw machine-verified; two-layer oracle (pose + field march) exact-matched from docs alone; gates one-step calibrated on the full 0..1999 run-2 sweep (walk 143 / attack 63 / hurt 28 / death 29); S3 craft debt discharged incl. idempotence; goldens CI-proven both platforms; mini-sheet owner-ACCEPTED, zero flagged seeds | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
 | U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 — **BUILT 2026-07-16 (§5.1/§6.1)**: anchor-razor baseline byte-compared (6003-entry corpus), zero-degenerate gate sweep 6000/6000 default-path clean, bands measured + pinned (no widening needed), two mode goldens ritual-pinned, §4.4.4 activated; awaiting owner mini-sheet verdict + both-platform CI for close-out | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
-| U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
+| U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery — **BUILT 2026-07-17 (§7.1)**: sampleBestiary on the reserved meta.plan stream (identity with the U5 tag mode CI-proven; mirror + from-docs oracle 100/100), uniform [1,1,1] mix (realized census 34/33/33, fingerprints landed on the pre-registered pins), qa/sheet_mix_0_99 ritual-pinned, three-leg CI hash guard live, anchor razor byte-proven (60-entry baseline spot check); awaiting owner 100-sheet verdict + both-platform CI for close-out | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
 
 Risk watch while building: R2 (oatmeal — the whole point of U5/U6),
 R8 parks with breeding at M5, R4/R5/R6 remain standing law (idempotence

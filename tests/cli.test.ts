@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { MAX_SHEET_COLS, SHEET_GUTTER, buildContactSheet, main } from "../src/cli.js";
+import { MAX_SHEET_COLS, SHEET_GUTTER, buildContactSheet, buildMixManifestEntries, main } from "../src/cli.js";
 import { SHEET_HEIGHT, SHEET_WIDTH, exportCreature } from "../src/export.js";
-import { encodeGenome, sampleGenome } from "../src/genome.js";
+import { TRAIT_TAG_NAMES, encodeGenome, sampleBestiary, sampleGenome } from "../src/genome.js";
 
 // ---------------------------------------------------------------------------
 // The contact-sheet CLI is a QA tool, NOT normative rendering — it
@@ -127,6 +127,92 @@ describe("--plan (design 07 §2.3.1 D-a: the U3 mini-sheet instrument)", { timeo
     }
     expect(errs.join("")).toContain("bad --plan");
     expect(() => buildContactSheet(0, 0, 3)).toThrow(RangeError);
+  });
+});
+
+describe("--mix (design 07 §7.1: the U6 bestiary-mix sheet)", { timeout: 120000 }, () => {
+  /** Run main() with stderr captured; returns [exit code, stderr text]. */
+  function runMain(argv: string[]): [number, string] {
+    const errs: string[] = [];
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => {
+      errs.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      return [main(argv), errs.join("")];
+    } finally {
+      process.stderr.write = orig;
+    }
+  }
+
+  test("--mix smoke (range 0..0): exit 0, sheet_mix basename, self-describing manifest", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "fablesprite-mix-"));
+    try {
+      const [code] = runMain(["sheet", "--seed-range", "0..0", "--mix", "--out", outDir]);
+      expect(code).toBe(0);
+      expect(existsSync(join(outDir, "sheet_mix_0_0.png"))).toBe(true);
+      const manifest = JSON.parse(readFileSync(join(outDir, "sheet_mix_0_0.json"), "utf8")) as {
+        mix?: boolean;
+        plan?: string;
+        entries: { dna: string; plan: string; seed: number; tags: string[] }[];
+      };
+      expect(manifest.mix).toBe(true);
+      expect("plan" in manifest).toBe(false); // top-level plan/tags/preset never co-occur with mix
+      expect(manifest.entries).toHaveLength(1);
+      expect(manifest.entries[0]!.dna).toBe(encodeGenome(sampleBestiary(0n)));
+      expect(manifest.entries[0]!.plan).toBe("quadruped"); // the pinned sequence: seed 0 draws plan 0
+      expect(manifest.entries[0]!.tags).toEqual(
+        [...sampleBestiary(0n).traitTags].map((t) => TRAIT_TAG_NAMES[t]!),
+      );
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test("manifest canonical key order (the §7.1 schema vector)", () => {
+    const entries = buildMixManifestEntries(0, 0);
+    expect(entries).toHaveLength(1);
+    const sheet = buildContactSheet(0, 0, "mix");
+    const manifest = JSON.parse(sheet.manifest) as Record<string, unknown>;
+    expect(Object.keys(manifest)).toEqual([
+      "cell",
+      "cols",
+      "entries",
+      "generator_version",
+      "mix",
+      "rows",
+      "seed_range",
+    ]);
+    const entry = (manifest.entries as Record<string, unknown>[])[0]!;
+    expect(Object.keys(entry)).toEqual(["col", "dna", "plan", "row", "seed", "tags"]);
+    // The sheet entry is single-sourced from buildMixManifestEntries.
+    expect(entry.dna).toBe(entries[0]!.dna);
+    expect(entry.plan).toBe(entries[0]!.plan);
+  });
+
+  test("--mix is mutually exclusive with --plan/--tags/--preset (exit 2, names the conflict)", () => {
+    for (const extra of [
+      ["--plan", "levitant"],
+      ["--tags", "chitin"],
+      ["--preset", "speed"],
+    ]) {
+      const [code, err] = runMain(["sheet", "--seed-range", "0..0", "--mix", ...extra]);
+      expect(code, extra.join(" ")).toBe(2);
+      expect(err).toContain("--mix cannot be combined with");
+      expect(err).toContain(extra[0]!);
+    }
+  });
+
+  test("--mix is valueless: --mix=x is a usage error", () => {
+    const [code, err] = runMain(["sheet", "--seed-range", "0..0", "--mix=x"]);
+    expect(code).toBe(2);
+    expect(err).toContain("usage:");
+  });
+
+  test('buildContactSheet("mix") with opts throws (plan/tags are drawn, not forced)', () => {
+    expect(() => buildContactSheet(0, 0, "mix", { tags: [0] })).toThrow(RangeError);
+    expect(() => buildContactSheet(0, 0, "mix", {})).toThrow(RangeError);
   });
 });
 

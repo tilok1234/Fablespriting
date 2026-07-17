@@ -1,0 +1,5 @@
+# Golden fixtures are byte-pinned evidence: no eol conversion, ever.
+# (Windows runners' autocrlf CRLF-mangled the project's first multi-line
+# text golden, u5_anchor_33.txt, on fresh checkout — 2026-07-17.)
+tests/goldens/** -text
+qa/** -text

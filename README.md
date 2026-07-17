@@ -41,7 +41,7 @@ it, this section is its contract.
 npm run build
 node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant|amorphous]
                        [--tags T1[,T2]] [--preset speed|armor|ranged]
-                       [--out DIR]                        # or the
+                       [--mix] [--out DIR]                # or the
                                                           # `fablesprite`
                                                           # bin after
                                                           # npm link
@@ -74,6 +74,20 @@ node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant|amorphous]
   is byte-identical to pre-U5 (the anchor razor). The U5 owner
   mini-sheet cells: e.g.
   `node dist/cli.js sheet --seed-range 7..7 --plan levitant --preset ranged`.
+- `--mix` (since U6, design 07 §7.1) samples the **default bestiary
+  mix** instead: every seed goes through `sampleBestiary(seed)` — plan
+  drawn per seed from the reserved `stream(seed, "meta.plan", "sample")`
+  (uniform weights `PLAN_MIX_WEIGHTS = [1, 1, 1]`), tags drawn from the
+  seed's own default-path tag stream and GATING growth (the U5 tag mode
+  with the drawn set forced — the identity `sampleBestiary(s) ≡
+  sampleGenome(s, P, { tags: T })` is CI-asserted). `--mix` is a
+  valueless boolean flag, **mutually exclusive** with
+  `--plan`/`--tags`/`--preset` (they force exactly what mix draws —
+  combining is a usage error, exit 2). Output basename becomes
+  `sheet_mix_<A>_<B>.*`; the manifest gains top-level `"mix": true` and
+  per-cell `plan`/`tags` name strings (self-describing — and every
+  `dna` string alone reproduces its cell). The pinned acceptance sheet:
+  `node dist/cli.js sheet --seed-range 0..99 --mix --out qa`.
 - Each genome contributes its full 128×640 export sheet at 1× (since
   U2: 20 rows — [walk, idle, attack, hurt, death] × 4 directions),
   composed row-major into `ceil(√N)` columns (capped at 31 so the
@@ -89,7 +103,13 @@ node dist/cli.js sheet --seed-range 0..49 [--plan quadruped|levitant|amorphous]
   `tsc`, no new dependencies). CI builds before testing, which also
   arms the CLI subprocess smoke test in `tests/cli.test.ts`.
 - Pinned QA sheets live in [`qa/`](qa/) (first entry:
-  `sheet_0_49.png`). They **re-render on every grammar/craft change by
-  design** — they are reviewed artifacts for human judgment
-  (constraint row 10: the flicker gate alone is not a quality gate),
-  never byte-pinned goldens.
+  `sheet_0_49.png`; since U6: `sheet_mix_0_99.png` + `.json`, the M2
+  acceptance sheet — seeds 0..99 through the mix). Plain sheets
+  **re-render on every grammar/craft change by design** — reviewed
+  artifacts for human judgment (constraint row 10: the flicker gate
+  alone is not a quality gate), never byte-pinned goldens. The MIX
+  sheet is the exception (design 07 §7 guard law, U6):
+  `tests/qa-guard.test.ts` re-derives its manifest and re-renders a
+  6-cell slice against committed hashes on every CI run — **a hash
+  move without a reviewed regeneration commit (new qa artifacts + new
+  fixture in the same change) fails CI.**

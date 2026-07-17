@@ -1009,13 +1009,35 @@ export function applySelfCheckReroll(
 // ---------------------------------------------------------------------------
 
 /**
+ * The default path's `meta.trait_tags` draw (design 06 §4.2), extracted
+ * at U6 (design 07 §7.1) into the single shared source consumed by both
+ * the default sampler path and {@link sampleBestiary}: on
+ * `stream(seed, "meta.trait_tags", "sample")`, `n = nextRange(2) + 1`
+ * (so n ∈ {1, 2} — sampled genomes always commit to a theme), then
+ * draws of `nextRange(5)` until the set holds n distinct tags,
+ * discarding duplicates and redrawing immediately. The extraction is
+ * byte-inert on the default path (same stream, same draws — the U6
+ * step-zero baseline byte-compare proves it); the returned set is in
+ * draw order (serialization sorts ascending regardless).
+ */
+function drawTraitTags(seed: bigint): readonly number[] {
+  const tagStream = createStream(seed, "meta.trait_tags");
+  const n = tagStream.nextRange(2) + 1;
+  const drawn = new Set<number>();
+  while (drawn.size < n) {
+    drawn.add(tagStream.nextRange(5)); // re-adding an existing tag = the pinned discard-and-redraw
+  }
+  return [...drawn];
+}
+
+/**
  * The pinned M1 sampler (design 06 §4.2), plan-scoped since U3
  * (design 07 §2.3.1, resolving D-a; U4 adds plan 2 with scope
  * {47–50}): given a sheet seed s and a caller-chosen plan (default
  * quadruped — plan is a PARAMETER, it consumes NO draw; 06 §4.2 governs
  * draw *spending* and plan is not drawn at all in
- * U3/U4 — plan-MIX sampling defers to U6, which if it samples must use the
- * reserved `stream(seed, "meta.plan", "sample")`), the sampled genome has
+ * U3/U4 — the reserved `stream(seed, "meta.plan", "sample")` is consumed
+ * by {@link sampleBestiary}, U6, and by nothing else), the sampled genome has
  * `meta.seed = s`, `meta.plan = plan`, and draws exactly the SHARED loci
  * plus the requested plan's scope ({@link LOCUS_SCOPES}), each from its
  * own stream `stream(s, path, "sample")` (the §0 default draw name):
@@ -1141,13 +1163,7 @@ export function sampleGenome(seed: bigint, plan = 0, opts?: SampleGenomeOpts): G
     // NOT created (design 07 §6.1).
     tags = activeTags;
   } else {
-    const tagStream = createStream(seed, "meta.trait_tags");
-    const n = tagStream.nextRange(2) + 1;
-    const drawn = new Set<number>();
-    while (drawn.size < n) {
-      drawn.add(tagStream.nextRange(5)); // re-adding an existing tag = the pinned discard-and-redraw
-    }
-    tags = [...drawn];
+    tags = drawTraitTags(seed);
   }
 
   if (!modeActive) {
@@ -1214,4 +1230,81 @@ export function sampleGenome(seed: bigint, plan = 0, opts?: SampleGenomeOpts): G
     ornamentForced ? ornamentExistsId : undefined,
     selfCheck,
   );
+}
+
+// ---------------------------------------------------------------------------
+// U6 (design 07 §7.1): the default bestiary mix — sampleBestiary
+// ---------------------------------------------------------------------------
+
+/**
+ * The pinned plan-mix weights (design 07 §7.1, U6): cumulative weights
+ * over the {@link PLAN_NAMES} enum order [quadruped, levitant,
+ * amorphous]. UNIFORM [1, 1, 1] — the acceptance instrument measures
+ * ambient quality across the trio on equal footing (§7.1 records the
+ * full argument and the rejected quadruped-heavy candidate). A pinned
+ * SAMPLER CONSTANT (frozen data beside TEMPERAMENT/FFF_PRESETS), not a
+ * locus: any retune is a one-constant reviewed change that regenerates
+ * qa/sheet_mix_0_99.* and the guard fixtures in the same commit — never
+ * a seed-range change.
+ */
+export const PLAN_MIX_WEIGHTS: readonly number[] = Object.freeze([1, 1, 1]);
+
+const PLAN_MIX_WEIGHT_TOTAL = PLAN_MIX_WEIGHTS.reduce((a, b) => a + b, 0);
+
+/**
+ * The mix plan draw (design 07 §7.1): ONE logical `nextRange` on the
+ * RESERVED `stream(seed, "meta.plan", "sample")` — the U3 D-a
+ * reservation (§2.3.1), finally consumed; this is that stream's ONLY
+ * consumer in the pipeline (CI-greppable). `r = nextRange(Σ weights)`;
+ * the first plan whose cumulative weight exceeds r wins (the U5 §6.1
+ * weighted-fill convention, cumulative in enum order). At weights
+ * [1, 1, 1] the arithmetic is `nextRange(3)` verbatim. Per-path stream
+ * isolation (design 06 §4) means this draw cannot perturb any locus
+ * draw on any path.
+ */
+function drawMixPlan(seed: bigint): number {
+  const r = createStream(seed, "meta.plan", "sample").nextRange(PLAN_MIX_WEIGHT_TOTAL);
+  let cumulative = 0;
+  for (let plan = 0; plan < PLAN_MIX_WEIGHTS.length; plan++) {
+    cumulative += PLAN_MIX_WEIGHTS[plan]!;
+    if (r < cumulative) return plan;
+  }
+  // Unreachable: r < nextRange bound = Σ weights = the final cumulative.
+  throw new RangeError(`genome: mix draw ${r} exceeded the weight total ${PLAN_MIX_WEIGHT_TOTAL}`);
+}
+
+/**
+ * The DEFAULT BESTIARY MIX entry point (design 07 §7 / §7.1, U6 — the
+ * acceptance-instrument sampler): draws `meta.plan` from the reserved
+ * `stream(seed, "meta.plan", "sample")` ({@link PLAN_MIX_WEIGHTS},
+ * uniform), draws the seed's own default-path trait-tag set (the shared
+ * `drawTraitTags` — identical to what `sampleGenome(seed, plan)` would
+ * draw), and delegates to the U5 TAG MODE with that set forced — so
+ * tags GATE growth (temperament priors, tag-weighted ornament kinds,
+ * the gated ornament/emitter existence draws, the sampler-time
+ * self-check; design 02 §3's "a creature commits to a theme", finally
+ * ambient).
+ *
+ * The identity law (§7.1, what makes the mix auditable): for every
+ * seed, `sampleBestiary(seed)` is IDENTICAL to
+ * `sampleGenome(seed, P, { tags: T })` where P is the reserved-stream
+ * plan draw and T the seed's default-path tag set — no new sampler
+ * machinery, no new probabilities, no new draw names. CI asserts the
+ * identity on seeds 0..49 with P/T re-derived from raw stream calls.
+ *
+ * Presets do NOT enter the mix (an FFF stat block is a game-side
+ * designer input, absent for an ambient bestiary — §7.1 records the
+ * rationale); `sampleBestiary` takes no opts. The default plain path
+ * (`sampleGenome(seed, plan)`, tags gating nothing) stays reachable and
+ * byte-frozen — it is the v1-compat surface, not the bestiary.
+ * Deterministic: the same seed yields a byte-identical genome, in any
+ * conforming implementation.
+ */
+export function sampleBestiary(seed: bigint): Genome {
+  if (typeof seed !== "bigint" || seed < 0n || seed >= TWO64) {
+    throw new RangeError(`genome: sampler seed ${seed} outside u64 [0, 2^64)`);
+  }
+  const plan = drawMixPlan(seed);
+  const tags = drawTraitTags(seed);
+  return sampleGenome(seed, plan, { tags });
 }

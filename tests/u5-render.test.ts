@@ -95,7 +95,9 @@ describe("U5 anchor razor — baseline fingerprints (pristine cffb2a0 capture)",
   test("plans × (defaults + seeds 0..1): sheet-RGBA and JSON hashes byte-match the baseline", { timeout: 300000 }, () => {
     const lines = readFileSync(goldenPath("u5_anchor_33.txt"), "utf8")
       .trim()
-      .split("\n");
+      .split(/\r?\n/); // CRLF-tolerant: Windows CI checkouts autocrlf
+    // multi-line text goldens (the first real windows-runner failure,
+    // 2026-07-17 — .gitattributes now pins goldens eol-inert too)
     expect(lines.length).toBe(33); // the full evidence file stays intact
     const expected = new Map<string, readonly [string, string]>();
     for (const line of lines) {

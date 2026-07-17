@@ -591,13 +591,22 @@ function pngLooksStructural(png: Uint8Array, w: number, h: number): boolean {
 
 describe("determinism and the seed sweep", () => {
   test("two exports of the defaults genome are byte-identical", () => {
+    // Explicit cap (was the vitest 5000 ms default): a full 72-frame
+    // export runs ~0.7 s quiet but timed out at 5 s once under multi-
+    // suite machine contention (2026-07-17 audit run — observed live;
+    // that run's log was NOT retained, see design 07 §7.1 item 5).
+    // Diagnosed a TIMEOUT, not a hash mismatch, by matching the
+    // observed failure's code-frame SHAPE against a retained forced-
+    // timeout repro — same law as the sweep test below: a cap overrun
+    // under load is a scheduling flake, not a determinism failure. The
+    // assertions are unchanged.
     const again = exportCreature(makeGenome());
     expect(again.pngSha256).toEqual(EXPORT.pngSha256);
     expect(again.rgbaSha256).toEqual(EXPORT.rgbaSha256);
     expect(again.jsonSha256).toBe(EXPORT.jsonSha256);
     expect(Buffer.from(again.sheetPng).equals(Buffer.from(EXPORT.sheetPng))).toBe(true);
     expect(again.json).toBe(EXPORT.json);
-  });
+  }, 60000);
 
   test("seeds 0..19: export never throws, PNGs parse structurally; seeds 0..4 hash-stable across a re-render", () => {
     // The re-render half is scaled to seeds 0..4: under ~2.5× background
