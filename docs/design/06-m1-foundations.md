@@ -1067,9 +1067,13 @@ tag set; a value outside its locus domain; a truncated entry; trailing
 bytes. An id (or enum value) beyond the version's registry — and equally
 a version prefix beyond the build's known tables — is rejected as
 `UpgradeRequired`: old builds refuse rather than misrender, which is what
-lets *new* builds keep old strings pixel-identical (design 01 §4 promise;
-additive appends never bump the version, behavioral changes do and freeze
-the old table).
+keeps every issued string DECODABLE by every newer build (the design 08
+§1 wire promise). Rendering is version-stamped, not frozen: a new build
+renders an old string under its own `GENERATOR_VERSION` (design 01 §4 as
+amended at M3/V1; additive registry appends never bump the genome
+version; rendered-byte changes bump `GENERATOR_VERSION` per design 08 §1
+law 2, including its declared-metadata carve-out; any old version's exact
+build is recoverable from git history via its `generator-vN` tag).
 
 Law, enforced by property test on every CI run:
 `decode(encode(g)) == g` for every valid genome `g`, and

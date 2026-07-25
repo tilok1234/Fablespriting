@@ -17,12 +17,22 @@
  * and the three plans' geometry/oscillators/envelopes plus the U5
  * ornament/emitter tables from the spec text), NEVER by running this
  * implementation. Cross-matched 7632 fields exact before pinning.
+ * RE-SCOPED at M3/V1 (design 08 §2.1), never re-pinned: the oracle's
+ * raws stay the base, and the ONE quantity V1 introduces — a rigid
+ * per-chain model-y translation at growth time — is added from the
+ * shipped classifier with its raws asserted alongside. Five of the six
+ * oracle genomes assert the original vectors unmodified (quadruped
+ * `ornamented` is in the byte-stable partition; levitant and amorphous
+ * are untouched plans).
  *
  * Anchor-razor fingerprint: tests/goldens/u5_anchor_33.txt was captured
  * from the PRISTINE cffb2a0 build (the unit's baseline protocol §1.5)
  * — plans × (defaults + seeds 0..9), sheet-RGBA + JSON sha256 — and the
  * suite re-derives every entry from the live build each run: any byte
- * movement on the shipped default path fails here.
+ * movement on the shipped default path fails here. RE-PINNED at V1
+ * (generator v3): every JSON hash moves with the version stamp, and the
+ * quadruped sheet hashes move for the fitted seeds — the V1 razor
+ * (design 08 §2.1.7) is what proves the rest byte-identical.
  */
 
 import { readFileSync } from "node:fs";
@@ -54,6 +64,7 @@ import {
   QUADRUPED_PLAN,
   LEVITANT_PLAN,
   AMORPHOUS_PLAN,
+  classifyQuadruped,
   growPlan,
 } from "../src/grammar.js";
 import type { PartChoice, PartInit, PlanSpec, SocketSpec } from "../src/grammar.js";
@@ -686,8 +697,31 @@ describe("U5 emitter orientation (§4.4.4 ACTIVATED — design 07 §6.1)", () =>
         }),
       },
     };
+    // V1 RE-SCOPE (design 08 §2.1, generator v3), not a re-pin. The Python
+    // oracle's raws stay the base — every M1/M2 equation, the §5.3 LUT, the
+    // envelope tables and the §4.4.4 emitter stretch are still asserted
+    // against vectors this implementation never produced. What V1 adds is a
+    // rigid per-chain TRANSLATION at growth time, and only that translation
+    // is taken from the shipped classifier, with its raws pinned below so a
+    // drift in either the oracle or the fit still fails this test.
+    //
+    // Of the six oracle genomes only `quadruped/ranged` moves at all:
+    // `quadruped/ornamented` is in the byte-stable partition (dF = dR = 0)
+    // and both levitant and amorphous cases are on untouched plans, so five
+    // of the six assert the ORIGINAL oracle raws unmodified.
+    const fits: Record<string, { dFront: number; dRear: number }> = {};
+    for (const [label, genome] of Object.entries(genomes.quadruped!)) {
+      const c = classifyQuadruped(genome);
+      fits[label] = { dFront: c.dFront, dRear: c.dRear };
+    }
+    expect(fits.ranged).toEqual({ dFront: -253175, dRear: 967 }); // F 18.436 px / R′ 13.400
+    expect(fits.ornamented).toEqual({ dFront: 0, dRear: 0 }); // in the partition
+    expect(classifyQuadruped(genomes.quadruped!.ornamented!).geometryStable).toBe(true);
+
     for (const [plan, cases] of Object.entries(genomes)) {
       for (const [label, genome] of Object.entries(cases)) {
+        const fit = plan === "quadruped" ? fits[label]! : { dFront: 0, dRear: 0 };
+        const chains = growCreature(genome).parts.map((p) => p.animChain);
         for (const clip of Object.keys(CLIP_KS) as (keyof typeof CLIP_KS)[]) {
           const phases = clipPhases(CLIP_KS[clip]);
           for (let k = 0; k < phases.length; k++) {
@@ -696,10 +730,14 @@ describe("U5 emitter orientation (§4.4.4 ACTIVATED — design 07 §6.1)", () =>
             expect(slabs.length, `${plan}/${label}/${clip}/f${k}`).toBe(want.length);
             for (let i = 0; i < slabs.length; i++) {
               const s = slabs[i]!;
+              const row = want[i]!.slice(0, 6);
+              // model y (index 1) is the ONLY coordinate the fit touches.
+              if (chains[i] === "head") row[1] = row[1]! + fit.dFront;
+              else if (chains[i] === "tail") row[1] = row[1]! + fit.dRear;
               expect(
                 [s.cx, s.cy, s.cz, s.hx, s.hy, s.hz],
                 `${plan}/${label}/${clip}/f${k}/slab${i}`,
-              ).toEqual(want[i]!.slice(0, 6));
+              ).toEqual(row);
               if (want[i]!.length === 7) {
                 expect(s.fieldWeight ?? null).toBe(want[i]![6]);
               }

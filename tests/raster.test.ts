@@ -333,7 +333,7 @@ describe("500-genome sampled sweep, all 4 directions, walk phase 0 (deliverable 
   });
 
   test(
-    "seeds 500..1999, down view: the sole eyeless residual is seed 1142",
+    "seeds 500..1999, down view: the eyeless residuals are seeds 1142 and 1970",
     { timeout: 300000 },
     () => {
       // Design 06 §1.2 eye visibility coupling, known residual: seed
@@ -345,13 +345,32 @@ describe("500-genome sampled sweep, all 4 directions, walk phase 0 (deliverable 
       // repairs are rejected (they alter default frames — §1.2), so
       // this is the principled optimum for M1. Pinned exactly: a change
       // to this list must be deliberate.
+      //
+      // V1 ADDED seed 1970, deliberately and on the record (design 08
+      // §2.1.6). Its front extent is 19.923 px, so the frame fit pulls
+      // its head chain back by 5.338 px, and at that depth the near eye
+      // slips behind the core in the TOP-DOWN view. Measured, v2 → v3,
+      // walk f0: down 3 focal px → 0, but left 0 → 2 and right 0 → 2 —
+      // the same genome GAINS its eye in both hero profile views. Over
+      // the whole 1500-seed sweep this is the only cell that changes
+      // either way (zero others lost a down-view eye, zero gained one),
+      // i.e. 1 of 1500 = 0.067%. Recorded here rather than absorbed;
+      // the owner judges the trade on pixels at the V1 review.
       const eyeless: number[] = [];
       for (let seed = 500; seed < 2000; seed++) {
         const g = sampleGenome(BigInt(seed));
         const grid = rasterize(poseQuadruped(g, "walk", 0), "down");
         if (countRole(grid, "focal") === 0) eyeless.push(seed);
       }
-      expect(eyeless).toEqual([1142]);
+      expect(eyeless).toEqual([1142, 1970]);
+      // The trade, asserted so it cannot silently become a pure loss.
+      const g1970 = sampleGenome(1970n);
+      for (const d of ["left", "right"] as const) {
+        expect(
+          countRole(rasterize(poseQuadruped(g1970, "walk", 0), d), "focal"),
+          `seed 1970 ${d} focal`,
+        ).toBe(2);
+      }
     },
   );
 });

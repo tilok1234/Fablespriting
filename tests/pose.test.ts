@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { FP_ONE, INT32_MAX, INT32_MIN, asr, fp_div, fp_mul, fp_sqrt } from "../src/fixed.js";
 import { getScalar, makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
-import { deriveAnchors } from "../src/grammar.js";
+import { TAIL_GIRTH_FLOOR, classifyQuadruped, deriveAnchors } from "../src/grammar.js";
 import { PART_NAMES, PART_ROLES } from "../src/wires.js";
 import { clipPhases, poseQuadruped } from "../src/pose.js";
 import type { Slab } from "../src/pose.js";
@@ -249,7 +249,9 @@ describe("oscillator vectors — independent oracle (spec equations via the LUT)
         ["body.tail.girth", 39322],
       ],
     });
-    expect(centersAndHalves(poseQuadruped(g, "walk", 4096))).toEqual([
+    // The independent oracle's M1 table, unchanged — it pins the §1.2
+    // equations and stays the base of this vector.
+    const M1_ORACLE: readonly (readonly number[])[] = [
       [0, -32768, 537396, 393216, 786432, 131072], // core
       [0, 174186, 471859, 302382, 579600, 84804], // underside
       [0, 858865, 622207, 117966, 133695, 117966], // head
@@ -263,7 +265,28 @@ describe("oscillator vectors — independent oracle (spec equations via the LUT)
       [-262145, -352719, 361380, 75366, 98304, 203162], // leg BL
       [262145, -723447, 315098, 98304, 98304, 249562], // leg BR
       [-185364, -865075, 614497, 39322, 393216, 39322], // tail
-    ]);
+    ];
+    // V1 (design 08 §2, generator v3) re-scopes this vector rather than
+    // re-pinning it: this genome sits at the length-hi corner, so the
+    // frame-fit pass translates its head chain (slabs 2..7) and its tail
+    // (slab 12) rigidly along model y, and the tail's sub-floor girth
+    // (0.6 px) floors to 0.9 px on both cross-extents. Nothing else moves.
+    // The oracle's raws stay the base; the V1 deltas come from the shipped
+    // classifier, so this test still fails if EITHER the M1 equations or
+    // the V1 correction drifts.
+    const fit = classifyQuadruped(g);
+    expect([fit.front, fit.rear, fit.dFront, fit.dRear]).toEqual([1054164, 1258291, -102359, 316742]);
+    const expected = M1_ORACLE.map((row, i) => {
+      const out = [...row];
+      if (i >= 2 && i <= 7) out[1] = row[1]! + fit.dFront; // head chain
+      if (i === 12) {
+        out[1] = row[1]! + fit.dRear; // tail chain
+        out[3] = Math.max(row[3]!, TAIL_GIRTH_FLOOR);
+        out[5] = Math.max(row[5]!, TAIL_GIRTH_FLOOR);
+      }
+      return out;
+    });
+    expect(centersAndHalves(poseQuadruped(g, "walk", 4096))).toEqual(expected);
   });
 });
 
@@ -293,9 +316,16 @@ describe("eye visibility coupling (design 06 §1.2)", () => {
       ],
     });
     const s = poseQuadruped(g, "walk", 0);
+    // V1 re-scope (design 08 §2): head scale 1.6 puts this genome's snout
+    // front at 15.78 px, above the front knee, so the head chain — eyes
+    // included — translates rigidly by the classifier's dFront. The oracle
+    // raw 858665 stays the base; only the measured V1 delta is added.
+    const fit = classifyQuadruped(g);
+    expect([fit.front, fit.dFront]).toEqual([1034160, -83299]);
+    const eyeCy = 858665 + fit.dFront;
     expect(centersAndHalves(s.slice(6, 8))).toEqual([
-      [-104858, 858665, 705168, 52429, 45875, 52429],
-      [104858, 858665, 705168, 52429, 45875, 52429],
+      [-104858, eyeCy, 705168, 52429, 45875, 52429],
+      [104858, eyeCy, 705168, 52429, 45875, 52429],
     ]);
   });
 
@@ -423,8 +453,15 @@ describe("connectivity at domain extremes (design 06 §1.2 machine-verified wors
     const coreFront = s[0]!.cy + s[0]!.hy;
     const headRear = s[2]!.cy - s[2]!.hy;
     const overlap = coreFront - headRear;
-    expect(overlap).toBe(28494); // 0.434784 px — oracle-derived exact raw
-    expect(overlap).toBeGreaterThan(0);
+    // V1 (design 08 §2): the fit pass translates the head chain BACK toward
+    // the core, so this worst-case connectivity margin can only GROW — the
+    // M1 claim is strictly strengthened, never weakened. Both halves are
+    // asserted so a regression in either direction fails.
+    const fit = classifyQuadruped(g);
+    expect(fit.dFront).toBe(-178819);
+    expect(overlap).toBe(28494 - fit.dFront); // 0.434784 px + the V1 pull-back
+    expect(overlap).toBe(207313); // 3.163 px
+    expect(overlap).toBeGreaterThan(28494);
   });
 
   test("head overlaps the body top: worst z-overlap ≈ 2.51 px at depth 2, scale 0.6", () => {
@@ -496,7 +533,14 @@ describe("connectivity at domain extremes (design 06 §1.2 machine-verified wors
       const s = poseQuadruped(g, "idle", 0);
       const coreRear = s[0]!.cy - s[0]!.hy;
       const tailFront = s[12]!.cy + s[12]!.hy;
-      expect(tailFront - coreRear).toBe(52429); // 0.8 px exactly (oracle raw)
+      // V1 (design 08 §2): the tail chain translates FORWARD when the rear
+      // extent is above the knee, so the attachment overlap can only grow.
+      // At lengths 4.0 and 7.6 the rear extent is below the knee and the
+      // M1 raw stands unchanged; at 12.0 it is above and the overlap gains
+      // exactly the classifier's dRear.
+      const fit = classifyQuadruped(g);
+      expect(fit.dRear, `length ${length}`).toBe(length === 786432 ? 48775 : 0);
+      expect(tailFront - coreRear, `length ${length}`).toBe(52429 + fit.dRear);
     }
   });
 

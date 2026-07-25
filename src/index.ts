@@ -27,6 +27,7 @@ export * from "./palette.js";
 export * from "./png.js";
 export * from "./export.js";
 export * from "./flicker.js";
+export * from "./margin.js";
 
 /**
  * Generator version (`docs/design/01-genome.md` §4; design 07 §4.3).
@@ -40,5 +41,21 @@ export * from "./flicker.js";
  * and frames[0..31] / clips.walk / clips.idle / palette /
  * hitboxes[0..31] are value-equal to v1's (CI anchor fixtures in
  * tests/goldens/*.v1.*).
+ *
+ * Version 3 lands with V1, M3's first pixel-breaking unit: the quadruped
+ * frame-fit geometry (design 08 §2 — the compressive soft-knee length
+ * couplings and the tail-root girth floor, applied at growth time; V1
+ * ships NO pose-path mechanism, so the attack lunge, hurt recoil and
+ * death stagger are bit-for-bit v2's on corrected geometry). Per
+ * design 08 §1 law 2 the bump is mandatory and lands in the geometry
+ * commit itself; per law 1 cross-version pixel identity is NOT promised,
+ * and the regions V1 claims not to touch (levitant, amorphous, and the
+ * §2 byte-stable partition of quadrupeds) are proven byte-identical by
+ * the unit's anchor razor rather than assumed. The §4.3 M1 anchors are
+ * re-scoped to that partition at the same commit (design 08 §1 law 6:
+ * two survive, four retire on record). GENOME version stays 1 — V1
+ * appends no locus and moves no domain, so every issued DNA string keeps
+ * decoding unchanged. Old versions render from git history:
+ * `generator-v2` tags the pre-V1 tree.
  */
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;

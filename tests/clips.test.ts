@@ -12,6 +12,10 @@
  * this implementation. The v1 anchor fixtures (tests/goldens/*.v1.*)
  * were rendered by the committed M1 build (510e0df) before any U2 code
  * change; the defaults pair is the original M1 golden file, renamed.
+ * At M3/V1 four of the six retired on record (design 07 §4.3.1) — their
+ * genomes leave the design 08 §2 byte-stable partition, so their v1
+ * pixels legitimately move; the pairs are deleted in the V1 commit and
+ * git history plus the `generator-v2` tag retain them.
  * The 2001-genome inertness proof of the §4.4 cycle-breaker (baseline
  * vs v2 anchor comparison) ran 2026-07-11; fingerprints in the §4.3
  * amendment.
@@ -33,6 +37,8 @@ import {
 } from "../src/flicker.js";
 import { decodeGenome, encodeGenome, getScalar, makeGenome, sampleGenome } from "../src/genome.js";
 import type { Genome } from "../src/genome.js";
+import { inFrameFitPartition } from "../src/grammar.js";
+import { GENERATOR_VERSION } from "../src/index.js";
 import { CLIP_KS, ONE_SHOT_CLIPS, clipPhases, poseQuadruped } from "../src/pose.js";
 import type { ClipName } from "../src/pose.js";
 import { DIRECTIONS, rasterize } from "../src/raster.js";
@@ -41,21 +47,37 @@ const goldenPath = (name: string): string =>
   fileURLToPath(new URL(`./goldens/${name}`, import.meta.url));
 
 // ---------------------------------------------------------------------------
-// The permanent M1 anchor law (design 07 §4.3, decision-pinned at U2):
-// for any v1 genome, the v2 sheet's rows y ∈ [0, 256) are byte-equal to
-// the v1 sheet, and the v1 SUBSET of the JSON is value-equal. Fixtures:
-// the committed M1 renders of {defaults, seeds 0, 1, 7, 40, 1142}.
+// The M1 anchor law (design 07 §4.3, decision-pinned at U2; RE-SCOPED at
+// M3/V1 per §4.3.1): for any v1 genome IN THE DESIGN 08 §2 BYTE-STABLE
+// PARTITION, the current sheet's rows y ∈ [0, 256) are byte-equal to the v1
+// sheet, and the v1 SUBSET of the JSON is value-equal.
+//
+// V1 (generator v3) changes quadruped geometry outside that partition, so
+// four of the six M1 fixtures RETIRE on record with their measured raws
+// (design 07 §4.3.1 table; their golden pairs are deleted in the V1 commit
+// and git history retains them). The two survivors keep asserting, and
+// their partition membership is asserted here too — so a future unit that
+// pushes either genome out must confront the retirement rather than inherit
+// a vacuous pass.
 // ---------------------------------------------------------------------------
 
-describe("M1 anchors — v1 fixtures vs the v2 render (design 07 §4.3)", () => {
+describe("M1 anchors — v1 fixtures vs the current render (design 07 §4.3, V1-re-scoped)", () => {
   const ANCHOR_GENOMES: ReadonlyArray<[string, () => Genome]> = [
     ["defaults", () => makeGenome()],
-    ["seed0", () => sampleGenome(0n)],
-    ["seed1", () => sampleGenome(1n)],
-    ["seed7", () => sampleGenome(7n)],
-    ["seed40", () => sampleGenome(40n)],
     ["seed1142", () => sampleGenome(1142n)],
   ];
+
+  test("the surviving anchors are exactly the in-partition M1 fixtures", () => {
+    // The retirement, asserted rather than asserted-away: the four retired
+    // genomes are OUT of the partition, so their v1 pixels legitimately
+    // moved; the two survivors are IN, so theirs legitimately did not.
+    for (const [name, make] of ANCHOR_GENOMES) {
+      expect(inFrameFitPartition(make()), `${name} in partition`).toBe(true);
+    }
+    for (const [name, seed] of [["seed0", 0n], ["seed1", 1n], ["seed7", 7n], ["seed40", 40n]] as const) {
+      expect(inFrameFitPartition(sampleGenome(seed)), `${name} retired`).toBe(false);
+    }
+  });
 
   for (const [name, make] of ANCHOR_GENOMES) {
     test(`${name}: sheet rows [0, 256) byte-equal; v1 JSON subset value-equal`, { timeout: 60000 }, async () => {
@@ -91,7 +113,8 @@ describe("M1 anchors — v1 fixtures vs the v2 render (design 07 §4.3)", () => 
       // the appended frames/clips/hitboxes, sheet.h, and — because the
       // U2 sampler draws the appended locus 35 — the genome tape.
       expect(v1meta.generator_version).toBe(1);
-      expect(v2meta.generator_version).toBe(2);
+      expect(v2meta.generator_version).toBe(GENERATOR_VERSION);
+      expect(GENERATOR_VERSION).toBe(3);
       expect((v1meta.sheet as { h: number }).h).toBe(256);
       expect((v2meta.sheet as { h: number }).h).toBe(640);
     });
@@ -274,15 +297,19 @@ describe("seed 1132 — the craft fixpoint cycle-breaker (design 07 §4.4)", () 
     // Pinned after the 2001-genome inertness proof (2026-07-11): every
     // non-trapped genome's anchors are byte-identical with the breaker
     // in the tree; 1132 gains output where none existed.
+    // RE-PINNED at V1 (generator v3): seed 1132 is OUT of the design 08 §2
+    // byte-stable partition (the fit moves its geometry), so its pixels
+    // legitimately move. What this test asserts is unchanged: the trap
+    // genome still EXPORTS, via the §4.4 cycle-breaker.
     expect(out.sheetRgbaSha256).toBe(
-      "4701843b52713b6739f7c88b097cad4fc1cd800a112442bce932829ddd2df02d",
+      "292d12e9a6bd9153db271b02c8de71dd670ff77c6b42faa085c9d269e84ccefc",
     );
     expect(out.sheetPngSha256).toBe(
-      "886939a67ff8b88b64dff77aa49459bb91a91a55cd728f29d95dfa74543ac23d",
+      "f8f56993af661aa89b5e580805d97285a7ff401bc96726770bc37370658e2970",
     );
     expect(sha256Hex(new TextEncoder().encode(out.json))).toBe(out.jsonSha256);
     expect(out.jsonSha256).toBe(
-      "545ca06da559760114481b75cd7314fc789846b3f61809711ea5c9f79d402e89",
+      "bfe8c58f348f62e6bcb09b63ecaf677d751a55867e862b63761243cad93e8ca3",
     );
   });
 

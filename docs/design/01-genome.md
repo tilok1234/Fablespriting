@@ -11,8 +11,12 @@ priority order:
 3. **Breedable** — meaningful crossover between any two genomes, including
    across body plans.
 4. **Compact & shareable** — a short string; target ≤ ~200 chars base64url.
-5. **Versioned** — old strings keep rendering identically as the generator
-   evolves.
+5. **Versioned** — old strings keep DECODING forever (the registry is
+   append-only; design 08 §1 law 5), and render identically under the
+   generator version they were issued against — that exact build is
+   recoverable from git history via its `generator-vN` tag (design 08 §1
+   law 3). Requirement 1 pins per-version byte determinism; cross-version
+   pixel identity is not promised.
 
 ## 1. Why the two obvious encodings fail
 
@@ -92,12 +96,45 @@ Each mutation call takes a budget so callers control drift distance. "Elite
 variant" = 1 structural + 1 chromatic + drift, with the ornament budget
 raised — family resemblance guaranteed because everything else is untouched.
 
-## 4. Versioning
+## 4. Versioning (amended at M3/V1 — design 08 §1, owner-ratified 2026-07-17)
 
-The version prefix selects a **growth-rule table**. Policy: additive changes
-(new loci with defaults) don't bump the version; behavioral changes do, and
-old tables are kept (they're small — rule parameters, not code forks).
-Promise: a DNA string pasted into any future build renders pixel-identical.
+Two versions, two promises — the pre-V1 text conflated them and is
+replaced by this section:
+
+- **Wire promise (genome version — kept at full strength).** The genome
+  version prefix selects the locus REGISTRY. Registry changes are
+  append-only with absent-meaning defaults (design 06 §3); locus
+  domains never shrink; additive appends never bump the genome version.
+  Every issued DNA string keeps DECODING forever, in every future
+  build, and no build ever guesses at loci it does not know
+  (`UpgradeRequired` refusal, design 06 §3.3).
+- **Render promise (GENERATOR_VERSION — restated to what is true).**
+  Same DNA + same `GENERATOR_VERSION` → identical output bytes, on
+  every platform, forever (requirement 1 — unchanged and exact). Every
+  export is version-stamped (`generator_version` in the manifest).
+  `GENERATOR_VERSION` increments at every unit that changes any
+  rendered byte, or any existing JSON value, of output for a
+  previously-valid genome — never mid-unit, never silently — with
+  exactly the two narrow carve-outs of design 08 §1 law 2 (new output
+  for previously `UpgradeRequired` inputs; declared additive
+  absent-when-empty metadata keys shipping their affected-population
+  enumeration). Cross-version pixel identity is NOT promised.
+- **Old versions render via git history.** Each version's final build
+  is the tree at its close-out commit, pinned by git tag
+  (`generator-v2` at the pre-V1 commit, `generator-vN` at each later
+  close-out) and named in design 08 §8. No in-tree parallel render path
+  exists for any old version; where a change intends to leave a region
+  untouched, an anchor-razor corpus proves it (design 08 §0.1
+  byte-identity sense).
+
+The retracted text promised kept growth-rule tables and "a DNA string
+pasted into any future build renders pixel-identical". That promise was
+retracted on the record at the design 08 §1 ratification (2026-07-17):
+behavior lives in code paths (craft fixpoints, snap rounding, the
+metaball march), not rule tables, so keeping old renders alive in-tree
+means a frozen parallel renderer under permanent test — a cost nobody
+would pay in preference to `git checkout generator-vN`. The wire
+promise above is untouched by that retraction.
 
 ## 5. Open questions
 

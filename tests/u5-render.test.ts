@@ -62,9 +62,13 @@ describe("U5 goldens — tagged + preset (ritual-pinned)", () => {
   test("tagged golden: quadruped seed 7 {tags: [chitin]} — pinned hashes + committed files byte-match", { timeout: 240000 }, () => {
     const genome = sampleGenome(7n, 0, { tags: [0] });
     const e = exportCreature(genome);
-    expect(e.sheetPngSha256).toBe("a064fe15c951b400aec5f606ea224d3bcedcfdf7da1bc2b0c07d49bad0c1d448");
-    expect(e.sheetRgbaSha256).toBe("6be7967b8f4f8cb006618b0d3e2e98f22d57b50f9a58e53bb8339dd034a3950b");
-    expect(e.jsonSha256).toBe("7fb62d60d62984fde7cf44ae6dcdf33e2bfcffa1a10c6bab61fdbefc8fd70a13");
+    // RE-PINNED at V1 (generator v3): quadruped seed 7 is OUT of the design
+    // 08 §2 byte-stable partition on all three conjuncts (F 19.539 px,
+    // R′ 16.462, girth 0.691), so it is fitted AND floored — a full re-pin,
+    // re-derived twice byte-identically under the provenance ritual.
+    expect(e.sheetPngSha256).toBe("40a5fa498f9646811185f36ea5086bf8459526dc8aa6a83dfa529046065d8c9d");
+    expect(e.sheetRgbaSha256).toBe("8cc671ef141ff4a33a9bb80adb6a5a480230e02a0bd1caaa1dd06518df28ef79");
+    expect(e.jsonSha256).toBe("7cec1c4379ae9c7b1d5340eb60f9b4acb45ccf4cc4c662241f146885a9c0f630");
     expect(Buffer.from(e.sheetPng).equals(readFileSync(goldenPath("tagged_chitin_q7.sheet.png")))).toBe(true);
     expect(e.json).toBe(readFileSync(goldenPath("tagged_chitin_q7.json"), "utf8"));
     // the tagged graph grew the dorsal (14 slabs) and stays clean
@@ -75,9 +79,11 @@ describe("U5 goldens — tagged + preset (ritual-pinned)", () => {
   test("preset golden: levitant seed 7 {preset: ranged} — pinned hashes + committed files byte-match", { timeout: 240000 }, () => {
     const genome = sampleGenome(7n, 1, { preset: "ranged" });
     const e = exportCreature(genome);
+    // V1: levitant geometry is untouched, so BOTH pixel hashes are unchanged
+    // from v2 (razor evidence); only the JSON moves, by the version line.
     expect(e.sheetPngSha256).toBe("90ee5258de1193595a4bc220a1c82ac3ccc2154ee8ce66135a49166d2c98e9d0");
     expect(e.sheetRgbaSha256).toBe("8c6206721e339093643aa8bef53f934c7312471ac5d25e61dc13378c19de746d");
-    expect(e.jsonSha256).toBe("c2777d8d846d43e3739bf6987ca895b22557b5f6ff50ee7497ac88dc11606af6");
+    expect(e.jsonSha256).toBe("0ce814d5b9cf509d194a07a5137da9937415c259f76cd38377f090c071ecfdce");
     expect(Buffer.from(e.sheetPng).equals(readFileSync(goldenPath("ranged_lev7.sheet.png")))).toBe(true);
     expect(e.json).toBe(readFileSync(goldenPath("ranged_lev7.json"), "utf8"));
     expect(getScalar(genome, 51)).toBe(1); // the ranged guarantee, golden-carried

@@ -248,7 +248,7 @@ describe("metadata schema", () => {
       "palette",
       "sheet",
     ]);
-    expect(meta.generator_version).toBe(2); // design 07 §4.3
+    expect(meta.generator_version).toBe(3); // design 07 §4.3.1 (V1 bump)
     expect(meta.genome).toBe("AQ"); // the all-defaults tape (design 06 §3.4)
     expect(meta.sheet).toEqual({ cell: 32, h: 640, w: 128 });
   });
@@ -523,8 +523,12 @@ const GOLDEN_SHEET_PNG_SHA256 =
   "9fa3db255cd622318e2a0a0f49e16fcbb1e6a8d47bf7e7e94ac8f6a9d3ac57a4";
 const GOLDEN_SHEET_RGBA_SHA256 =
   "1f9c569b7054a625bd44fa0c1e0b200080ebd46fe190e508ab5ef3e21e4fa346";
+// V1 (generator v3): the all-defaults quadruped is IN the design 08 §2
+// byte-stable partition, so both PIXEL hashes above are unchanged from v2 —
+// that identity is razor evidence, not a coincidence — and only the JSON
+// moves, by exactly the generator_version line.
 const GOLDEN_JSON_SHA256 =
-  "94abf46c766dc1426380b434fefefe98c34157202de6df4f3f34374e902c9748";
+  "185b112cd62472f55f1a196012a5a453f8349afb8838f166c7685580c5f43ad6";
 
 describe("the all-defaults full golden (design 06 §6 / design 07 §4)", () => {
   test("72 frame PNG SHA-256s (0..31 = the v1 golden array, unchanged)", () => {

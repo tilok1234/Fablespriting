@@ -1112,9 +1112,291 @@ export const QUADRUPED_PLAN: PlanSpec = Object.freeze({
   core: coreChoice(),
 });
 
-/** Grow the quadruped part graph — `growPlan(QUADRUPED_PLAN, genome)`. */
+// ---------------------------------------------------------------------------
+// V1 frame fit (design 08 §2, generator v3) — the compressive soft-knee
+// length couplings and the tail-root girth floor.
+//
+// The M1 length couplings put the snout front near +20 px and the tail tip
+// near −19 px at the registry's domain corners: a ≈39 px rest span in a
+// 32 px frame, which sliced 44% of the M2 sheet's quadrupeds against the
+// vertical frame edges. The fix is a growth-time, draw-free, per-side
+// soft-knee on the head- and tail-chain EXTENTS: identity at and below a
+// pinned knee, a strictly-monotone compressive segment above it,
+// asymptoting inside the 30-column budget.
+//
+// Vocabulary (design 08 §2 as amended at V1):
+//   BOUND      991232 (15.125 px) — column 31's first supersample and
+//              column 0's last: ink there is geometrically impossible iff
+//              every posed slab keeps |x| < BOUND.
+//   SNAP_PRICE  32768 (0.5 px) — the walk/idle chain-snap mean rounding.
+//              Head and tail chains are y-static across walk/idle frames,
+//              so the per-frame `roundPx(0)` term is zero and ±0.5 px is
+//              the whole price (the FRAME-VARIANCE GUARD in the V1 tests
+//              is what keeps that true).
+//   FIT_ASYM   BOUND − SNAP_PRICE, both sides — the asymptote no genome
+//              reaches, so post-snap extent ≤ 991231 < BOUND for every
+//              int32-representable input, unconditionally.
+//
+// The map is ONE RHE division of a constant numerator by an increasing
+// denominator, so monotonicity is a theorem rather than a sweep result;
+// the naive two-op form `K + fp_div(fp_mul(w, d), d + w)` is genuinely
+// non-monotone under double rounding (36 650 decreasing pairs on the
+// front constants over the swept domain [400000, 1700000], against ZERO
+// for the form below) and must never be reintroduced — the V1 tests pin
+// vectors at K+128/K+129 as its tripwire.
+// ---------------------------------------------------------------------------
+
+/** Column-31's first supersample / column-0's last: 15.125 px. */
+export const FIT_BOUND = 991232;
+/** Walk/idle chain-snap price on a y-static chain: ±0.5 px. */
+export const FIT_SNAP_PRICE = 32768;
+/** Shared per-side asymptote — exactly `FIT_BOUND − FIT_SNAP_PRICE`. */
+export const FIT_ASYM = 958464;
+/** The 30-column budget in model units: `2 · FIT_ASYM` (29.25 px). */
+export const SPAN_BUDGET = 1916928;
+/** Front knee — identity at and below (14.125 px). */
+export const FIT_KNEE_F = 925696;
+/** Rear knee — identity at and below (13.25 px). */
+export const FIT_KNEE_R = 868352;
+/** Front soft-knee width `FIT_ASYM − FIT_KNEE_F` (0.5 px). */
+const FIT_W_F = 32768;
+/** `fp_mul(FIT_W_F, FIT_W_F)` — the front numerator (0.25 px²). */
+const FIT_W2_F = 16384;
+/** Rear soft-knee width `FIT_ASYM − FIT_KNEE_R` (1.375 px). */
+const FIT_W_R = 90112;
+/** `fp_mul(FIT_W_R, FIT_W_R)` — the rear numerator (1.890625 px²). */
+const FIT_W2_R = 123904;
+
+/**
+ * Tail-root cross-extent floor (0.9 px) — the M1 eye-floor mechanism, third
+ * application. `body.tail.girth` ∈ [0.6, 2] px halves (id 34); at the low
+ * half the tail rendered as the M2 verdict's 1 px outline-less wire, and the
+ * six carrier seeds (s06 0.7610, s17 0.8012, s28 0.6836, s53 0.7484,
+ * s60 0.6245, s95 0.6706) are a population, not a domain corner. Identity at
+ * and above, so thick-tailed genomes keep their bytes.
+ */
+export const TAIL_GIRTH_FLOOR = 58982;
+
+/**
+ * The design 06 §1.4 screen-mapping tilt (0.5), mirrored here so grammar.ts
+ * stays free of a raster import — raster.ts imports THIS module, so the
+ * dependency cannot run the other way. CI asserts the two raws agree
+ * (`SCREEN_TILT === TILT_RAW`), so the mirror can never drift.
+ */
+export const SCREEN_TILT = 32768;
+
+/**
+ * A rest slab's PROFILE-VIEW screen-row half extent.
+ *
+ * The screen mapping is `sy = −cz − TILT·cy`, and the profile yaw swaps the
+ * model x/y halves, so a slab's rendered row half extent in the side view is
+ * `hz + TILT·hx` — the box's shear image, not `hz` alone. This is the
+ * quantity that decides whether a slab can lay four flat rows against a
+ * frame edge; using `hz` by itself understates it by `TILT·hx`, which for a
+ * snout is a full pixel and change.
+ */
+export function profileRowHalfExtent(half: readonly [number, number, number]): number {
+  return fp_add(half[2], fp_mul(SCREEN_TILT, half[0]));
+}
+
+/**
+ * The front soft-knee `g_F`: identity at and below {@link FIT_KNEE_F},
+ * `FIT_ASYM − w²/(d + w)` above it (algebraically `K + w·d/(d+w)`) — value
+ * K and slope 1 at the knee, asymptote {@link FIT_ASYM}, never reached.
+ * `fp_div(16384, 32768) = 32768` makes the joint EXACT.
+ */
+export function fitFront(extent: number): number {
+  if (extent <= FIT_KNEE_F) return extent;
+  return fp_sub(FIT_ASYM, fp_div(FIT_W2_F, fp_add(fp_sub(extent, FIT_KNEE_F), FIT_W_F)));
+}
+
+/**
+ * The rear soft-knee `g_R` — same form at {@link FIT_KNEE_R}.
+ * `fp_div(123904, 90112) = 90112` makes the joint EXACT.
+ */
+export function fitRear(extent: number): number {
+  if (extent <= FIT_KNEE_R) return extent;
+  return fp_sub(FIT_ASYM, fp_div(FIT_W2_R, fp_add(fp_sub(extent, FIT_KNEE_R), FIT_W_R)));
+}
+
+/**
+ * One quadruped's frame-fit record: the UNCORRECTED chain extents that
+ * enter the maps, and the rigid per-chain translations they imply.
+ *
+ * `front` is the head chain's MAX `cy + hy` over its slabs — head ball,
+ * snout, ears, eyes and the maw emitter alike — so no dominance assumption
+ * exists anywhere in the mechanism (the eyes measurably exceed the head
+ * ball at eye_size-hi corners, and the maw is the global front corner at
+ * 24.785 px). `rear` is `−min(cy − hy)` over the tail chain.
+ */
+export interface QuadrupedFit {
+  /** Uncorrected head-chain front extent (chain max of `cy + hy`). */
+  readonly front: number;
+  /** Uncorrected tail-chain rear extent, positive (`−min(cy − hy)`). */
+  readonly rear: number;
+  /** Head-chain translation `g_F(front) − front` ≤ 0. */
+  readonly dFront: number;
+  /** Tail-chain translation `rear − g_R(rear)` ≥ 0. */
+  readonly dRear: number;
+}
+
+/** The no-correction record (used when a chain is absent from a graph). */
+const FIT_IDENTITY: QuadrupedFit = Object.freeze({
+  front: 0,
+  rear: 0,
+  dFront: 0,
+  dRear: 0,
+});
+
+/** Apply the tail-root girth floor to a grown quadruped's tail chain. */
+function floorTailRoot(parts: readonly PartNode[]): readonly PartNode[] {
+  let touched = false;
+  const out = parts.map((node) => {
+    if (node.animChain !== "tail") return node;
+    const [hx, hy, hz] = node.slab.half;
+    const fx = Math.max(hx, TAIL_GIRTH_FLOOR);
+    const fz = Math.max(hz, TAIL_GIRTH_FLOOR);
+    if (fx === hx && fz === hz) return node;
+    touched = true;
+    return Object.freeze({
+      ...node,
+      slab: Object.freeze({
+        center: node.slab.center,
+        half: Object.freeze([fx, hy, fz]) as unknown as readonly [number, number, number],
+      }),
+    });
+  });
+  return touched ? out : parts;
+}
+
+/** Measure the head/tail chain extents that feed the soft-knee maps. */
+function measureFit(parts: readonly PartNode[]): QuadrupedFit {
+  let front: number | null = null;
+  let rearMin: number | null = null;
+  for (const node of parts) {
+    if (node.animChain === "head") {
+      const f = fp_add(node.slab.center[1], node.slab.half[1]);
+      if (front === null || f > front) front = f;
+    } else if (node.animChain === "tail") {
+      const r = fp_sub(node.slab.center[1], node.slab.half[1]);
+      if (rearMin === null || r < rearMin) rearMin = r;
+    }
+  }
+  if (front === null && rearMin === null) return FIT_IDENTITY;
+  const f = front ?? 0;
+  const rear = rearMin === null ? 0 : -rearMin;
+  return Object.freeze({
+    front: f,
+    rear,
+    dFront: front === null ? 0 : fp_sub(fitFront(f), f),
+    dRear: rearMin === null ? 0 : fp_sub(rear, fitRear(rear)),
+  });
+}
+
+/**
+ * The V1 fit pass: floor the tail root, measure the head/tail extents, then
+ * translate each chain RIGIDLY along model y by its correction.
+ *
+ * Translation (not scaling) is the pinned mechanism: fixed-point addition
+ * carries no rounding, so the APPLIED extent equals `g` bit for bit and the
+ * order-preservation law holds on shipped values as a theorem rather than
+ * an approximation; slab half-extents are untouched, so part shapes, the
+ * craft pass's overlap topology, the M1 eye floor, and hitbox dimensions
+ * all survive up to a shift. The floor changes cross-extents only, so the
+ * rear extent is floor-independent — the order is pinned anyway.
+ */
+function fitQuadrupedGraph(raw: PartGraph): { readonly graph: PartGraph; readonly fit: QuadrupedFit } {
+  const floored = floorTailRoot(raw.parts);
+  const fit = measureFit(floored);
+  if (fit.dFront === 0 && fit.dRear === 0) {
+    if (floored === raw.parts) return { graph: raw, fit };
+    return { graph: Object.freeze({ ...raw, parts: Object.freeze(floored) }), fit };
+  }
+  const parts = floored.map((node) => {
+    const d = node.animChain === "head" ? fit.dFront : node.animChain === "tail" ? fit.dRear : 0;
+    if (d === 0) return node;
+    const [cx, cy, cz] = node.slab.center;
+    return Object.freeze({
+      ...node,
+      slab: Object.freeze({
+        center: Object.freeze([cx, fp_add(cy, d), cz]) as unknown as readonly [number, number, number],
+        half: node.slab.half,
+      }),
+    });
+  });
+  return { graph: Object.freeze({ ...raw, parts: Object.freeze(parts) }), fit };
+}
+
+/**
+ * The design 08 §2 byte-stable partition, per quadruped genome — the
+ * population V1's anchor razor proves byte-identical to v2.
+ *
+ * THREE conjuncts, all of them GEOMETRY (design 08 §2 as amended at V1,
+ * ruling R-V1b): below the front knee, below the rear knee, at or above the
+ * tail-root girth floor. There is no fourth, pose-level conjunct, because V1
+ * ships no pose mechanism at all: the one-shot clips run v2's envelopes
+ * unmodified, so a genome whose GROWN geometry is byte-identical to v2 has a
+ * byte-identical whole cell — walk, idle, and every transient one-shot frame
+ * alike. (The clamp-era fourth conjunct died with the clamp; a regression to
+ * four conjuncts is a CI failure.)
+ *
+ * Every conjunct carries real population: a knee-only partition would fail
+ * its own razor, because the tail floor moves bytes for below-knee genomes
+ * (carriers s06 and s60 are below both knees).
+ */
+export interface QuadrupedClassification extends QuadrupedFit {
+  /** `body.tail.girth` as sampled (the registry scalar). */
+  readonly girth: number;
+  /** True iff all three geometry conjuncts hold — the whole partition test
+   * for a quadruped. */
+  readonly geometryStable: boolean;
+  /** The failing conjunct names, in predicate order (empty ⟺ geometry stable). */
+  readonly fails: readonly string[];
+}
+
+/**
+ * Classify one quadruped genome against the byte-stable partition — the
+ * ONE implementation, shared by growth, the tests, the sweeps and the
+ * baseline razor.
+ */
+export function classifyQuadruped(genome: Genome): QuadrupedClassification {
+  const fit = fitQuadrupedGraph(growPlan(QUADRUPED_PLAN, genome)).fit;
+  const girth = getScalar(genome, "body.tail.girth");
+  const fails: string[] = [];
+  if (fit.front > FIT_KNEE_F) fails.push("front>knee");
+  if (fit.rear > FIT_KNEE_R) fails.push("rear>knee");
+  if (girth < TAIL_GIRTH_FLOOR) fails.push("girth<floor");
+  return Object.freeze({
+    ...fit,
+    girth,
+    geometryStable: fails.length === 0,
+    fails: Object.freeze(fails),
+  });
+}
+
+/**
+ * The design 08 §2 byte-stable partition, plan-generic — the population V1's
+ * anchor razor proves byte-identical to v2 (§0.1 sense, permitted diff
+ * `generator_version`).
+ *
+ * Levitant and amorphous genomes are ALWAYS in: V1 touches no levitant or
+ * amorphous geometry and ships no render-path or pose branch, so those plans
+ * cannot move a byte. A quadruped is in iff {@link classifyQuadruped} says
+ * its geometry is stable — three conjuncts, no more.
+ */
+export function inFrameFitPartition(genome: Genome): boolean {
+  if (getScalar(genome, "meta.plan") !== 0) return true;
+  return classifyQuadruped(genome).geometryStable;
+}
+
+/**
+ * Grow the quadruped part graph — `growPlan(QUADRUPED_PLAN, genome)` put
+ * through the V1 fit pass. One seam: every consumer (pose, hitboxes, snap,
+ * flicker, the craft pass) sees the corrected graph, and growth stays
+ * draw-free on the default path.
+ */
 export function growQuadruped(genome: Genome): PartGraph {
-  return growPlan(QUADRUPED_PLAN, genome);
+  return fitQuadrupedGraph(growPlan(QUADRUPED_PLAN, genome)).graph;
 }
 
 // ---------------------------------------------------------------------------

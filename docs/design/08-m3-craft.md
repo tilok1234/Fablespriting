@@ -109,6 +109,34 @@ In scope, each with a home section and a build-order unit (§8):
   explicit gate ruling this milestone's first unit close-out must
   make, not inherit silently. Scaled CI corpora with full sweeps as
   unit evidence remain the standing repair (the M1/U3/U5 precedent).
+  **RULED AT V1 (2026-07-25): the guideline is amended to ~240 s, and
+  no pinned corpus is trimmed to meet it.** V1 lands at **541 tests**
+  (537 pre-fix → 540 after fix round 0's three criterion-2 assertions
+  → 541 after fix round 1), all green. The retained walls, every run
+  clean and `EXIT=0`: 225.8 s / 240.9 s at 537 tests
+  (`exec-lens-v1/suite_run{1,2}.log`); 225 s / 231 s at 540
+  (`v1-fixr0/suite_fixr0_run{1,2}.log`); **257.7 s** / 232.5 s at 540
+  (`exec-lens-v1r1/suite_run{1,2}.log` + `suite_times.txt`); 224.5 s /
+  229.1 s at 541 (`exec-lens-v1r2/suite_run{1,2}.log`); and 257 s at
+  541 (`v1-fixr2/suite_run1.log`).
+  The **slowest retained V1 wall is 257.7 s**, and it is not a lone
+  outlier: fix round 2 independently measured 257 s on the shipped
+  541-test tree. Retained V1 walls span **224.5–257.7 s**, so the
+  amended guideline sits INSIDE that spread rather than above its worst
+  observation — ~240 s is where this suite has been observed to run,
+  not a margin it reliably enjoys, and the two slowest retained runs
+  exceed it by ~17 s. That is stated rather than smoothed, because a
+  guideline chosen to sit above every observation would just be the old
+  apology with a bigger number.
+  Every retained V1 wall is inside the 185.5–281.0 s band. The reasoning is
+  the one the straddle already implied: a guideline the suite has never
+  actually held to is not a budget, it is a recurring apology, and the
+  honest repair for a suite whose walls run 185–281 s is to state the
+  number the machine produces. The standing scaling repair stays
+  available and was used again here (V1's 384-corner CI slice against
+  its 24 576-corner unit-evidence product, its 0..199 census slice
+  against the 0..1999 sweep) — what is refused is trimming a PINNED
+  corpus, which would trade evidence for seconds.
 - **Per-(plan, clip) flicker gates** (07 §4.2 table). A pixel-breaking
   unit re-measures its plan's histograms; the one-step
   union-histogram recalibration is lawful only before that unit's
@@ -496,6 +524,586 @@ same-commit. (f) Owner before/after review: the standing Downloads
 format, paired composites of the 24 fixture genomes at v2 vs v3 — with
 the framing stated in the delivery note that v2 cells are the known
 defect, not a candidate (expectation-setting rule).
+
+### 2.1 V1 amendment — the pins, the audit, and the mechanism that did NOT ship (2026-07-25)
+
+*Amended in the V1 commit. §2 above is the contract as ratified; this
+section records what the unit measured, what it pinned, and — first,
+because it changes §2's own text — what §2 got wrong.*
+
+#### 2.1.1 The correction to §2: one-shot clips get NO mechanism
+
+§2 pinned a transient allowance for the one-shot clips and added:
+"Whatever the allowance, the verdict's slice criterion (≥4 consecutive
+body rows flat against a frame edge) must measure ZERO on all clips of
+all sampled genomes." **That sentence is withdrawn and replaced.** It
+was written from a projection, and three independent measurements
+disproved the projection:
+
+1. **The row arithmetic behind it was wrong.** A slab's rendered ROW
+   half extent in a profile view is `hz + TILT·hx`, not `hz` — the
+   screen mapping is `sy = −z − TILT·y` and the profile yaw swaps the
+   model x/y halves. The all-defaults snout lays **4.6 px** of rows, not
+   the 3.0 px the `2·hz` reading assumed; a girth-`g` tail lays `3·g`.
+   Every argument of the shape "2·hz < 4 px, so it cannot cut four rows"
+   is void. The corrected quantity ships as
+   `profileRowHalfExtent` (grammar.ts) with a `SCREEN_TILT == TILT_RAW`
+   CI cross-assert.
+2. **No per-slab cap can bound the measured runs.** The 4–6-row edge
+   runs are UNIONS of stacked head-chain slabs — the snout and the two
+   mirrored eyes project to different rows and reach the edge column
+   together. A capability filter over single slabs cannot see that.
+3. **The cap ladder never clears the fixtures.** Re-run at its most
+   aggressive point (cap = BOUND itself, zero slabs exempt), fixture s19
+   still cuts a 5-row run at attack **f2** — a frame an f1-only cap
+   cannot touch even in principle — and s42 cuts at f1 AND f2.
+
+The fallback, a per-chain one-shot clamp, was then measured and
+**rejected at contract level**: it achieves zero edge ink, but it guts
+the lunge bestiary-wide (the all-defaults wolf's 3.0 px attack advance
+becomes 0.45 px) and collapses the byte-stable partition (**mix
+146 → 28, default path 514 → 142**, all-defaults itself OUT — which
+would have destroyed §3's empty-tag razor precondition). Trading the
+whole bestiary's attack animation for the frame edge is not a fix.
+Those two "before" figures are the FIRST-PASS four-conjunct partition
+census, which is what the clamp was measured against at ruling time
+(retained in the unit's spec record); the shipped three-conjunct
+partition is the larger 155/553 of §2.1.5, and the clamp was never
+re-measured against it. The conclusion is untouched — a mechanism that
+drops ~80% of the partition and ejects all-defaults is rejected at
+either baseline — but the arrows are quoted here from one predicate,
+not spliced across two.
+
+**The law, as it actually ships (three legs, all in CI):**
+
+- **Walk and idle keep the strict ink law**, un-weakened: rendered bbox
+  ⊆ columns [1, 30], every genome, every direction, every frame. The
+  growth-time fit guarantees it; the sweeps prove it.
+- **One-shot clips (attack, hurt, death) may transiently contact or
+  cross the frame edge. No clamp, no cap** — the lunge, the recoil and
+  the stagger ship fully intact everywhere. What is forbidden is the M2
+  verdict's ACTUAL criteria, persistence halves included. The verdict
+  document locks **two** frame-edge criteria and flags a cell that meets
+  **either**:
+  1. **sliced** — a ≥ 4-row flat edge run persisting in ≥ 20 of a
+     cell's 72 frames ("the face or rump is chopped for most of the
+     animation");
+  2. **overrun** — ink reaching BOTH the left and the right edge column
+     in ≥ 25 of the cell's 72 frames ("both ends cut").
+
+  Zero cells may meet either. (These are the owner's own criteria read
+  literally rather than half-read: he shipped s81's two attack-frame
+  edge touches unflagged in M2, and flagged the cells whose bodies lay
+  flat against the edge in every frame.)
+- **A per-clip transient backstop, MEASURED post-fit and pinned** over
+  the full 8003-entry corpus (576 216 frames, §2.1.7): slice-signature
+  frames occur on **attack (≤ 2 frames per direction)** and **hurt
+  (≤ 1)**, and **never on death**. Walk and idle contribute zero by
+  arithmetic — ink confined to [1, 30] leaves the edge columns empty. So
+  `N_attack + N_hurt + N_death = 2 + 1 + 0 = 3 ≤ 4`, a cell's slice-frame
+  ceiling is `4 × 3 = 12` against a threshold of 20, and leg 1 passes by
+  construction as well as by census (worst measured cell: 4 of 72). The
+  24 fixtures realize a milder shape still — attack only, exactly 1 frame
+  per profile direction — and that tighter number is pinned per fixture
+  in CI so a drift in either direction is a test failure.
+
+**Criterion 2 ("overrun") is discharged separately, and it is
+UNMEETABLE on the fitted build by construction.** Four of the fifteen
+frame-overflow flags — s29, s32, s51, s99 — were flagged under criterion
+2 alone (their v2 slice counts are 6, 6, 2 and 6 of 72, all far below
+criterion 1's threshold of 20), and s26, s40, s53 and s69 under both.
+Clearing them therefore needs its own argument, which is arithmetic in
+two steps:
+
+- walk and idle ink is confined to columns [1, 30], so none of a cell's
+  32 law-clip frames can touch EITHER edge, let alone both;
+- the down and up views' worst model-x extent is 6.0 px (§2.1.3 rows
+  11–12, measured over the 24 576-corner product), so only the two
+  PROFILE directions can reach an edge column at all.
+
+That leaves at most `2 × (attack 4 + hurt 2 + death 4) = 20` candidate
+frames per cell against a threshold of **25** — the criterion cannot be
+met even if every profile one-shot frame overran. Measured anyway, since
+a derivation is not a measurement: **zero both-edge frames** across the
+24 fixtures (1728 frames) and across mix seeds 0..199 (14 400 frames) —
+and in that second sweep every frame touching an edge column at all was
+a PROFILE frame (100 left + 103 right, **zero down/up**), which is leg
+B confirmed on pixels rather than on the corner product alone
+(`v1-fixr0/bothedge-fixtures.json`, `bothedge-sweep-{0..3}.json`).
+`marginVerdict` counts `bothEdgeFrames` and exposes `flaggedOverrun` as
+a second flag leg, so `flagged` is the owner's disjunction rather than
+half of it, and the fixtures assert it cell by cell.
+
+Instruments: `src/margin.ts` — `inkBounds` / `violatesMarginLaw` for the
+strict law, `edgeSliceRun` / `hasSliceSignature` for criterion 1,
+`spansBothEdges` for criterion 2, `marginVerdict` for the cell roll-up
+(`flaggedSliced` ∨ `flaggedOverrun` = `flagged`). One implementation,
+shared by the sweeps, the tests and the qa guard.
+
+#### 2.1.2 The pins
+
+| pin | raw | px | derivation |
+|---|---|---|---|
+| `FIT_BOUND` | 991232 | 15.125 | column 31's first supersample / column 0's last (§1.4 arithmetic) |
+| `FIT_SNAP_PRICE` | 32768 | 0.5 | the walk/idle chain-snap mean rounding on a y-static chain |
+| `FIT_ASYM` | 958464 | 14.625 | exactly `FIT_BOUND − FIT_SNAP_PRICE`, both sides |
+| `SPAN_BUDGET` | 1916928 | 29.25 | `2 · FIT_ASYM` — the 30-column budget in model units |
+| `FIT_KNEE_F` | 925696 | 14.125 | identity at/below; covers all-defaults F = 904397 with 0.325 px spare |
+| `FIT_KNEE_R` | 868352 | 13.25 | identity at/below; covers all-defaults R′ = 786432 with 1.25 px spare |
+| `TAIL_GIRTH_FLOOR` | 58982 | 0.9 | the six wire-tail carriers; zero wire frames on walk+idle at 0.9 |
+
+The map, per side, with `w = FIT_ASYM − K` and `W2 = fp_mul(w, w)`
+(`w_F` 32768 / `W2_F` 16384; `w_R` 90112 / `W2_R` 123904):
+
+```
+g(E) = E                                                if E <= K
+g(E) = fp_sub(FIT_ASYM, fp_div(W2, fp_add(fp_sub(E, K), w)))   otherwise
+```
+
+One RHE division of a constant numerator by an increasing denominator,
+so **monotonicity is a theorem, not a sweep result** — and it is swept
+anyway, exhaustively over [400000, 1700000] ⊃ every reachable extent.
+The joints are EXACT: `fp_div(16384, 32768) = 32768` and
+`fp_div(123904, 90112) = 90112`, so `g(K) = K` with no rounding.
+**The algebraically-identical two-op form
+`K + fp_div(fp_mul(w, d), d + w)` is genuinely NON-monotone** under
+double rounding — **36 650 decreasing pairs on the front constants over
+that same [400000, 1700000] domain**, the first entering `K + 129`
+(= 925825) — and is pinned as a CI tripwire so no refactor can reach
+it. (The domain matters and is therefore stated: an earlier draft
+quoted 27 017, which is the count over `(K, K + 400000]` alone. Both
+are the same defect counted over different windows; the shipped
+one-division form has **zero** decreasing pairs over [400000, 1700000],
+front and rear alike.)
+
+**Application: rigid per-chain translation at growth time.** `F` is the
+head chain's MAX `cy + hy` over its slabs and `R′` is `−min(cy − hy)`
+over the tail chain, so no dominance assumption exists anywhere; the
+head chain translates by `g_F(F) − F ≤ 0` and the tail slab by
+`R′ − g_R(R′) ≥ 0`. Fixed-point addition carries no rounding, so the
+applied extent equals `g` **bit for bit** and the order-preservation law
+holds on shipped values rather than on an abstract map. Half-extents are
+untouched: part shapes, craft-pass overlap topology, the M1 eye floor
+and hitbox dimensions all survive up to a shift. Zero draws, no runtime
+clamp, no render-path branch. Core, underside, legs, hips and the dorsal
+ornament are NOT corrected — **hipYFore/hipYHind are explicitly
+re-scoped OUT of §2's sketch** on bounds (correcting them would move
+walk bytes to no purpose), and the corner product measures every
+uncorrected contributor ≥ 0.9145 px inside budget — the worst is the
+HIND legs at 13.7105 px posed with the swing axis at its domain top
+(`v1-work/sweep-corners-0.json`, `uncorrectedPosedWorst`; §2.1.3 row 9),
+and the margin is thin enough to be quoted from the artifact rather than
+rounded. (The CI slice asserts a 1 px floor over its own 16 corners at
+REST, where the same kinds sit 4.0 px further in.)
+
+**Order preservation — the per-side restatement.** §2's span-form law
+(`span_a < span_b ⇒ f(span_a) ≤ f(span_b)`) presumes rendered span is a
+function of old span alone, which is jointly unsatisfiable with a
+per-side column budget: the concrete witness `{L 8.0, scale 1.0,
+snout 2.7, tail 1.5}` has span 25.44 px — SHORTER than the defaults'
+25.80 px — yet its front reaches 14.74 px and breaches the column-31
+guarantee while the defaults' does not. Equal-span genomes with
+different front/rear splits must render differently, so `f(span)` is not
+well-defined. Pinned instead, and proven exhaustively: **per side,
+`E_s(a) ≤ E_s(b) ⇒ g_s(E_s(a)) ≤ g_s(E_s(b))`**, non-strict, on raw
+pre-snap extents — and, under translation, verbatim on applied extents.
+Corollaries: componentwise span ordering, and exact span-order
+preservation along every fixed-other-loci length slice — the population
+family all the flags came from.
+
+**Resolution floor — measured on the shipped build**, per-direction
+frame-union rendered span over walk+idle (a cross-direction union is
+wrong: mirrored profiles overlap-shift and inflate the count):
+
+- **Defaults-otherwise length ray, L = 4..12 px:** rendered span runs
+  **16, 18, 21, 23, 25, 26, 27, 27, 28 columns** — monotone non-strict,
+  maximum 28, i.e. two columns BETTER than the budget demands. The
+  L ∈ [10, 11] two-step plateau at 27 columns is the top-end coarseness,
+  stated as a number.
+- **Max-extras corner ray** (scale/snout/maw/tail-length hi, 1024-raw
+  length grid): below saturation the plateaus run 40704 → 134965 →
+  141392 raw at 26 → 27 → 28 columns, so **Δ_res = 147456 raw (2.25 px)**
+  of old span guarantees a distinct rendered span. At old span
+  ≈ 32.18 px the ray SATURATES at 29 columns and stays there; that
+  terminal plateau is unbounded by construction (it is the asymptote),
+  so the honest statement is the saturation THRESHOLD, not a plateau
+  length. Recorded lower bounds for it: 754094 raw (implementer grid
+  end) and 773374 raw (to L = 12).
+
+#### 2.1.3 The x-extent contributor audit (§2's audit obligation, discharged)
+
+Discharged three ways — every quadruped slab builder read in grammar.ts,
+a 24 576-corner production-path product with per-slab extremal tracking,
+and an exact-fp domination-bound audit — with concordant results.
+
+Provenance of the column, stated because two builds are involved. Rows
+3–8 are the UNCORRECTED (pre-fit) extents of the corrected chains,
+measured by the spec-phase 12 288-corner rest/posed product
+(`v1-specwork/m2_results.json`) — what the fit is priced against. Rows
+1–2 and 9–10 are contributors the fit does not touch, so their pre- and
+post-fit values are identical; they are quoted from the shipped
+24 576-corner sweep's per-slab-kind block
+(`v1-work/sweep-corners-0.json`, `slabWalkIdle` / `uncorrectedPosedWorst`
+— posed walk/idle, every phase, max gait swing on the axis). The dorsal
+ornament's family is a stream-keyed draw, and tag-free corner genomes all
+land on ONE family, so row 10 is measured by the tag-and-slot-swept
+companion `v1-work/ornament-audit.json` instead (all three families,
+3157 dorsal observations).
+
+| # | contributor | loci | worst measured (px) | disposition |
+|---|---|---|---|---|
+| 1 | core slab | 13 | front 11.500 / rear −12.500 | IN product; never binding; NOT corrected |
+| 2 | underside | 13 | front 11.502 | IN product; NOT corrected |
+| 3 | head ball | 13,16 | 18.545 | IN F (chain max); corrected |
+| 4 | snout | 13,16,17 | 22.385 | IN F; corrected |
+| 5 | ears | 13,16,18 | 14.245 | IN F; corrected |
+| 6 | eyes | 13,16,19,20 | 18.852 — EXCEEDS the head ball at eye-size-hi corners | IN F (the chain max absorbs it); corrected |
+| 7 | maw emitter | 51,52 (+13,16,17) | **24.785 — the global F corner**; §2's named unaudited contributor, now in; 33.9% incidence | IN F; corrected |
+| 8 | tail | 13,33 | rear −19.200 | IN R′; corrected |
+| 9 | legs + gait swing | 13,21–32,9 | posed front **+12.763** (fore) / rear **−13.710** (hind), max swing | IN product (posed); **0.9145 px** inside budget; NOT corrected |
+| 10 | dorsal ornament | 53 + placement draw | **4.100** — plate at the +0.25·L slot, L = 12 (268698 raw) | IN product; never extremal |
+| 11 | tail wag | 12 | profile: model x → screen depth only; \|x\| ≤ 6.0 down/up | named OUT, with the axis derivation |
+| 12 | bob / lift | 8,10 | z-axis only | named OUT |
+| 13 | one-shot envelopes + anticipation | 35 + pinned tables | attack corner 18.95 px on the fitted build | governed by §2.1.1's transient allowance, not the walk/idle law |
+| 14 | chain snap | pipeline | ±0.5 walk/idle | priced into `FIT_ASYM`; a frame-variance guard test keeps it true |
+| 15 | craft pass | pipeline | cannot extend ink beyond rasterized columns | named OUT with derivation; the sweep measures final-PNG bbox anyway |
+
+**Row 9 reconciled across the three instruments**, because they were
+recorded at different points and the numbers look like disagreement.
+The spec-phase product's per-slab map is REST-only (its posed loop keeps
+global worsts, not per-kind ones), so it records legs at front 8.763 /
+rear −9.710. The shipped sweep's per-kind block is POSED with the swing
+axis at its domain top (`leg_swing_amp` 262144 = 4.0 px), and it lands on
+front 8.763 + 4.0 = **12.763** and rear −9.710 − 4.0 = **−13.710**,
+exactly — swing is a pure translation, so the two instruments agree to
+the raw. The 13.7105 px figure recorded in the spec's chain-snap note
+(`v1-specwork-b/PINS.md`, audit A2) is that same hind-leg posed extreme;
+it is the binding one, and it is what the budget margin is computed
+from: `FIT_ASYM 14.625 − 13.7105 = 0.9145 px`. The earlier "±12.76"
+reading quoted the FORE legs' front extreme on both signs and so
+understated the rear by 0.95 px; the margin claim survives the
+correction, but only by 0.9145 px, which is why it is now a retained
+measurement rather than a transcription.
+
+**Outcome: every contributor is either inside the corner product or
+named out with a derivation, so §2's universal "every genome, every
+direction" claim SHIPS UN-RE-SCOPED.** `F` and `R′` are chain maxima, so
+every present and future head/tail-chain slab is priced by construction
+— hand-edited in-domain tapes included — and the uncorrected
+contributors are domain-bounded by the swept product. Walk/idle posed
+front/rear EXTREMES equal the rest extremes over the full product — the
+gait swing translates LEGS (row 9's +4.0 px), never the head or tail
+chains that `F` and `R′` read — so the map's inputs are pure growth-time
+quantities and growth stays draw-free.
+
+Measured (`v1-work/sweep-corners-0.json`), 24 576 corners × 18 phases ×
+4 views, 6 096 960 slab checks:
+**zero walk/idle violations**, worst profile extent 956996 raw
+(14.6026 px) — post-snap 989764 < `FIT_BOUND` 991232 — and worst
+down/up extent 6.0 px, so the model-x axis needs no mechanism in any
+view. One-shot record (the allowance in numbers, not a gate): attack
+18.95 px, hurt 16.62, death 15.12.
+
+#### 2.1.4 Levitant and amorphous — measured BEFORE the law asserted
+
+§2's pinned V1 measurement, run on both plans through the production
+pipeline before any assertion: **levitant worst walk/idle ink
+`x_min = 3`, `x_max = 28`; amorphous worst `x_min = 3`, `x_max = 28`** —
+two clear columns on each side at every corner. One-shots, recorded as
+allowance data rather than law: levitant [2, 29], amorphous [1, 30].
+(The unit's own 8003-entry sweep later re-measured both plans over
+**2660 levitant and 2680 amorphous** sampled genomes — 2001 from the
+U5-shape corpus plus 659/679 from the mix corpus, per
+`v1-baseline/rollup.json` `perPlan` — and agrees: levitant [3, 28],
+amorphous [5, 26], with zero slice frames on either plan in any clip.)
+**Ruling: the margin law HOLDS as measured on both plans — no per-plan
+exemption, no mechanism extension.** §2's fallback branch is not taken,
+and gate (a) could not be discovered unpassable mid-unit. Per-plan
+corner assertions join CI at a scaled slice.
+
+#### 2.1.5 The byte-stable partition
+
+```
+quadruped:            F ≤ 925696  ∧  R′ ≤ 868352  ∧  tail.girth ≥ 58982
+levitant | amorphous: always in
+```
+
+THREE conjuncts, all geometry (`classifyQuadruped`, one exported
+implementation shared by growth, tests, sweeps and the razor). There is
+no fourth, pose-level conjunct **because no pose mechanism ships**:
+geometry stability implies the WHOLE cell — one-shot transients included
+— is byte-identical to v2. `F`/`R′` are computed from the grown graph on
+UNCORRECTED extents, so identity below the knees makes the predicate
+equivalent to growth byte-equality.
+
+Every conjunct carries real population, which is why the partition is
+not the knee alone: on the default path's first 200 seeds, `girth<floor`
+ALONE excludes 18 genomes that both knees admit, and carriers s06
+(girth 0.7610) and s60 (0.6245) are below-knee carriers whose bytes move.
+
+**Census at the final constants:**
+
+| corpus | population | byte-stable | moves |
+|---|---|---|---|
+| mix 0..1999 | 662 quadrupeds | **155** | 507 |
+| default path 0..1999 | 2000 quadrupeds | **553** | 1447 |
+| qa sheet | 34 quad cells | **5** (s02, s37, s79, s81, s97) | 29 |
+| all-defaults | — | **IN** (F 904397 / R′ 786432 / girth 72090) | — |
+
+All-defaults being IN is a precondition for §3's empty-tag razor, and it
+holds. Note s81: an edge-contact fixture that is in the partition, so it
+keeps its two v2 attack-f1 transient frames byte for byte — §2.1.1's
+allowance in action, on a cell the owner shipped unflagged.
+
+#### 2.1.6 The honest price, with the numbers
+
+In-frame-today genomes between a knee and `FIT_ASYM` — the per-side
+budget, `B = 958464` — compress too: front by ≤ 0.25 px, rear by
+≤ 0.69 px. Those maxima are the endpoint values and are exact:
+`g_F(958464) = 942080` (16384 raw = 0.25 px) and
+`g_R(958464) = 913408` (45056 raw = 0.6875 px). The endpoint is
+`FIT_ASYM`, not `FIT_BOUND`: the map keeps compressing above the budget,
+so the sliver of genomes with raw extent in (`FIT_ASYM`, `FIT_BOUND`] —
+in frame at v2 only because their chain snap happens to round inward —
+pay more, up to `991232 − g_F(991232) = 43691` raw (0.667 px) front and
+`991232 − g_R(991232) = 70892` raw (1.082 px) rear. An earlier draft
+wrote `FIT_BOUND` for the interval end while quoting the `FIT_ASYM`
+maxima, which understated that sliver's price; the numbers above are
+re-derived on the shipped `fitFront`/`fitRear`
+(`v1-fixr1/price.mjs`), and `g_F(15.125) = 947541` matches the
+adjudicator's own reference vector. "Cover the default population"
+cannot mean the sampled population's central mass — the mix quadrupeds'
+front distribution has p50 = 15.57 px, already past `FIT_BOUND` — so the
+knee covers the all-defaults genome and the below-knee population, and
+the compression of the rest is §2's stated structural price.
+
+Measured on the 24 fixtures: longest nose-to-tail span **40.2 px → 28.9
+px**; walk/idle frames with edge ink **264 → 0**; frames carrying a
+≥ 4-row edge run **350 → 30** (all 30 on attack, 1 per direction on 15
+cells). Two different cell counts go to zero here and the amendment
+keeps them apart, each to its own artifact
+(`v1-work/v2-slice-census.json`, the v2 census; `exec-lens-v1/`
+`fixtures-results.json`, the v3 re-measure):
+
+- **cells meeting the shipped SLICE criterion (`sliceFrames ≥ 20`):
+  10 → 0** — s05 36, s19 24, s22 34, s26 34, s35 32, s40 22, s42 22,
+  s53 36, s67 32, s69 36 at v2.
+- **cells whose walk/idle margin was violated in every one of their 16
+  walk/idle PROFILE frames (`marginFrames = 16`): 16 → 0**, of which
+  **14 are M2-flagged** — the ten above plus s29, s32, s51, s99 (the
+  four the owner flagged under criterion 2, "body overruns frame") —
+  and two, s01 and s11, are edge-contact cells he shipped unflagged.
+  All 264 v2 margin frames are profile frames (walk/idle × left/right);
+  **zero are down or up**, which is §2.1.3 row 11's axis derivation
+  showing up in the pre-fix data as well as the post-fix data.
+
+An earlier draft of this section reported a single "verdict criterion
+14 → 0", which spliced the second count's population onto the first
+count's name. Neither number changes any gate outcome: both are 0
+post-fit.
+
+**Two honest exceptions, recorded rather than smoothed:** on s42 and
+s00 the single remaining lunge frame reaches the edge with a slightly
+DEEPER row run than v2 did (8 vs 7, and 6 vs 5), even though their edge
+FRAME counts collapsed (s42: 22 → 2). A compressed head sits differently
+against the frame during the lunge; the spec's projection that
+"post-fit the magnitudes are strictly smaller" is therefore false as
+stated, and is corrected here. Both cells remain far inside the law
+(2 of 72 frames against a threshold of 20), and both are in the OD2
+deliverable so the owner judges them on pixels.
+
+**§3.5's watch item, discharged — and it went the other way.** §3.5
+feared that translating deeply-fitted heads toward the core would occlude
+the near eye in PROFILE. The obligation was a pre/post profile
+focal-pixel census over the fitted sweep; run on seeds 0..1999 of the
+default path, walk f0, v2 build vs v3 build:
+
+| view | focal px total | cells with ZERO focal | lost | gained |
+|---|---|---|---|---|
+| left profile | 4964 → 5201 | **100 → 21** | 15 | 94 |
+| right profile | 4713 → 4953 | **109 → 27** | 15 | 97 |
+| down | 8819 → 8828 | 1 → 2 | 1 | 0 |
+
+**The eyeless-in-profile population drops by ~79%.** Pulling an
+overlong head back off the frame edge moves the eye out of the *edge
+clip*, which more than pays for the occlusion §3.5 worried about. The
+deepest corrections in the corpus are dF ≈ −7.5 px (seeds 918, 482,
+719 …), and none of them is in the lost set. **The recorded fallback (a
+dF cap) is NOT taken**, and the watch item closes with numbers rather
+than an adjective. The 15 profile losers per side are named in the unit
+evidence and go to the owner with the rest.
+
+**Legibility side-effect, measured and recorded — one cell in 1500.** The
+M1 eye-visibility sweep (design 06 §1.2, `tests/raster.test.ts`, seeds
+500..1999 down view) pinned exactly one eyeless residual, seed 1142. V1
+adds a second: **seed 1970**, whose 19.923 px front pulls its head chain
+back 5.338 px, far enough that the near eye slips behind the core in the
+TOP-DOWN view. The full v2→v3 census over those 1500 seeds, walk f0:
+
+| seed 1970 | down | left | right | up |
+|---|---|---|---|---|
+| v2 focal px | 3 | 0 | 0 | 0 |
+| v3 focal px | **0** | **2** | **2** | 0 |
+
+so the same genome LOSES its top-down eye and GAINS its eye in both hero
+profile views. **No other seed changes in either direction** — zero
+others lost a down-view eye, zero gained one. 1 of 1500 = 0.067%. The
+pinned list is amended to `[1142, 1970]` with the trade asserted
+alongside it, so it cannot silently decay into a pure loss; the owner
+judges the trade on pixels at the V1 review. This is the §3.5 watch item
+firing in the down view rather than the profile one it anticipated.
+
+**Fixture-set finding — s02 was mis-attributed.** The M2 verdict listed
+s02 among the 15 frame-overflow flags. Measured on the v2 build, **s02
+has zero slice frames, zero margin frames, and a 17.8 px span in a 32 px
+frame** — it never touches an edge in any of its 72 frames. It is in the
+byte-stable partition and is byte-identical under v3. So V1 clears **14**
+of M2's 16 flags, not 15; s46 remains §3's (V2's); and whatever s02's
+defect is, it is not frame overflow. The OD2 note asks the owner to look
+at s02 directly, so the mis-filed flag becomes its own backlog item
+rather than a silently-unfixed one.
+
+#### 2.1.7 Blast radius, as declared and as proven
+
+Moves bytes: quadrupeds outside the partition (507 of 662 in the mix
+corpus, 1447 of 2000 on the default path), their sheets, JSONs and
+hitboxes; the qa sheet and guard fixture (29 of 34 quad cells); the
+fitted goldens. Byte-identical and razor-proven: levitant and amorphous
+pixels, in-partition quadrupeds (one-shot transients included — no
+mechanism exists that could move them), every DNA string, the wire
+format (genome version 1, **zero registry appends**), stream keying and
+sampler draws.
+
+**Razor result (gate (b)) — PASS, 8003 entries.** Baseline captured from
+pristine `edfb1af` before any code change (12 detached shards, the U4
+`sweep_worker` discipline), verdicts RECOMPUTED from the stored geometry
+under the three-conjunct predicate, then every entry re-exported on the
+shipped build and compared:
+
+| corpus | entries | in partition | pixel diffs | JSON diffs beyond `generator_version` | DNA diffs | classifier drift |
+|---|---|---|---|---|---|---|
+| U5-shape (3 plans × 0..1999 + 3 defaults) | 6003 | 4556 | **0** | **0** | **0** | **0** |
+| bestiary mix 0..1999 | 2000 | 1493 | **0** | **0** | **0** | **0** |
+
+All 6049 partition entries show a `generator_version`-only JSON diff —
+6049 of 6049, the §0.1 permitted-diff set exactly. 1954 entries moved
+(1447 + 507), and **61 of those are pixel-identical anyway** (45 + 16):
+their correction landed inside the chain snap's rounding. Recorded, not
+smoothed — it means the partition is a strict SUBSET of the
+byte-identical population, which is the safe direction for a razor.
+
+The qa sheet is the same result at cell resolution: regenerating
+`qa/sheet_mix_0_99.png` moves **exactly 29 cells, all quadruped**, leaves
+the other 71 byte-identical (5 quad + all 66 levitant/amorphous), and
+**every cell's pixel movement agrees with its partition membership — zero
+mismatches in either direction**. The manifest diff is the version line
+alone: no DNA string moved.
+
+**Fitted margin sweep (gate (a)) — PASS, 576 216 frames.** Measured on the
+same exports as the razor, so one pass proves both:
+
+| | U5-shape corpus | mix corpus |
+|---|---|---|
+| frames measured | 432 216 | 144 000 |
+| **walk/idle margin violations** | **0** | **0** |
+| walk/idle ink x range, quadruped | [1, 30] | [1, 30] |
+| walk/idle ink x range, levitant | [3, 28] | [3, 28] |
+| walk/idle ink x range, amorphous | [5, 26] | [5, 26] |
+| slice frames in walk/idle | **0** | **0** |
+| **cells meeting verdict criterion 1 (sliced)** | **0** | **0** |
+| worst slice frames in one cell | 4 (of 72; threshold 20) | 4 |
+| worst edge-column run | 8 rows | 8 rows |
+| per-clip backstop (frames/direction) | attack 2, hurt 1, death 0 | attack 2, hurt 0, death 0 |
+
+The two corpora differ on hurt: `v1-baseline/rollup.json` records
+`perClipBackstop {attack 2, hurt 1}` for the U5-shape corpus and
+`{attack 2}` for the mix corpus — **not one hurt slice frame exists
+anywhere in the mix corpus's 144 000 frames.** The POOLED pin quoted in
+§2.1.1 and in `tests/v1-framefit.test.ts` (`attack 2 / hurt 1 /
+death 0`) is the max over both, which is what a backstop must be.
+
+**Scope note, stated rather than implied:** this 8003-entry sweep
+predates the criterion-2 instrument and therefore measures criterion 1
+only. Criterion 2 is discharged by the §2.1.1 construction argument
+(ceiling 20 candidate frames < threshold 25) plus its own two
+measurements — the 24 fixtures and mix 0..199, both zero. It is not
+claimed here over 576 216 frames, because it was not run over them.
+
+1299 of the 2663 quadruped cells carry at least one transient edge frame;
+no levitant or amorphous cell carries any. The levitant/amorphous walk/idle
+ranges here are measured over **2660 levitant and 2680 amorphous**
+sampled genomes (2001 U5-shape + 659/679 mix, `v1-baseline/rollup.json`
+`perPlan`) — a strictly wider population than §2.1.4's corner products
+(512 levitant corners, 64 amorphous, `v1-specwork/m4_results.json`), and
+concordant with them (levitant [3, 28] exactly; amorphous is 2 columns
+tighter still on this population than at its corners). The three plan
+populations account for the corpus exactly — 2663 + 2660 + 2680 = 8003
+entries — which is the arithmetic a reader should use to audit any
+population claim made about this sweep.
+
+#### 2.1.8 Versioning, anchors, flicker, and what is still open
+
+Two things in this unit are **[EVIDENCE-PENDING]** and nothing else is:
+
+- **OD2 — the owner's before/after verdict** on
+  `Downloads/SabelFrite_V1_framefit_review` (24 paired fixtures + the
+  transient-contact pairs + the s1970 legibility trade). The delivery
+  note frames the v2 cells as the known defect and asks two questions:
+  is the compression look acceptable, and is the transient look
+  acceptable. **[EVIDENCE-PENDING — OD2]**
+- **CI green on both platforms** at the V1 commit (the Windows runner
+  is the one that matters here: `tests/goldens/** -text` and `qa/** -text`
+  armor is in place and every regenerated golden was written LF-only).
+  **[EVIDENCE-PENDING — CI]**
+
+
+`GENERATOR_VERSION` → **3** in this same commit (design 08 §1 law 2:
+never mid-unit, never silently); genome version stays **1**. The three
+pre-agreed passage amendments landed: design 01 §4 (full replacement),
+design 01 requirement 5, design 06 §3.3. Design 07 §4.3.1 records the M1
+anchor fates — `defaults.v1` and `seed1142.v1` SURVIVE re-scoped to this
+partition; `seed0/seed1/seed7/seed40.v1` RETIRE on record with their
+measured raws and their golden pairs are deleted (git history and the
+`generator-v2` tag retain them).
+
+**Suite:** 475 → **541 tests**, all green (537 pre-fix → 540 after fix
+round 0's three criterion-2 assertions → 541 after fix round 1; the
+added tests cost no measurable time). The owed §0.1 guideline ruling is
+made there — amended to ~240 s, no pinned corpus trimmed — over the
+full retained wall set listed in §0.1. The **slowest retained V1
+wall is 257.7 s** (round-1 execution lens run 1, clean and `EXIT=0`,
+`exec-lens-v1r1/suite_run1.log` + `suite_times.txt`), corroborated by
+fix round 2's independent 257 s on the shipped 541-test tree
+(`v1-fixr2/suite_run1.log`) — both ~17 s ABOVE the amended guideline.
+That is the ruling's own point in evidence, stated the honest way:
+~240 s is the number this suite straddles, not a ceiling it holds.
+
+**Quadruped flicker, re-measured on the fitted build** over the M1
+calibration scale (seeds 0..199 × 5 clips × 4 directions, 4 shards,
+12 000 pairs of which **11 200 scored** — the 800 unscored are death
+pairs with zero motion, which carry no ratio; artifacts
+`v1-work/flicker-{0..3}.json`). **Every GATED row holds with margin, so no
+recalibration is taken** — the one-step pre-pin recalibration was
+available and was not needed:
+
+| clip | gate | measured max | margin | fails |
+|---|---|---|---|---|
+| walk | 47 | 24.379 | 1.93× | 0 |
+| attack | 19 | 15.553 | 1.22× | 0 |
+| hurt | 14 | 11.381 | 1.23× | 0 |
+| death | 25 | 18.345 | 1.36× | 0 |
+| idle | (ungated — M1 policy) | 48.204 | — | n/a |
+
+ATTACK stays the watch row at 1.22×, as expected: the fit lowers
+one-shot extents (`g(E) ≤ E` feeds the same envelopes) but the lunge
+itself is untouched.
+
+The idle maximum sits above the walk rational idle *carries* but does
+not assert. Checked rather than waved past: seed 194's idle worst is
+**48.2045 at v2 and 48.2045 at v3, bit for bit** (measured on the
+pristine-HEAD build and the shipped build side by side), so it is a
+pre-existing M1-era property of that cell and not something V1 caused.
+It is recorded here, not silently inherited.
 
 ## 3. Anti-freeze sampling guards — *V2*
 
@@ -1312,6 +1920,37 @@ and its seeds/protocol are pre-registered here, not tuned then.
 | V4 | Tag-legibility law (§6): pinned two-metric method (color + structural), cross-pair-derived floors measured post-V3 then pinned (a floor that CAN fail — §6's anti-tautology rule), the floors asserted per (plan, tag) in CI on the scaled slice and live through V5's gate, schema law for future plans, sampler-level remediation only | floors derived from the pooled cross-pair distribution, not per-pair bands; §6's three named pre-V3 weak MATERIAL pairs (levitant × fleshy 0 px, quadruped × mechanical 16 px, levitant × chitin 28 px) expected to fail and remediated, or their passing explained on the record; levitant × speed (8 px) is a PRESET, outside the 15-pair grid — it is gated here only if the open preset-floor scope question (§6) is ruled IN at V4 unit start, and its exclusion is otherwise recorded, not silently assumed; all 15 pairs clear both floors AFTER remediation; full grid recorded as unit evidence; zero rendered-byte and zero existing-JSON-value motion for fixed DNA (the V4 razor); retunes re-pin qa reviewed; escalations recorded for V5 |
 | V5 | Craft v5 (§5): rule 6 (post-fixpoint, re-entrant, convergence argument + cycle-breaker budget), rule 7 → glow promotion, depth-aware selout refinement decision (evidence-gated on an as-built audit), wisp-gap repair, wire-tail outline residual | idempotence on all-plan corpora; rule-6 false-positive sweep recorded; featureless-five before/after; connectivity ≥ U3 99.44% baseline; §6 floors + §4.1b census re-verified on final pixels; GENERATOR_VERSION 5; goldens + qa re-pin; owner mini-sheet |
 | V6 | Turing instrument (§7.2): reference pool + MANIFEST, turing-sheet CLI, protocol run, verdict record; distinctness-IoU regression re-run | pre-registration committed before rendering (seeds, committed panel N + recruitment window, the two rater-validity rules, scoring rule); pooled generated-cell misclassification ≥ 50% over VALID raters (validity = symmetric response-balance band, 15..33 "computer" calls of 48, + the post-form exposure question; NO reference-accuracy floor, which would be asymmetric and would invalidate honest raters at indistinguishability — §7.2 point 5; invalid raters replaced, never silently dropped; committed N in [3, 8], realized N reported); no pooled estimate computed before the recruitment window closes (the pre-registered stopping rule); pooled estimate reported with binomial CI + per-rater range + the clustering caveat (a 50–56% result is declared as statistically indistinguishable from the bar); bias control + per-cell votes reported → **declare M3** (close-out commit: this doc + ROADMAP Phase 3 + README) |
+
+**V1 realized (2026-07-25 — see §2.1 for the full record).** Every gate
+in the V1 row above is discharged, with four corrections to the row's
+own premises, all recorded rather than absorbed:
+
+1. **"carries 15/16 of the flag mass" → 14/16.** s02 was mis-attributed
+   to frame overflow by the M2 triage; measured, it never touches a
+   frame edge at v2 and is byte-identical at v3 (§2.1.6).
+2. **"zero margin/slice violations"** holds for the *margin* law
+   verbatim, and for slices in the M2 verdict's own cell-level sense.
+   The blanket "zero slice signatures on every clip" that §2 wrote was
+   disproven and is withdrawn in §2.1.1: one-shot clips carry a
+   transient allowance with **no mechanism at all**, backstopped at
+   **≤ 2 attack / ≤ 1 hurt / 0 death slice frames per direction** —
+   the population pin measured over the full 8003-entry corpus and
+   asserted as `BACKSTOP` in `tests/v1-framefit.test.ts`. The 24
+   fixtures realize a tighter shape still (attack only, exactly 1 frame
+   per profile direction), and that is pinned separately per fixture;
+   the two numbers must not be confused, and CI enforces both.
+3. **hipYFore/hipYHind were re-scoped OUT** of the coupling re-derivation
+   on measured bounds (§2.1.2); the audit outcome is §2.1.3.
+4. **"the M2 verdict's criterion" → the verdict's two criteria.** The
+   verdict document locks a SECOND frame-edge criterion ("body overruns
+   frame": ink on both edge columns in ≥ 25 of 72 frames), and four of
+   the fifteen frame-overflow flags — s29, s32, s51, s99 — were flagged
+   under it alone. The first cut of `src/margin.ts` implemented only the
+   slice criterion, so those four cells were cleared implicitly rather
+   than asserted. Corrected at the V1 fix round: `marginVerdict` now
+   counts `bothEdgeFrames` and reports `flaggedOverrun`, `flagged` is
+   the owner's disjunction, and §2.1.1 records the ceiling derivation
+   (20 candidate frames < 25) with its two measurements.
 
 Risk watch while building: the suite-budget guideline (open ruling,
 V1); rule-6 idempotence blowup — the highest-risk item in M3, a fix

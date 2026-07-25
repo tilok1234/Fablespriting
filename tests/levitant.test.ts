@@ -771,8 +771,11 @@ const LEV_GOLDEN_SHEET_PNG_SHA256 =
   "7fef414131a41c63b7fdd6d464b6b0e487eed42c9251c540c2bdd640658de965";
 const LEV_GOLDEN_SHEET_RGBA_SHA256 =
   "be0217c318aedb0c4ffabfffa355c4f1ca12cb6a171837685221dcc8ada74ae2";
+// V1 (generator v3): levitant geometry is untouched, so both PIXEL hashes
+// above are byte-identical to v2 (razor evidence); only the JSON moves, by
+// exactly the generator_version line.
 const LEV_GOLDEN_JSON_SHA256 =
-  "1ed5352684f8d71b490ee147c2cabace7b209724bb91e6b108f848c8f80e23ae";
+  "75b96fa74d2fa5d88c5719970ac9127a501f6d1bd9b113e39841609e6c20be29";
 
 describe("the all-defaults levitant golden (pinned after the provenance ritual)", () => {
   const EXPORT = exportCreature(LEV_DEFAULTS);
@@ -800,7 +803,9 @@ describe("the all-defaults levitant golden (pinned after the provenance ritual)"
     };
     expect(meta.frames.length).toBe(72);
     expect(meta.genome).toBe("AQAC");
-    expect(meta.generator_version).toBe(2);
+    // V1 (design 08 §1 law 2) bumped the stamp to 3; the levitant PIXELS
+    // are razor-proven byte-identical to v2 — only the stamp moved.
+    expect(meta.generator_version).toBe(3);
     expect(meta.sheet).toEqual({ cell: 32, h: 640, w: 128 });
     expect(meta.clips.hurt!.down!.flash).toBe(true);
     expect(meta.clips.walk!.down!.flash).toBeUndefined();

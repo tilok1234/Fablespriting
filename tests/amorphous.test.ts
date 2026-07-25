@@ -886,8 +886,11 @@ const AMO_GOLDEN_SHEET_PNG_SHA256 =
   "834e00a9c3019c59242ebd230ac29e53e1d49b5bf24478317c51b2d9c3517dee";
 const AMO_GOLDEN_SHEET_RGBA_SHA256 =
   "7712bff19d42be221467eb48ac81e0cc47e1b1956f5ec67426ca6a79d01bf5ac";
+// V1 (generator v3): amorphous geometry is untouched, so both PIXEL hashes
+// above are byte-identical to v2 (razor evidence); only the JSON moves, by
+// exactly the generator_version line.
 const AMO_GOLDEN_JSON_SHA256 =
-  "66fe432fd38499a86620620afaf67efd8885a0ddc0c6e9837073227cb8bb5be0";
+  "732ae255ef38121e580a0c34f7c8ca479c3db68e9b3fa081fbce5f598ec030b5";
 
 describe("the all-defaults amorphous golden (pinned after the provenance ritual)", () => {
   const EXPORT = exportCreature(AMO_DEFAULTS);
@@ -905,7 +908,7 @@ describe("the all-defaults amorphous golden (pinned after the provenance ritual)
     expect(readFileSync(goldenPath("amorphous.json"), "utf8")).toBe(EXPORT.json);
   });
 
-  test("schema: 72 frames, 128×640, genome AQAE, hurt flash, mirror false, GENERATOR_VERSION 2", () => {
+  test("schema: 72 frames, 128×640, genome AQAE, hurt flash, mirror false, GENERATOR_VERSION 3", () => {
     const meta = JSON.parse(EXPORT.json) as {
       frames: unknown[];
       genome: string;
@@ -915,7 +918,9 @@ describe("the all-defaults amorphous golden (pinned after the provenance ritual)
     };
     expect(meta.frames.length).toBe(72);
     expect(meta.genome).toBe("AQAE");
-    expect(meta.generator_version).toBe(2);
+    // V1 (design 08 §1 law 2) bumped the stamp to 3; the amorphous PIXELS
+    // are razor-proven byte-identical to v2 — only the stamp moved.
+    expect(meta.generator_version).toBe(3);
     expect(meta.sheet).toEqual({ cell: 32, h: 640, w: 128 });
     expect(meta.clips.hurt!.down!.flash).toBe(true);
     expect(meta.clips.walk!.down!.flash).toBeUndefined();

@@ -1464,6 +1464,56 @@ M1 fixtures:
 M2 goldens re-pin the full v2 output; the M1 goldens stay in the tree
 as the anchor fixtures.
 
+#### 4.3.1 V1 amendment — the anchors re-scoped and retired (M3, 2026-07-25)
+
+*Amended in the V1 commit, per design 08 §1 law 6: a superseded anchor
+retires ON RECORD; leaving it in the tree as a vacuously-passing test
+would be fabricated evidence by omission.*
+
+`GENERATOR_VERSION` → **3** with V1, M3's quadruped frame-fit unit
+(design 08 §2). Genome version stays **1** — V1 appends no locus and
+moves no domain. The v3 geometry deliberately changes rendered pixels
+for quadrupeds outside design 08 §2's **byte-stable partition**, so
+anchors 1–2 above cannot survive unqualified.
+
+**Anchors 1–2 are re-scoped**, verbatim except for their population:
+they now read "for any v1 genome **in the design-08 §2 byte-stable
+partition**", and `generator_version` remains in the permitted-diff set
+of the manifest anchor. Inside that partition growth is exact identity,
+so the anchors assert exactly what they always asserted, on the
+population where it is still true.
+
+Fixture fates, each on its measured raws (classified with the shipped
+`classifyQuadruped`, constants `FIT_KNEE_F` 925696 / `FIT_KNEE_R`
+868352 / `TAIL_GIRTH_FLOOR` 58982 — the three geometry conjuncts, which
+are the whole partition predicate):
+
+| fixture | F | R′ | tail girth | fate |
+|---|---|---|---|---|
+| `defaults.v1` | 904397 (13.800 px) | 786432 (12.000) | 72090 (1.100) | **SURVIVES** re-scoped (geometry conjuncts) |
+| `seed1142.v1` | 889396 (13.571) | 631441 (9.635) | 92989 (1.419) | **SURVIVES** re-scoped (geometry conjuncts) |
+| `seed0.v1` | 972479 (14.839) | 794677 (12.126) | 60023 (0.916) | **RETIRES** — front > knee |
+| `seed1.v1` | 1055643 (16.108) | 823016 (12.558) | 100109 (1.528) | **RETIRES** — front > knee |
+| `seed7.v1` | 1280539 (19.539) | 1078822 (16.462) | 45271 (0.691) | **RETIRES** — front, rear, girth |
+| `seed40.v1` | 1231116 (18.785) | 1113253 (16.987) | 73295 (1.118) | **RETIRES** — front > knee, rear > knee |
+
+Anchors 1–2 assert the sheet's rows y ∈ [0, 256) and the JSON's
+walk/idle subset, i.e. the WALK and IDLE cells only. That scope is now
+narrower than it needs to be rather than wider: V1 ships no pose-path
+mechanism at all (design 08 §2, ruling R-V1a), so an in-partition
+genome's WHOLE cell — attack, hurt and death frames included — is
+byte-identical to v2, and the unit's razor proves exactly that over
+8003 corpus entries. The anchors keep their historical scope; the razor
+is the wider instrument.
+
+The four retired fixture pairs (`seed0.v1`, `seed1.v1`, `seed7.v1`,
+`seed40.v1` — `.json` + `.sheet.png`) are DELETED in the V1 commit; git
+history retains them, and the `generator-v2` tag renders them exactly.
+The two survivors stay in the tree and keep asserting, now with their
+partition membership itself asserted, so a future unit that pushes
+either genome out of the partition must confront the retirement rather
+than inherit a vacuous pass.
+
 ### 4.4 U2 amendment — envelopes, versioning evidence, the craft cycle-breaker
 
 *Amended with U2 (2026-07-11), per this doc's header rule. Every
