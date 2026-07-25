@@ -1,9 +1,13 @@
 # Design 08 — M3 craft & palette maturity
 
-> **DRAFT FOR OWNER REVIEW — M3 kickoff.** This contract is NOT
-> normative until the owner green-lights it (the M2-kickoff
-> precedent). Every **[OWNER-DECISION]** below carries a concrete
-> recommendation and is presented at the doc review.
+> **NORMATIVE — owner green-lit 2026-07-17** (the M2-kickoff
+> precedent). The three contract-gating decisions were ratified at the
+> doc review, each on the recommendation: **OD1 versioning stance
+> (§1) — ACCEPTED**; **OD3 anti-freeze bar (§3) — STRICT**; **OD11
+> Turing failure appetite (§7.2 point 7) — ACCEPTED**. The remaining
+> **[OWNER-DECISION]** items are scheduled: OD2 at the V1 before/after
+> review; OD4–OD6 at V3 unit start / mini-sheet; OD7–OD8 at their
+> named triggers; OD9–OD10 at V6 pre-registration.
 
 The M3 analogue of designs 06/07: the implementation contract for
 ROADMAP Phase 3. Like them, it starts as architecture + policy pins and
@@ -281,12 +285,12 @@ file name. The amendment set is pre-agreed here:
   version-stamp + git-history formulation (points 2–3), including
   law 2's metadata carve-out.
 
-**[OWNER-DECISION]** — ratify this
-stance at the doc review; it retracts a stated public promise (MIT
-repo). Recommendation: accept — the alternative is a permanent frozen
-render fork with doubled goldens and two-platform CI that nobody will
-ever run in preference to `git checkout`, and the wire promise (every
-issued DNA string decodes forever) is kept at full strength.
+**[OWNER-DECISION — RATIFIED 2026-07-17]**: the owner accepted this
+stance at the doc review (it retracts a stated public promise, MIT
+repo — accepted on the recommendation that a permanent frozen render
+fork with doubled goldens is a path nobody would run in preference to
+`git checkout`, and the wire promise is kept at full strength). The
+§1 laws and the three-passage amendment set are normative for V1.
 
 ## 2. Frame-fit margin policy (decision M3-c — resolved) — *the quadruped geometry unit, V1*
 
@@ -601,10 +605,11 @@ structural residual", and the amendment ships as reviewed evidence.
 this clears
 s46 AND the 15 single-freeze near-misses, which is the verdict's own
 stated expectation ("the anti-freeze guard also cleans up the 15
-near-misses"). **[OWNER-DECISION]** — the lenient alternative (allow
-one frozen clip, matching only the flag criterion) moves fewer seeds'
-genomes; recommendation: the strict bar — the owner already asked for
-it, and a static idle is the sheet's most visible dead-air.
+near-misses"). **[OWNER-DECISION — RATIFIED 2026-07-17: STRICT]** —
+the owner chose the strict bar at the doc review (the lenient
+alternative, allowing one frozen clip, was declined; a static idle is
+the sheet's most visible dead-air). The empty-guarded-census bar is
+normative for V2.
 
 **Consequences, stated honestly.** A sampler change moves the
 seed→genome mapping for affected seeds only (~17% of the sheet class);
@@ -1254,9 +1259,10 @@ gamed, before it could be gamed.
    and why) is scoped, and the re-test uses a NEW pre-registered seed
    range and either new raters or a ≥4-week gap (no memory of the old
    board). No bar-shopping, no re-runs of the same board.
-   **[OWNER-DECISION]** — accept this appetite up front: a <50%
-   result means M3 does not declare on schedule; the north-star bar
-   is only worth having if it can be failed.
+   **[OWNER-DECISION — RATIFIED 2026-07-17: ACCEPTED]** — the owner
+   accepted this appetite at the doc review: a <50% result means M3
+   does not declare on schedule; the north-star bar is only worth
+   having if it can be failed.
 8. **Dry-run.** One calibration run of the full pipeline (sheet +
    scoring form) with the owner as sole rater is allowed at V6 start
    to debug logistics; its numbers are quarantined from the
