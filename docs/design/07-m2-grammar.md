@@ -2281,14 +2281,18 @@ quadrupeds; the quadruped ranged-forfeits-dorsal competition (design 02
 §3 working as intended); the quadruped dorsal reading in profile rather
 than down view on head-occluded genomes, and the amorphous rim plate
 sitting under the crest ball (≈ 3.8% of mode genomes show no rim pixel
-in any view — the render-sweep record above). Owner verdict:
-[EVIDENCE-PENDING owner
-mini-sheet review]. Weight-table retunes and the §4.4.4 fallback are
+in any view — the render-sweep record above). Owner verdict 2026-07-17:
+**ACCEPTED, zero flagged cells** (the U6 100-sheet review then
+re-examined the same machinery at scale — its record below stands as
+the deeper evidence). Weight-table retunes and the §4.4.4 fallback are
 legal only before the goldens pin — the goldens are pinned; any retune
 now is a new unit decision.
 
-**CI (second platform):** [EVIDENCE-PENDING CI green on both platforms
-— discharges with the two new goldens].
+**CI (second platform):** DISCHARGED 2026-07-17 by CI run 29556167464
+on `8a5873b` (green on ubuntu-latest + windows-latest; the U6 tree's
+suite is a strict superset of U5's — both U5 goldens included — after
+the billing-blocked and CRLF-artifact reruns recorded in the U6
+close-out note).
 
 ## 7. Acceptance instrumentation
 
@@ -2606,22 +2610,46 @@ timestamp derivation.
 **7. The M2 acceptance record (pre-written; declaration mechanics land
 with evidence at close-out, never before).**
 
-- **≥80% would-ship (ROADMAP Phase 2 criterion 1):**
-  [EVIDENCE-PENDING: owner ≥80% verdict + flagged-seed list — the
-  Downloads/SabelFrite_U6_bestiary_review deliverable; a flagged seed
-  = would NOT ship in a game jam; ≥80% ⇔ ≤20 flagged; flagged seeds
-  become the M3 taste backlog].
-- **Plan mix visibly distinct at thumbnail distance (criterion 2):**
-  judged on the all-100 walk overview GIF in the same review —
-  [EVIDENCE-PENDING: owner verdict, same review].
-- **The review loop demonstrably ran (criterion 3):** the qa/ history
-  (sheet_0_49 at M1, sheet_mix_0_99 at U6) + the five scheduled
-  reviews — M1 (accepted), U3 (accepted, zero flagged), U4 (accepted,
-  zero flagged), U5 (owner-accepted; formal close rides the
-  billing-blocked CI rerun), U6 (this one) — the R2 record.
-- **CI:** [EVIDENCE-PENDING: CI green both platforms — blocked on the
-  owner's GitHub billing; discharges at the post-billing rerun
-  together with the U5 §6.1 markers, one recorded pass].
+- **≥80% would-ship (ROADMAP Phase 2 criterion 1): MET — ACCEPTED
+  2026-07-17, 16 of 100 flagged (84% would-ship) against the ≤20 bar.**
+  Owner-submitted, tool-assisted review (all 7 200 frames measured,
+  flagged + borderline cells judged by eye at 10×, locked criteria
+  recorded in the verdict document): flagged seeds s02 s05 s19 s22 s26
+  s29 s32 s35 s40 s42 s46 s51 s53 s67 s69 s99. The verdict's own
+  triage: 15 of 16 are one root cause — quadruped side-view frame
+  overflow (44% of the quadruped population; the M1-era edge-touching
+  geometry, first measured at the U5 external critique) = design-08
+  scope item 2 (frame-fit margin policy, generator v3); the 16th (s46
+  double-frozen oscillators) = design-08 item 3 (anti-freeze sampling
+  guards). No tag correlates with failure beyond incidence. The
+  flagged list + the verdict's near-miss taste backlog (edge-contact
+  s00 s01 s11 s28 s48 s74 s81 s83 s95; featureless amorphous s20 s59
+  s65 s86 s93; wire-tail carriers; single-frozen-anim seeds) carry to
+  M3.
+- **Plan mix visibly distinct at thumbnail distance (criterion 2):
+  MET — confirmed quantitatively in the same review:** every
+  between-plan mean silhouette-IoU distance (quad~amor 0.450,
+  quad~levi 0.639, amor~levi 0.780) exceeds every within-plan distance
+  (0.349 / 0.338 / 0.382). Weakest separation quad-front~blob;
+  amorphous named the plan with least silhouette headroom — M3 taste
+  backlog.
+- **The review loop demonstrably ran (criterion 3): MET** — the qa/
+  history (sheet_0_49 at M1, sheet_mix_0_99 at U6) + five scheduled
+  reviews, all delivered and verdicted: M1 accepted, U3 accepted (zero
+  flagged), U4 accepted (zero flagged), U5 accepted (zero flagged), U6
+  accepted (16/100) — the R2 record.
+- **CI: MET** — run 29556167464 on `8a5873b`, green on both platforms
+  2026-07-17 (public-repo Actions after the owner's billing block was
+  resolved by making the repo public; the windows leg additionally
+  proves the CRLF golden armor on the runner class that exposed it).
+
+**M2 IS DECLARED ACCEPTED — 2026-07-17.** All four §7.1 criteria met
+with recorded evidence; risk R2 (procedural oatmeal) is retired to
+"managed" (the variety machinery ships and the taste loop is a
+standing instrument). Phase 3 (M3) opens with a NEW contract doc
+(design 08): craft rules 6–7, palette breadth incl. per-tag material
+differentiation, the frame-fit margin policy, anti-freeze guards,
+tag-legibility scaling, and the Turing-sheet acceptance bar.
 
 ## 8. Build order
 
@@ -2635,8 +2663,8 @@ at unit* sections in the same change.
 | U2 | Clip set §4: envelopes, anticipation locus, 72-frame set, 128×640 sheet, flash flag, one-shot flicker policy + recalibrated gates, GENERATOR_VERSION 2, M1 anchors, goldens re-pinned | §4.3 anchors; flicker histogram recorded; goldens byte-identical twice; CI green both platforms |
 | U3 | Levitant: registry subtree + defaults from watcher, gait template, shadow policy, death envelope, semantic map table — **CLOSED 2026-07-15 (§2.3.1)**: goldens ritual-pinned + CI-proven on both platforms; 2000-seed close-out sweep (0 export errors, 0 INF, pupil 8000/8000, gates recalibrated walk 47 / attack 144 on the full histogram tail); anchors green; map integrity CI-tested; mini-sheet owner-ACCEPTED, zero flagged seeds | goldens; property sweeps; anchor tests still green; mini-sheet (seeds 0..24, levitant-forced) owner-reviewed; map integrity test |
 | U4 | Amorphous: metaball raster path (march constants + error bound), blob chain snapping, grammar rules (F8/F9 authoring), death envelope; craft + flicker coverage on amorphous corpus — **CLOSED 2026-07-16 (§2.4.1)**: fork error bound 307.2 raw machine-verified; two-layer oracle (pose + field march) exact-matched from docs alone; gates one-step calibrated on the full 0..1999 run-2 sweep (walk 143 / attack 63 / hurt 28 / death 29); S3 craft debt discharged incl. idempotence; goldens CI-proven both platforms; mini-sheet owner-ACCEPTED, zero flagged seeds | craft property suite incl. idempotence on the pinned amorphous corpus; mini-sheet review; goldens; anchors |
-| U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 — **BUILT 2026-07-16 (§5.1/§6.1)**: anchor-razor baseline byte-compared (6003-entry corpus), zero-degenerate gate sweep 6000/6000 default-path clean, bands measured + pinned (no widening needed), two mode goldens ritual-pinned, §4.4.4 activated; awaiting owner mini-sheet verdict + both-platform CI for close-out | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
-| U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery — **BUILT 2026-07-17 (§7.1)**: sampleBestiary on the reserved meta.plan stream (identity with the U5 tag mode CI-proven; mirror + from-docs oracle 100/100), uniform [1,1,1] mix (realized census 34/33/33, fingerprints landed on the pre-registered pins), qa/sheet_mix_0_99 ritual-pinned, three-leg CI hash guard live, anchor razor byte-proven (60-entry baseline spot check); awaiting owner 100-sheet verdict + both-platform CI for close-out | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
+| U5 | Defenses §5 (clearance retries, self-check + bands) + tags/FFF §6 — **BUILT 2026-07-16 (§5.1/§6.1)**: anchor-razor baseline byte-compared (6003-entry corpus), zero-degenerate gate sweep 6000/6000 default-path clean, bands measured + pinned (no widening needed), two mode goldens ritual-pinned, §4.4.4 activated — **CLOSED 2026-07-17**: owner-ACCEPTED (zero flagged cells); CI discharged by run 29556167464 (suite superset, both platforms) | 2000-genome/plan zero-degenerate sweep; band + weight tables machine-verified and amended here |
+| U6 | Acceptance instrument §7: pinned 100-sheet, CI hash guard, review delivery — **BUILT 2026-07-17 (§7.1)**: sampleBestiary on the reserved meta.plan stream (identity with the U5 tag mode CI-proven; mirror + from-docs oracle 100/100), uniform [1,1,1] mix (realized census 34/33/33, fingerprints landed on the pre-registered pins), qa/sheet_mix_0_99 ritual-pinned, three-leg CI hash guard live, anchor razor byte-proven (60-entry baseline spot check) — **CLOSED 2026-07-17 and M2 DECLARED (§7.1 acceptance record)**: owner-ACCEPTED 16/100 flagged vs the ≤20 bar (84% would-ship), distinctness confirmed quantitatively, CI green both platforms (run 29556167464) | owner review: ≥80% would-ship + plan-mix distinctness → declare M2 |
 
 Risk watch while building: R2 (oatmeal — the whole point of U5/U6),
 R8 parks with breeding at M5, R4/R5/R6 remain standing law (idempotence

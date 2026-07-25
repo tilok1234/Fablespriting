@@ -42,9 +42,16 @@ the quality guard).
 
 ## Phase 2 — M2 grammar breadth
 
-**Status: in progress.** U1 (grammar core, fidelity-proven against the M1
-path on 2001 genomes) and U2 (attack/hurt/death clips, 72-frame export,
-generator v2) landed 2026-07-11/12; U3 (levitant) in flight.
+**Status: ✅ ACCEPTED 2026-07-17.** All six units closed (U1 grammar
+core, U2 clip set, U3 levitant, U4 amorphous + renderer fork, U5
+defenses/tags/FFF, U6 acceptance instrument). Acceptance evidence
+(design 07 §7.1): owner review of the pinned 100-genome mixed sheet —
+16/100 flagged vs the ≤20 bar (84% would-ship); plan-mix distinctness
+confirmed quantitatively (every between-plan silhouette distance
+exceeds every within-plan distance); the scheduled review loop ran
+five-for-five (M1, U3, U4, U5, U6 — the R2 instrument); CI green both
+platforms throughout. The 16 flags triage to two already-scoped M3
+items (quadruped frame-fit margin; anti-freeze sampling guards).
 
 Real grammar replaces the hardcoded graph. Ship 3 plans with maximum spread
 (D4, decided 2026-07-11: quadruped, levitant, amorphous — the amorphous

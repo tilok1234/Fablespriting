@@ -4,9 +4,10 @@ A procedural sprite generator for top-down games: 32×32 player characters
 and non-humanoid enemies, animated, in 4 directions — built creature-first,
 pixels-last.
 
-**Currently in production build: M1 (one quadruped, end to end) accepted
-2026-07-11; M2 grammar breadth in progress** (design 07 — quadruped +
-levitant + amorphous landed, defenses/tags next). Reading order:
+**Currently in production build: M1 accepted 2026-07-11; M2 (grammar
+breadth — three body plans, full clip set, trait tags, the 100-genome
+bestiary) accepted 2026-07-17. Next: M3, craft & palette maturity**
+(contract doc 08, opening). Reading order:
 
 1. [`CONCEPT.md`](CONCEPT.md) — the vision and the seven novel pillars
 2. [`docs/ASSESSMENT.md`](docs/ASSESSMENT.md) — detailed per-pillar
